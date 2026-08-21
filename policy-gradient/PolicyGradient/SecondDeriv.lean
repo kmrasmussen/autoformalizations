@@ -270,6 +270,43 @@ theorem smoothAt_of_abs_second_deriv_le {f f' f'' : ℝ → ℝ} {β : ℝ}
   have := hbound ξ
   nlinarith [sq_nonneg (y - x), abs_nonneg (f'' ξ)]
 
+/-- **`d2V` really is the derivative of `dV`.**
+
+By induction on the horizon, mirroring `hasDerivAt_V`. The step differentiates
+
+  `dV_{m+1} = localTerm_m + γ·∑_{s'} step s s' · dV_m s'`
+
+using the product rule on each `step · dV` term: the `dstep · dV` and
+`step · d2V` pieces are exactly the two summands in `d2V_succ`.
+
+`hdlocal` supplies that `dlocal` is the derivative of `localTerm`; it depends on
+how `Q` varies with the parameter, which is why it is an input rather than
+derived here. -/
+theorem hasDerivAt_dV (dlocal : ℕ → S → ℝ)
+    (hdlocal : ∀ (j : ℕ) (s' : S),
+      HasDerivAt (fun t => localTerm M PF.toDiffPolicy t j s') (dlocal j s') θ)
+    (m : ℕ) (s : S) :
+    HasDerivAt (fun t => dV M PF.toDiffPolicy t m s) (d2V M PF θ dlocal m s) θ := by
+  induction m generalizing s with
+  | zero => simpa [dV] using hasDerivAt_const θ (0 : ℝ)
+  | succ m ih =>
+    rw [d2V_succ]
+    have hdV : ∀ t, dV M PF.toDiffPolicy t (m + 1) s
+        = localTerm M PF.toDiffPolicy t m s
+          + M.γ * ∑ s', step M (PF.toDiffPolicy.toPolicy t) s s'
+              * dV M PF.toDiffPolicy t m s' := fun t => rfl
+    simp only [hdV]
+    -- product rule on each step·dV term
+    have hterm : ∀ s' ∈ (univ : Finset S),
+        HasDerivAt (fun t => step M (PF.toDiffPolicy.toPolicy t) s s'
+            * dV M PF.toDiffPolicy t m s')
+          (dstep M PF θ s s' * dV M PF.toDiffPolicy θ m s'
+            + step M (PF.toDiffPolicy.toPolicy θ) s s' * d2V M PF θ dlocal m s') θ := by
+      intro s' _
+      exact (hasDerivAt_step M PF θ s s').mul (ih s')
+    have hsum := HasDerivAt.fun_sum hterm
+    exact (hdlocal m s).add (hsum.const_mul M.γ)
+
 /-- **Smoothness from a second-derivative bound, via the mean value theorem.**
 
 `|f''| ≤ β` gives `SmoothAt f f' (2β)`.
@@ -340,14 +377,19 @@ theorem smoothAt_V_sixteen (dlocal : ℕ → S → ℝ) (m : ℕ) (s : S)
     (hdloc : ∀ (j : ℕ) (s' : S), |dlocal j s'| ≤ 3 / (1 - M.γ))
     (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)
     (hr : ∀ s' a, |M.r s' a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (hderiv : ∀ t, HasDerivAt (fun u => V M (PF.toDiffPolicy.toPolicy u) m s)
-      (dV M PF.toDiffPolicy t m s) t)
-    (hderiv2 : ∀ t, HasDerivAt (fun u => dV M PF.toDiffPolicy u m s)
-      (d2V M PF t dlocal m s) t) :
+    (hdlocal : ∀ (t : ℝ) (j : ℕ) (s' : S),
+      HasDerivAt (fun u => localTerm M PF.toDiffPolicy u j s') (dlocal j s') t) :
     SmoothAt (fun t => V M (PF.toDiffPolicy.toPolicy t) m s)
       (fun t => dV M PF.toDiffPolicy t m s) (2 * (8 / (1 - M.γ) ^ 3)) := by
   have hpos : 0 < 1 - M.γ := by linarith
   have hβ : (0:ℝ) ≤ 8 / (1 - M.γ) ^ 3 := by positivity
+  -- both derivative facts are now theorems, not hypotheses
+  have hderiv : ∀ t, HasDerivAt (fun u => V M (PF.toDiffPolicy.toPolicy u) m s)
+      (dV M PF.toDiffPolicy t m s) t :=
+    fun t => hasDerivAt_V M PF.toDiffPolicy t m s
+  have hderiv2 : ∀ t, HasDerivAt (fun u => dV M PF.toDiffPolicy u m s)
+      (d2V M PF t dlocal m s) t :=
+    fun t => hasDerivAt_dV M PF t dlocal (hdlocal t) m s
   exact smoothAt_two_of_abs_second_deriv_le hβ hderiv hderiv2
     (fun t => abs_d2V_le_eight M PF t dlocal hdloc (hscore t) hr hγ₀ hγ₁ m s)
 
