@@ -44,6 +44,12 @@ jobs:
           #print axioms PolicyGradient.hasDerivAt_Q
           #print axioms PolicyGradient.step_visit
           #print axioms PolicyGradient.step_pgSum
+          #print axioms PolicyGradient.performance_difference
+          #print axioms PolicyGradient.Vinf_bellman
+          #print axioms PolicyGradient.hasDerivAt_Vinf
+          #print axioms PolicyGradient.grad_unfold
+          #print axioms PolicyGradient.policy_gradient_infinite
+          #print axioms PolicyGradient.policy_gradient_infinite_tsum
           EOF
           lake env lean AxiomCheck.lean | tee axioms.txt
           rm -f AxiomCheck.lean

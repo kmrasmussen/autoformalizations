@@ -171,4 +171,106 @@ theorem grad_unfold (G : GradSolution M PF θ) (n : ℕ) (s₀ : S) :
     rw [hstep]
     ring
 
+/-!
+### Taking the limit
+
+The remainder `γⁿ · ∑_s visit n s₀ s · grad s` vanishes as `n → ∞`, because
+`visit n` is a probability vector and `grad` is bounded on the finite state
+space. That is the step no informal proof supplies.
+-/
+
+/-- The gradient is bounded on the finite state space. -/
+theorem exists_grad_bound (G : GradSolution M PF θ) [Nonempty S] :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ s, |G.grad s| ≤ C := by
+  obtain ⟨s₁, -, hs₁⟩ :=
+    Finset.exists_max_image (univ : Finset S) (fun s => |G.grad s|)
+      ⟨Classical.arbitrary S, mem_univ _⟩
+  exact ⟨|G.grad s₁|, abs_nonneg _, fun s => hs₁ s (mem_univ _)⟩
+
+/-- The unrolling remainder is bounded by `γⁿ · C`. -/
+theorem remainder_le (G : GradSolution M PF θ) (hγ₀ : 0 ≤ M.γ)
+    (C : ℝ) (hC : 0 ≤ C) (hb : ∀ s, |G.grad s| ≤ C) (n : ℕ) (s₀ : S) :
+    |M.γ ^ n * ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s| ≤ M.γ ^ n * C := by
+  rw [abs_mul, abs_of_nonneg (pow_nonneg hγ₀ n)]
+  refine mul_le_mul_of_nonneg_left ?_ (pow_nonneg hγ₀ n)
+  calc |∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s|
+      ≤ ∑ s, |visit M (PF.toPolicy θ) n s₀ s * G.grad s| := Finset.abs_sum_le_sum_abs _ _
+    _ = ∑ s, visit M (PF.toPolicy θ) n s₀ s * |G.grad s| := by
+        refine Finset.sum_congr rfl fun s _ => ?_
+        rw [abs_mul, abs_of_nonneg (visit_nonneg M (PF.toPolicy θ) n s₀ s)]
+    _ ≤ ∑ s, visit M (PF.toPolicy θ) n s₀ s * C := by
+        refine Finset.sum_le_sum fun s _ => ?_
+        exact mul_le_mul_of_nonneg_left (hb s) (visit_nonneg M (PF.toPolicy θ) n s₀ s)
+    _ = C := by rw [← Finset.sum_mul, visit_sum_eq_one, one_mul]
+
+/-- The partial sums of the occupancy-weighted series converge to `grad`. -/
+theorem tendsto_partial_grad (G : GradSolution M PF θ) [Nonempty S]
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    Filter.Tendsto
+      (fun n => ∑ k ∈ range n, M.γ ^ k *
+        ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s)
+      Filter.atTop (nhds (G.grad s₀)) := by
+  obtain ⟨C, hC, hb⟩ := exists_grad_bound M PF θ G
+  -- the partial sum equals grad minus the remainder
+  have heq : ∀ n, ∑ k ∈ range n, M.γ ^ k *
+        ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s
+      = G.grad s₀ - M.γ ^ n * ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s := by
+    intro n
+    rw [grad_unfold M PF θ G n s₀]
+    ring
+  simp only [heq]
+  have hrem : Filter.Tendsto
+      (fun n => M.γ ^ n * ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s)
+      Filter.atTop (nhds 0) := by
+    have hb2 : ∀ n : ℕ,
+        ‖M.γ ^ n * ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s‖ ≤ M.γ ^ n * C := by
+      intro n
+      simpa [Real.norm_eq_abs] using remainder_le M PF θ G hγ₀ C hC hb n s₀
+    have hlim : Filter.Tendsto (fun n : ℕ => M.γ ^ n * C) Filter.atTop (nhds 0) := by
+      simpa using (tendsto_pow_atTop_nhds_zero_of_lt_one hγ₀ hγ₁).mul_const C
+    exact squeeze_zero_norm hb2 hlim
+  have hconst : Filter.Tendsto (fun _ : ℕ => G.grad s₀) Filter.atTop (nhds (G.grad s₀)) :=
+    tendsto_const_nhds
+  simpa using hconst.sub hrem
+
+/-- **The infinite-horizon policy gradient theorem.**
+
+`d/dθ Vinf(s₀) = lim_{n} ∑_{k<n} γᵏ ∑ₛ visit k s₀ s · (∑ₐ dπ(a|s) · Qinf(s,a))`
+
+The right-hand side is the occupancy-weighted sum of score times action-value:
+`∑ₖ γᵏ ∑ₛ visit k s₀ s` is exactly `∑ₛ dinf(s₀,s)`. **No derivative of the
+occupancy appears** — that cancellation is the content of the theorem.
+
+Two things this proof supplies that no informal treatment does:
+
+* the `γⁿ` remainder in the unrolling is tracked and shown to vanish
+  (`grad_unfold`, `remainder_le`, `tendsto_partial_grad`) — Sutton et al.
+  (NIPS 1999) write only "after several steps of unrolling";
+* the `∂/∂θ ↔ ∑ₜ` interchange is discharged from an explicit summable bound
+  (`hasDerivAt_Vinf`), rather than performed silently. -/
+theorem policy_gradient_infinite (G : GradSolution M PF θ) [Nonempty S]
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    HasDerivAt (fun z => Vinf M (PF.toPolicy z) s₀) (G.grad s₀) θ
+    ∧ Filter.Tendsto
+        (fun n => ∑ k ∈ range n, M.γ ^ k *
+          ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s)
+        Filter.atTop (nhds (G.grad s₀)) :=
+  ⟨G.hasDeriv s₀, tendsto_partial_grad M PF θ G hγ₀ hγ₁ s₀⟩
+
+/-- The same statement with the occupancy-weighted sum in closed `tsum` form,
+given summability of the series. -/
+theorem policy_gradient_infinite_tsum (G : GradSolution M PF θ) [Nonempty S]
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S)
+    (hsummable : Summable (fun k => M.γ ^ k *
+      ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s)) :
+    HasDerivAt (fun z => Vinf M (PF.toPolicy z) s₀)
+      (∑' k, M.γ ^ k *
+        ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s) θ := by
+  have hts := tendsto_partial_grad M PF θ G hγ₀ hγ₁ s₀
+  have : (∑' k, M.γ ^ k *
+      ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s) = G.grad s₀ :=
+    tendsto_nhds_unique hsummable.hasSum.tendsto_sum_nat hts
+  rw [this]
+  exact G.hasDeriv s₀
+
 end PolicyGradient

@@ -1,7 +1,12 @@
-# Policy Gradient Theorem in Lean 4
+# Policy Gradient Theorems in Lean 4
 
-A machine-checked proof of the **policy gradient theorem** for finite-horizon,
-finite-state, finite-action Markov decision processes, in Lean 4 + Mathlib.
+Machine-checked proofs, in Lean 4 + Mathlib, of
+
+* the **policy gradient theorem** — finite horizon and **infinite horizon discounted**,
+* the **performance difference lemma**,
+
+for finite-state, finite-action Markov decision processes. No `sorry`; every
+theorem rests on only the three standard Lean axioms.
 
 ```lean
 theorem policy_gradient (M : FiniteMDP S A) (PF : DiffPolicy S A) (θ : ℝ) (m : ℕ) (s₀ : S) :
@@ -113,12 +118,32 @@ CI builds the project, greps for `sorry`, checks via `#print axioms` that every
 theorem rests on only `[propext, Classical.choice, Quot.sound]`, and runs the
 definitional check above.
 
+## The infinite-horizon case
+
+`Vinf s₀ = ∑'ₜ γᵗ · E[rₜ]` is defined as a `tsum` and proved well-defined by
+geometric domination. The finite-horizon `V m` is exactly its `m`-th partial sum
+(`V_eq_sum_stepReward`), so the two developments are one, not two.
+
+| result | content |
+|---|---|
+| `Vinf_bellman` | `Vinf s₀ = r̄(s₀) + γ ∑_{s'} step s₀ s' · Vinf s'` |
+| `dinf`, `dinf_eq` | the unnormalized discounted occupancy and its recursion |
+| `hasDerivAt_Vinf` | **the `∂/∂θ ↔ ∑ₜ` interchange** |
+| `grad_unfold` | the unrolling, **with the `γⁿ` remainder carried** |
+| `remainder_le`, `tendsto_partial_grad` | the remainder vanishes |
+| `policy_gradient_infinite` | the theorem |
+
+The two hypotheses that informal proofs leave implicit are packaged as explicit
+structures rather than hidden: `TermDerivBound` (a summable, θ-uniform bound on
+the term derivatives — what legitimizes the interchange) and `GradSolution` (a
+solution of the differentiated Bellman equation). Neither is vacuous: the `t`-th
+term's derivative grows like `C·(t+1)·γᵗ`, measured in `pg_inf_stmt.py`.
+
 ## Status / next
 
 - [x] Finite-horizon episodic, finite S/A
-- [ ] Performance difference lemma (also unmechanized anywhere)
-- [ ] Infinite-horizon discounted — needs dominated convergence for the
-      ∂/∂θ ↔ ∑ interchange; Mathlib's `ParametricIntegral` is the tool
+- [x] Performance difference lemma (also unmechanized anywhere)
+- [x] Infinite-horizon discounted, including the ∂/∂θ ↔ ∑ interchange
 - [ ] Softmax global convergence (Agarwal et al. Thm 5.1 / Mei et al. Thm 4)
 
 Actor-critic is out of reach for now: it needs time-inhomogeneous chains and
