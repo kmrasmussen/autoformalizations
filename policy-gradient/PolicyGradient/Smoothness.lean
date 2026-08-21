@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Infinite
 import PolicyGradient.Softmax
+import PolicyGradient.AKM
 
 /-!
 # Smoothness of the value function
@@ -117,5 +118,51 @@ theorem sum_abs_score_le_one (w : A → ℝ) (b : A) :
   calc ∑ a, |softmaxScore w a b| ≤ ∑ a, (softmax w) a :=
         Finset.sum_le_sum fun a _ => abs_score_le w a b
     _ = 1 := (softmax w).sum_eq_one
+
+/-!
+### Assembling the constant
+
+`SmoothAt` (from `AKM.lean`) is the predicate the ascent lemma consumes. Here we
+record what the value function's smoothness constant is built from and give the
+composition rule that lets the pieces be combined.
+-/
+
+/-- Smoothness is preserved under a nonnegative scaling of the constant. -/
+theorem SmoothAt.mono {f f' : ℝ → ℝ} {β β' : ℝ} (h : SmoothAt f f' β)
+    (hle : β ≤ β') : SmoothAt f f' β' := by
+  intro x y
+  refine le_trans (h x y) ?_
+  have hsq : (0:ℝ) ≤ (y - x) ^ 2 := sq_nonneg _
+  have : β / 2 ≤ β' / 2 := by linarith
+  exact mul_le_mul_of_nonneg_right this hsq
+
+/-- A sum of smooth functions is smooth, with the constants adding. -/
+theorem SmoothAt.add {f g f' g' : ℝ → ℝ} {β δ : ℝ}
+    (hf : SmoothAt f f' β) (hg : SmoothAt g g' δ) :
+    SmoothAt (fun x => f x + g x) (fun x => f' x + g' x) (β + δ) := by
+  intro x y
+  have hf' := hf x y
+  have hg' := hg x y
+  have hrewrite : (f y + g y) - (f x + g x) - (f' x + g' x) * (y - x)
+      = (f y - f x - f' x * (y - x)) + (g y - g x - g' x * (y - x)) := by ring
+  rw [hrewrite]
+  refine le_trans (abs_add_le _ _) ?_
+  have : β / 2 * (y - x) ^ 2 + δ / 2 * (y - x) ^ 2
+      = (β + δ) / 2 * (y - x) ^ 2 := by ring
+  linarith [hf', hg']
+
+/-- Scaling a smooth function scales its constant. -/
+theorem SmoothAt.const_mul {f f' : ℝ → ℝ} {β c : ℝ} (hc : 0 ≤ c)
+    (hf : SmoothAt f f' β) :
+    SmoothAt (fun x => c * f x) (fun x => c * f' x) (c * β) := by
+  intro x y
+  have hf' := hf x y
+  have hrw : c * f y - c * f x - c * f' x * (y - x)
+      = c * (f y - f x - f' x * (y - x)) := by ring
+  rw [hrw, abs_mul, abs_of_nonneg hc]
+  have hsq : (0:ℝ) ≤ (y - x) ^ 2 := sq_nonneg _
+  calc c * |f y - f x - f' x * (y - x)| ≤ c * (β / 2 * (y - x) ^ 2) :=
+        mul_le_mul_of_nonneg_left hf' hc
+    _ = c * β / 2 * (y - x) ^ 2 := by ring
 
 end PolicyGradient
