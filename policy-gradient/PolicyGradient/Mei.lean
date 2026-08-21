@@ -190,4 +190,44 @@ theorem mei_theorem4 {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
     field_simp
   rw [this]
 
+/-!
+### Entropy regularization (Theorems 5 and 6)
+
+The entropy-regularized objective `Ṽ = V + τ·H` converges at a *geometric*
+rate rather than `O(1/t)`, and — the reason it matters here — its constant is
+explicit, because the analogue of Lemma 9 (their Lemma 16) is self-contained:
+it follows from monotone convergence rather than citing an external theorem.
+
+The recursion is `δ̃_{t+1} ≤ (1 - K)·δ̃_t` with `K ∈ (0,1)`, which telescopes to
+`δ̃_t ≤ (1-K)^t·δ̃_0`.
+-/
+
+/-- **Geometric decay from a contraction recursion.**
+
+`δ_{t+1} ≤ (1-K)·δ_t` with `0 ≤ 1-K` gives `δ_t ≤ (1-K)^t·δ_0`.
+
+This is the entropy-regularized rate's engine, replacing the fiddly `1/t`
+induction of the unregularized case with a plain geometric telescoping — which
+is why Theorem 6 has an explicit constant and Theorem 4 does not. -/
+theorem geometric_decay {K : ℝ} (hK₀ : 0 ≤ 1 - K) (δ : ℕ → ℝ)
+    (hnn : ∀ t, 0 ≤ δ t)
+    (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) (t : ℕ) :
+    δ t ≤ (1 - K) ^ t * δ 0 := by
+  induction t with
+  | zero => simp
+  | succ t ih =>
+    calc δ (t + 1) ≤ (1 - K) * δ t := hstep t
+      _ ≤ (1 - K) * ((1 - K) ^ t * δ 0) := mul_le_mul_of_nonneg_left ih hK₀
+      _ = (1 - K) ^ (t + 1) * δ 0 := by ring
+
+/-- The geometric rate reaches any target accuracy: if `δ_t ≤ (1-K)^t·δ_0` and
+`0 ≤ 1-K < 1`, the suboptimality tends to zero. -/
+theorem geometric_tendsto_zero {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
+    (δ : ℕ → ℝ) (hnn : ∀ t, 0 ≤ δ t)
+    (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) :
+    Filter.Tendsto δ Filter.atTop (nhds 0) := by
+  refine squeeze_zero hnn (fun t => geometric_decay hK₀ δ hnn hstep t) ?_
+  have := tendsto_pow_atTop_nhds_zero_of_lt_one hK₀ hK₁
+  simpa using this.mul_const (δ 0)
+
 end PolicyGradient
