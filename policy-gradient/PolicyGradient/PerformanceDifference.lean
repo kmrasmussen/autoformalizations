@@ -91,12 +91,15 @@ theorem perfDiff_succ (π π' : Policy S A) (m : ℕ) (s : S) :
   have hsplit : (∑ s', step M π s s' * (V M π m s' - V M π' m s'))
       = (∑ s', step M π s s' * V M π m s') - ∑ s', step M π s s' * V M π' m s' := by
     simp only [mul_sub]
-    exact Finset.sum_sub_distrib
+    rw [Finset.sum_sub_distrib]
   rw [hgap, hsplit, step_expect M π π m s, step_expect M π π' m s]
   rw [V_succ M π m s]
   unfold Q
-  simp only [Finset.mul_sum, Finset.sum_mul, Finset.sum_sub_distrib, mul_sub, sub_mul,
+  simp only [Finset.mul_sum, Finset.sum_sub_distrib, mul_sub, sub_mul,
              Finset.sum_add_distrib, mul_add, add_mul]
+  -- Both sides are the same sum up to order/association inside the binders.
+  -- `ring` cannot see under `∑`, so normalize products with AC-lemmas first.
+  simp only [mul_comm, mul_assoc, mul_left_comm]
   ring
 
 end PolicyGradient
