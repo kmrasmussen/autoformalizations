@@ -102,4 +102,57 @@ theorem perfDiff_succ (π π' : Policy S A) (m : ℕ) (s : S) :
   simp only [mul_comm, mul_assoc, mul_left_comm]
   ring
 
+/-- Weighting `pdSum` by one transition advances every visitation index by one.
+
+Exactly `step_pgSum`'s statement with `advGap` in place of `localTerm`, and it
+turns on the same `step_visit` (Chapman-Kolmogorov) lemma. -/
+theorem step_pdSum (π π' : Policy S A) (m : ℕ) (s₀ : S) :
+    ∑ s', step M π s₀ s' * pdSum M π π' m s'
+      = ∑ k ∈ range m, M.γ ^ k *
+          ∑ s, visit M π (k + 1) s₀ s * advGap M π π' (m - 1 - k) s := by
+  unfold pdSum
+  simp only [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun k _ => ?_
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun s _ => ?_
+  calc ∑ s', step M π s₀ s' * (M.γ ^ k *
+          (visit M π k s' s * advGap M π π' (m - 1 - k) s))
+      = (∑ s', step M π s₀ s' * visit M π k s' s) *
+          (M.γ ^ k * advGap M π π' (m - 1 - k) s) := by
+        rw [Finset.sum_mul]
+        refine Finset.sum_congr rfl fun s' _ => ?_
+        ring
+    _ = M.γ ^ k * (visit M π (k + 1) s₀ s * advGap M π π' (m - 1 - k) s) := by
+        rw [step_visit M π k s₀ s]; ring
+
+/-- **Performance difference lemma** (finite horizon).
+
+`V_m^π(s₀) - V_m^π'(s₀) = ∑_{k<m} γ^k ∑_s visit^π k s₀ s · advGap_(m-1-k) s`
+
+Kakade & Langford (2002); Agarwal-Kakade-Lee-Mahajan (JMLR 2021) Lemma 3.2.
+
+The advantage is that of `π'`, but averaged under `π`'s state visitation --
+that asymmetry is the whole content of the lemma. -/
+theorem performance_difference (π π' : Policy S A) (m : ℕ) (s₀ : S) :
+    V M π m s₀ - V M π' m s₀ = pdSum M π π' m s₀ := by
+  induction m generalizing s₀ with
+  | zero => simp [pdSum]
+  | succ m ih =>
+    rw [perfDiff_succ]
+    have hIH : ∑ s', step M π s₀ s' * (V M π m s' - V M π' m s')
+        = ∑ s', step M π s₀ s' * pdSum M π π' m s' := by
+      refine Finset.sum_congr rfl fun s' _ => ?_
+      rw [ih s']
+    rw [hIH, step_pdSum]
+    unfold pdSum
+    rw [Finset.sum_range_succ', add_comm]
+    congr 1
+    · rw [Finset.mul_sum]
+      refine Finset.sum_congr rfl fun j _ => ?_
+      have hidx : m + 1 - 1 - (j + 1) = m - 1 - j := by omega
+      rw [hidx, pow_succ]
+      ring
+    · simp
+
 end PolicyGradient
