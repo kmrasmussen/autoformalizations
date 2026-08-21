@@ -220,4 +220,68 @@ theorem dinf_eq (π : Policy S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s�
           rw [tsum_mul_left]
           rfl
 
+/-!
+### Linking the finite and infinite horizons
+
+`V m` is the partial sum of the series defining `Vinf`, so `V m → Vinf`.
+This is what makes the finite-horizon development the approximating sequence
+rather than a separate result.
+-/
+
+/-- The finite-horizon Bellman recursion, in the `rbar + γ·step` form that
+matches `Vinf_bellman`. -/
+theorem V_bellman (π : Policy S A) (m : ℕ) (s₀ : S) :
+    V M π (m + 1) s₀
+      = (∑ a, (π s₀) a * M.r s₀ a)
+        + M.γ * ∑ s', step M π s₀ s' * V M π m s' := by
+  rw [V_succ]
+  unfold Q step
+  have expand : ∑ a, (π s₀) a * (M.r s₀ a + M.γ * ∑ s', (M.P s₀ a) s' * V M π m s')
+      = (∑ a, (π s₀) a * M.r s₀ a)
+        + ∑ a, (π s₀) a * (M.γ * ∑ s', (M.P s₀ a) s' * V M π m s') := by
+    rw [← Finset.sum_add_distrib]
+    refine Finset.sum_congr rfl fun a _ => ?_
+    ring
+  rw [expand]
+  congr 1
+  -- ∑_a π a * (γ ∑_{s'} P a s' V s') = γ ∑_{s'} (∑_a π a P a s') V s'
+  calc ∑ a, (π s₀) a * (M.γ * ∑ s', (M.P s₀ a) s' * V M π m s')
+      = ∑ a, ∑ s', M.γ * ((π s₀) a * (M.P s₀ a) s' * V M π m s') := by
+        refine Finset.sum_congr rfl fun a _ => ?_
+        rw [Finset.mul_sum, Finset.mul_sum]
+        refine Finset.sum_congr rfl fun s' _ => ?_
+        ring
+    _ = ∑ s', ∑ a, M.γ * ((π s₀) a * (M.P s₀ a) s' * V M π m s') := Finset.sum_comm
+    _ = M.γ * ∑ s', (∑ a, (π s₀) a * (M.P s₀ a) s') * V M π m s' := by
+        rw [Finset.mul_sum]
+        refine Finset.sum_congr rfl fun s' _ => ?_
+        rw [Finset.sum_mul, Finset.mul_sum]
+
+/-- The finite-horizon value is the partial sum of the discounted reward
+series, so `V m` is exactly the `m`-th approximant of `Vinf`. -/
+theorem V_eq_sum_stepReward (π : Policy S A) (m : ℕ) (s₀ : S) :
+    V M π m s₀ = ∑ t ∈ range m, stepReward M π t s₀ := by
+  induction m generalizing s₀ with
+  | zero => simp
+  | succ m ih =>
+    rw [V_bellman, Finset.sum_range_succ', add_comm]
+    congr 1
+    · -- tail: γ ∑_{s'} step s₀ s' * V m s' = ∑_{t<m} stepReward (t+1)
+      calc M.γ * ∑ s', step M π s₀ s' * V M π m s'
+          = M.γ * ∑ s', step M π s₀ s' * ∑ t ∈ range m, stepReward M π t s' := by
+            refine congrArg _ (Finset.sum_congr rfl fun s' _ => ?_)
+            rw [ih s']
+        _ = M.γ * ∑ t ∈ range m, ∑ s', step M π s₀ s' * stepReward M π t s' := by
+            refine congrArg _ ?_
+            rw [Finset.sum_comm]
+            refine Finset.sum_congr rfl fun s' _ => ?_
+            rw [Finset.mul_sum]
+        _ = ∑ t ∈ range m, M.γ * ∑ s', step M π s₀ s' * stepReward M π t s' := by
+            rw [Finset.mul_sum]
+        _ = ∑ t ∈ range m, stepReward M π (t + 1) s₀ := by
+            refine Finset.sum_congr rfl fun t _ => (stepReward_succ M π t s₀).symm
+    · -- t = 0 term
+      unfold stepReward
+      simp [visit]
+
 end PolicyGradient

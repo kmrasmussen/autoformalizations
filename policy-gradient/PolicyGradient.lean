@@ -5,3 +5,4 @@ import PolicyGradient.Bounded
 import PolicyGradient.Theorem
 import PolicyGradient.PerformanceDifference
 import PolicyGradient.Infinite
+import PolicyGradient.InfiniteGradient
