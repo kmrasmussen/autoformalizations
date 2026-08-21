@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
-import PolicyGradient.Softmax
+import PolicyGradient.PerformanceDifference
 
 /-!
 # Gradient domination

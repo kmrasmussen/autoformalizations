@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.GradientDomination
+import PolicyGradient.Softmax
 
 /-!
 # Natural policy gradient

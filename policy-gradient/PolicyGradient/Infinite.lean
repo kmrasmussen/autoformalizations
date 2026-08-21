@@ -52,18 +52,6 @@ theorem visit_sum_eq_one (π : Policy S A) (t : ℕ) (s₀ : S) :
     rw [Finset.sum_congr rfl fun s' _ => this s']
     exact ih s₀
 
-/-- `visit` is nonnegative. -/
-theorem visit_nonneg (π : Policy S A) (t : ℕ) (s₀ s : S) :
-    0 ≤ visit M π t s₀ s := by
-  induction t generalizing s₀ s with
-  | zero => unfold visit; split <;> norm_num
-  | succ t ih =>
-    rw [visit_succ]
-    refine Finset.sum_nonneg fun s' _ => ?_
-    refine mul_nonneg (ih s₀ s') ?_
-    unfold step
-    exact Finset.sum_nonneg fun a _ => mul_nonneg ((π s').nonneg a) ((M.P s' a).nonneg s)
-
 /-- The expected reward collected at a single time step is bounded by `R`. -/
 theorem abs_stepReward_le (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
     (hr : ∀ s a, |M.r s a| ≤ R) (hγ₀ : 0 ≤ M.γ) (t : ℕ) (s₀ : S) :

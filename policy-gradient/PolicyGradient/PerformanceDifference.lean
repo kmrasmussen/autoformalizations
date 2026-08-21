@@ -155,4 +155,31 @@ theorem performance_difference (π π' : Policy S A) (m : ℕ) (s₀ : S) :
       ring
     · simp
 
+/-!
+### Advantage identities
+
+The advantage of a policy against itself averages to zero — the identity that
+makes the policy gradient a *centered* quantity, and the engine of the
+performance difference lemma.
+-/
+
+/-- `∑ₐ π(a|s) · A^π_j(s,a) = 0`: a policy has no advantage over itself. -/
+theorem advGap_self (π : Policy S A) (j : ℕ) (s : S) :
+    advGap M π π j s = 0 := by
+  unfold advGap adv
+  simp only [mul_sub]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_mul, (π s).sum_eq_one, one_mul]
+  rw [← V_succ]
+  ring
+
+/-- Consequently the performance difference of a policy with itself is zero. -/
+theorem pdSum_self (π : Policy S A) (m : ℕ) (s₀ : S) :
+    pdSum M π π m s₀ = 0 := by
+  unfold pdSum
+  refine Finset.sum_eq_zero fun k _ => ?_
+  have : ∀ s, visit M π k s₀ s * advGap M π π (m - 1 - k) s = 0 := by
+    intro s; rw [advGap_self]; ring
+  rw [Finset.sum_congr rfl (fun s _ => this s)]
+  simp
+
 end PolicyGradient

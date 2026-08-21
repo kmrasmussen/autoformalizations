@@ -36,12 +36,6 @@ variable (M : FiniteMDP S A) (PF : DiffPolicy S A) (θ : ℝ)
 noncomputable def rbar (π : Policy S A) (s : S) : ℝ :=
   ∑ a, (π s) a * M.r s a
 
-/-- The claimed derivative of `Vinf`: the visitation-weighted sum of score
-times action-value. -/
-noncomputable def pgInfSum (s₀ : S) : ℝ :=
-  ∑ s, dinf M (PF.toPolicy θ) s₀ s *
-    ∑ a, PF.dπ θ s a * Qinf M (PF.toPolicy θ) s a
-
 /-!
 ### Differentiating `Vinf`
 

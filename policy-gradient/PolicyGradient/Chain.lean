@@ -67,4 +67,16 @@ theorem step_visit (M : FiniteMDP S A) (π : Policy S A) (k : ℕ) (s₀ s : S) 
 
 
 
+/-- `visit` is nonnegative. -/
+theorem visit_nonneg (M : FiniteMDP S A) (π : Policy S A) (t : ℕ) (s₀ s : S) :
+    0 ≤ visit M π t s₀ s := by
+  induction t generalizing s₀ s with
+  | zero => unfold visit; split <;> norm_num
+  | succ t ih =>
+    rw [visit_succ]
+    refine Finset.sum_nonneg fun s' _ => ?_
+    refine mul_nonneg (ih s₀ s') ?_
+    unfold step
+    exact Finset.sum_nonneg fun a _ => mul_nonneg ((π s').nonneg a) ((M.P s' a).nonneg s)
+
 end PolicyGradient
