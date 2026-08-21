@@ -188,4 +188,36 @@ theorem Vinf_bellman (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
           rw [tsum_mul_left]
           rfl
 
+/-!
+### The occupancy recursion
+
+The `tsum` analogue of `step_visit`/`step_pgSum`: weighting `dinf` by one
+transition and discounting shifts the occupancy by one step.
+-/
+
+/-- Splitting `dinf` at `t = 0`: the occupancy is the point mass at `s₀` plus
+`γ` times the occupancy after one step. -/
+theorem dinf_eq (π : Policy S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ s : S) :
+    dinf M π s₀ s
+      = (if s = s₀ then 1 else 0) + M.γ * ∑ s', step M π s₀ s' * dinf M π s' s := by
+  unfold dinf
+  rw [Summable.tsum_eq_zero_add (summable_dvisit M π hγ₀ hγ₁ s₀ s)]
+  congr 1
+  · simp [visit]
+  · calc ∑' t, M.γ ^ (t + 1) * visit M π (t + 1) s₀ s
+        = ∑' t, M.γ * ∑ s', step M π s₀ s' * (M.γ ^ t * visit M π t s' s) := by
+          refine tsum_congr fun t => ?_
+          rw [← step_visit M π t s₀ s, Finset.mul_sum, Finset.mul_sum]
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          ring
+      _ = M.γ * ∑' t, ∑ s', step M π s₀ s' * (M.γ ^ t * visit M π t s' s) := by
+          rw [tsum_mul_left]
+      _ = M.γ * ∑ s', step M π s₀ s' * dinf M π s' s := by
+          congr 1
+          rw [Summable.tsum_finsetSum (fun s' _ =>
+            (summable_dvisit M π hγ₀ hγ₁ s' s).mul_left _)]
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [tsum_mul_left]
+          rfl
+
 end PolicyGradient
