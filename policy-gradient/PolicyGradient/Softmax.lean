@@ -134,4 +134,42 @@ theorem softmaxPolicy_pos (logits : ℝ → S → A → ℝ) (θ : ℝ) (s : S) 
     0 < (softmaxPolicy logits θ s) a :=
   softmax_pos _ _
 
+/-!
+### AKM Lemma C.1 — the softmax policy gradient
+
+For softmax parameterization the policy gradient has the closed form
+
+  `∂V/∂θ_{s,a} = (1/(1-γ)) · d^π(s) · π(a|s) · A^π(s,a)`
+
+The `π(a|s)·A(s,a)` factor is `softmaxScore` contracted against the advantage;
+the `d^π(s)` is the occupancy weighting from the policy gradient theorem. Here
+we prove the state-local part: the score contracted against `Q` equals the score
+contracted against the *advantage*, because the scores sum to zero.
+-/
+
+variable (M : FiniteMDP S A)
+
+/-- **The score-advantage identity.** Contracting the softmax score against `Q`
+gives the same result as contracting it against the advantage `Q - V`.
+
+This is why the policy gradient can be written with advantages rather than
+action-values, which is what makes the AKM/Mei analyses work: the advantage is
+centered, so the gradient vanishes exactly at policies that are greedy. -/
+theorem score_dot_Q_eq_score_dot_adv (w : A → ℝ) (q : A → ℝ) (v : ℝ) (b : A) :
+    ∑ a, softmaxScore w a b * q a
+      = ∑ a, softmaxScore w a b * (q a - v) := by
+  have hsplit : ∑ a, softmaxScore w a b * (q a - v)
+      = (∑ a, softmaxScore w a b * q a) - v * ∑ a, softmaxScore w a b := by
+    simp only [mul_sub, Finset.sum_sub_distrib, Finset.mul_sum]
+    congr 1
+    refine Finset.sum_congr rfl fun a _ => ?_
+    ring
+  rw [hsplit, softmaxScore_sum_eq_zero]
+  ring
+
+/-- The softmax score contracted against a constant is zero. -/
+theorem score_dot_const (w : A → ℝ) (v : ℝ) (b : A) :
+    ∑ a, softmaxScore w a b * v = 0 := by
+  rw [← Finset.sum_mul, softmaxScore_sum_eq_zero, zero_mul]
+
 end PolicyGradient
