@@ -17,3 +17,8 @@ Zhang in Lean) is all value-based: value/policy iteration, Q-learning, TD.
 It also closes two gaps in the textbook proof: the "after several steps of
 unrolling" hand-wave in Sutton et al. (NIPS 1999), and a use of
 Chapman–Kolmogorov that no informal treatment states.
+
+CI checks more than a green build: that no `sorry` appears, that `#print axioms`
+reports only the three standard Lean axioms for every theorem, and — since Lean
+cannot verify that the *definitions* are the intended ones — that `V` agrees
+with a brute-force enumeration of all trajectories.

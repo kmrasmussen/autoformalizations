@@ -10,6 +10,7 @@ Route 3: our backward recursion.
 Route 2 is the real arbiter: it is literally 'sum over trajectories of
 P(traj) * discounted return', i.e. what J(theta) MEANS.
 """
+import sys
 import numpy as np, itertools
 rng = np.random.default_rng(11)
 nS, nA, H, gamma = 3, 2, 4, 0.9
@@ -45,8 +46,16 @@ print(f"Route 3 (our backward recursion):     {ours:.12f}")
 print(f"Route 2 (brute-force trajectories):   {brute:.12f}")
 print(f"difference: {abs(ours-brute):.3e}")
 print()
-print("VERDICT:", "OUR V IS THE EXPECTED DISCOUNTED RETURN" if abs(ours-brute)<1e-10
-      else "*** OUR V DOES NOT MATCH THE DEFINITION ***")
 print()
-print("This is the check that does NOT share our assumptions: route 2 enumerates")
-print("trajectories and applies the DEFINITION of expected return directly.")
+print("Route 2 enumerates trajectories and applies the DEFINITION of expected")
+print("return directly -- no Bellman recursion, no Q, no visitation measure.")
+print("It is the one check Lean cannot do for us: Lean proves the theorem")
+print("follows from the definitions; this checks the definitions are right.")
+print()
+
+TOL = 1e-10
+if abs(ours - brute) < TOL:
+    print(f"PASS: V is the expected discounted return (diff {abs(ours-brute):.2e} < {TOL:g})")
+else:
+    print(f"FAIL: V does NOT match the definition (diff {abs(ours-brute):.2e} >= {TOL:g})")
+    sys.exit(1)

@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lean:
+    name: Build and verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs elan + the pinned toolchain, fetches prebuilt Mathlib oleans
+      # via `lake exe cache get`, then builds.
+      - name: Build
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: policy-gradient
+
+      # A green build is not enough on its own: a proof can compile while
+      # quietly assuming its own conclusion. The next two steps are what make
+      # the "machine-checked" claim mean something.
+      - name: No sorry in sources
+        working-directory: policy-gradient
+        run: |
+          if grep -rnw --include='*.lean' 'sorry' .; then
+            echo "::error::found a sorry in the Lean sources"
+            exit 1
+          fi
+          echo "OK: no sorry"
+
+      - name: Axiom check
+        working-directory: policy-gradient
+        run: |
+          cat > AxiomCheck.lean <<'EOF'
+          import PolicyGradient
+          #print axioms PolicyGradient.policy_gradient
+          #print axioms PolicyGradient.hasDerivAt_V
+          #print axioms PolicyGradient.hasDerivAt_Q
+          #print axioms PolicyGradient.step_visit
+          #print axioms PolicyGradient.step_pgSum
+          EOF
+          lake env lean AxiomCheck.lean | tee axioms.txt
+          rm -f AxiomCheck.lean
+          if [ ! -s axioms.txt ]; then
+            echo "::error::axiom check produced no output"
+            exit 1
+          fi
+          # Each theorem must rest on exactly the three standard Lean axioms
+          # that Mathlib itself uses -- in particular never sorryAx.
+          fail=0
+          while IFS= read -r line; do
+            case "$line" in
+              *"depends on axioms:"*)
+                axioms=${line#*depends on axioms: }
+                if [ "$axioms" != "[propext, Classical.choice, Quot.sound]" ]; then
+                  echo "::error::unexpected axioms -> $line"
+                  fail=1
+                fi
+                ;;
+            esac
+          done < axioms.txt
+          rm -f axioms.txt
+          [ "$fail" -eq 0 ] || exit 1
+          echo "OK: only [propext, Classical.choice, Quot.sound]"
+
+  definitions:
+    name: Definitions match the standard object
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy
+
+      # Lean proves the theorem follows from our definitions. It cannot tell us
+      # the definitions are the right ones -- if `V` were defined wrongly, Lean
+      # would happily verify a theorem about the wrong object. This enumerates
+      # every trajectory and applies the definition of expected discounted
+      # return directly, with no Bellman recursion.
+      - name: V is the expected discounted return
+        working-directory: policy-gradient
+        run: python independent_check.py

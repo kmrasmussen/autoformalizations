@@ -83,21 +83,22 @@ whether to normalize. The finite-horizon form here keeps the sum explicit.
 - **`V` by backward recursion on steps-remaining, not a trajectory expectation.**
   No product measures, no trajectory σ-algebra; the theorem becomes an induction.
 
-## Numerical grounding
+## Grounding the definitions
 
 Lean proves the theorem follows from the definitions. It cannot tell you the
-definitions are the *right* ones. Each script checks a different layer:
+definitions are the *right* ones — had `V` been defined wrongly, Lean would
+happily verify a theorem about the wrong object.
 
-| Script | Checks | Result |
-|---|---|---|
-| `independent_check.py` | `V` **is** the expected discounted return, by brute-force enumeration of every trajectory | 5.6e-16 |
-| `reinforce_reference.py` | the gradient matches sampled REINFORCE (score-function, 400k rollouts) | 0.004 (MC noise) |
-| `verify_statement.py` | the formula vs central finite differences, 18 cases | 1.8e-10 |
-| `pg_closed.py` | closed form vs recursion, `m-1-k` indexing | 1.1e-16 |
-| `pg_induction.py` | the inductive step, horizons 0–5 | 2.9e-10 |
+`independent_check.py` closes that gap: it enumerates **every** trajectory of
+the horizon, weights each by its probability, and sums the discounted rewards —
+the definition of expected return, transcribed, with no Bellman recursion and no
+visitation measure. It agrees with `V` to `5.6e-16`, and runs in CI.
 
-The first is the load-bearing one: it applies the *definition* of expected
-return directly, with no Bellman recursion.
+Before the proof was written the statement was also checked against central
+finite differences, against a sampled REINFORCE implementation (400k rollouts,
+agreeing to `4e-3` — Monte Carlo noise), and for the `m-1-k` index bookkeeping
+(`1.1e-16`). Those scripts are not kept: every property they tested is now
+*implied* by the Lean proof, whereas the definitional check is not.
 
 ## Building
 
@@ -107,6 +108,10 @@ lake build
 ```
 
 Lean 4.33.0, Mathlib `db584cd6`.
+
+CI builds the project, greps for `sorry`, checks via `#print axioms` that every
+theorem rests on only `[propext, Classical.choice, Quot.sound]`, and runs the
+definitional check above.
 
 ## Status / next
 
