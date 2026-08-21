@@ -96,4 +96,30 @@ theorem summable_stepReward (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
 noncomputable def Vinf (π : Policy S A) (s₀ : S) : ℝ :=
   ∑' t, stepReward M π t s₀
 
+/-- **The discounted state-occupancy measure** `d^π(s₀, s) = ∑ₜ γᵗ Pr(sₜ = s)`.
+
+Unnormalized: it sums to `1/(1-γ)`, not `1`. Sources that normalize it into a
+probability distribution must carry a compensating `1/(1-γ)` in the policy
+gradient theorem; ours does not. (Checked numerically in `inf_horizon.py`.) -/
+noncomputable def dinf (π : Policy S A) (s₀ s : S) : ℝ :=
+  ∑' t, M.γ ^ t * visit M π t s₀ s
+
+theorem summable_dvisit (π : Policy S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ s : S) :
+    Summable (fun t => M.γ ^ t * visit M π t s₀ s) := by
+  refine Summable.of_norm_bounded
+    ((summable_geometric_of_lt_one hγ₀ hγ₁).mul_right 1) ?_
+  intro t
+  have h1 : visit M π t s₀ s ≤ 1 := by
+    have := visit_sum_eq_one M π t s₀
+    have hle : visit M π t s₀ s ≤ ∑ s', visit M π t s₀ s' :=
+      Finset.single_le_sum (fun s' _ => visit_nonneg M π t s₀ s') (mem_univ s)
+    linarith
+  rw [Real.norm_eq_abs, abs_mul, abs_of_nonneg (pow_nonneg hγ₀ t),
+      abs_of_nonneg (visit_nonneg M π t s₀ s), mul_one]
+  simpa using mul_le_mul_of_nonneg_left h1 (pow_nonneg hγ₀ t)
+
+/-- The infinite-horizon action-value. -/
+noncomputable def Qinf (π : Policy S A) (s : S) (a : A) : ℝ :=
+  M.r s a + M.γ * ∑ s', (M.P s a) s' * Vinf M π s'
+
 end PolicyGradient
