@@ -42,6 +42,40 @@ noncomputable def visit (M : FiniteMDP S A) (π : Policy S A) : ℕ → S → S 
 theorem visit_succ (M : FiniteMDP S A) (π : Policy S A) (k : ℕ) (s₀ s : S) :
     visit M π (k + 1) s₀ s = ∑ s', visit M π k s₀ s' * step M π s' s := rfl
 
+/-- Chapman-Kolmogorov: taking the step first or last gives the same visitation.
+
+`∑ s', step s₀ s' * visit k s' s = visit (k+1) s₀ s = ∑ s', visit k s₀ s' * step s' s`
+
+The right-hand equality is `visit_succ` by definition; the left-hand one is the
+content of this lemma, proved by induction on `k`. Stated for an arbitrary policy: this is a fact about the induced Markov
+chain and has nothing to do with differentiability. -/
+theorem step_visit (M : FiniteMDP S A) (π : Policy S A) (k : ℕ) (s₀ s : S) :
+    ∑ s', step M π s₀ s' * visit M π k s' s
+      = visit M π (k + 1) s₀ s := by
+  induction k generalizing s₀ s with
+  | zero =>
+    -- both sides collapse to `step s₀ s`
+    simp [visit_zero, visit_succ]
+  | succ k ih =>
+    -- LHS: ∑ s', step s₀ s' * ∑ t, visit k s' t * step t s
+    -- RHS: ∑ s', (∑ t, visit k s₀ t * step t s') * step s' s
+    -- Flatten both to double sums, swap on the left, then apply ih.
+    simp only [visit_succ, Finset.mul_sum, Finset.sum_mul]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl fun t _ => ?_
+    have := ih s₀ t
+    calc ∑ s', step M π s₀ s' * (visit M π k s' t
+              * step M π t s)
+        = (∑ s', step M π s₀ s' * visit M π k s' t)
+              * step M π t s := by
+          rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun s' _ => ?_; ring
+      _ = visit M π (k + 1) s₀ t * step M π t s := by
+          rw [this]
+      _ = ∑ s', visit M π k s₀ s' * step M π s' t
+              * step M π t s := by
+          rw [visit_succ, Finset.sum_mul]
+
+
 /-- A differentiable family of policies. -/
 structure DiffPolicy (S A : Type*) [Fintype A] where
   /-- The policy at parameter `θ`. -/
@@ -157,39 +191,6 @@ Index bookkeeping (`m-1-k`) verified numerically to machine epsilon
 noncomputable def pgSum (m : ℕ) (s₀ : S) : ℝ :=
   ∑ k ∈ range m, M.γ ^ k * ∑ s, visit M (PF.toPolicy θ) k s₀ s * localTerm M PF θ (m - 1 - k) s
 
-/-- Chapman-Kolmogorov: taking the step first or last gives the same visitation.
-
-`∑ s', step s₀ s' * visit k s' s = visit (k+1) s₀ s = ∑ s', visit k s₀ s' * step s' s`
-
-The right-hand equality is `visit_succ` by definition; the left-hand one is the
-content of this lemma, proved by induction on `k`. Verified numerically
-(`check_step_pgsum.py`) before proving. -/
-theorem step_visit (k : ℕ) (s₀ s : S) :
-    ∑ s', step M (PF.toPolicy θ) s₀ s' * visit M (PF.toPolicy θ) k s' s
-      = visit M (PF.toPolicy θ) (k + 1) s₀ s := by
-  induction k generalizing s₀ s with
-  | zero =>
-    -- both sides collapse to `step s₀ s`
-    simp [visit_zero, visit_succ]
-  | succ k ih =>
-    -- LHS: ∑ s', step s₀ s' * ∑ t, visit k s' t * step t s
-    -- RHS: ∑ s', (∑ t, visit k s₀ t * step t s') * step s' s
-    -- Flatten both to double sums, swap on the left, then apply ih.
-    simp only [visit_succ, Finset.mul_sum, Finset.sum_mul]
-    rw [Finset.sum_comm]
-    refine Finset.sum_congr rfl fun t _ => ?_
-    have := ih s₀ t
-    calc ∑ s', step M (PF.toPolicy θ) s₀ s' * (visit M (PF.toPolicy θ) k s' t
-              * step M (PF.toPolicy θ) t s)
-        = (∑ s', step M (PF.toPolicy θ) s₀ s' * visit M (PF.toPolicy θ) k s' t)
-              * step M (PF.toPolicy θ) t s := by
-          rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun s' _ => ?_; ring
-      _ = visit M (PF.toPolicy θ) (k + 1) s₀ t * step M (PF.toPolicy θ) t s := by
-          rw [this]
-      _ = ∑ s', visit M (PF.toPolicy θ) k s₀ s' * step M (PF.toPolicy θ) s' t
-              * step M (PF.toPolicy θ) t s := by
-          rw [visit_succ, Finset.sum_mul]
-
 /-- Key reindexing lemma: pushing one step of the recursion through `pgSum`.
 
 `∑_{s'} step s₀ s' · pgSum m s'  =  ∑_{k<m} γ^k ∑_s visit (k+1) s₀ s · localTerm_{m-1-k} s`
@@ -216,7 +217,7 @@ theorem step_pgSum (m : ℕ) (s₀ : S) :
         refine Finset.sum_congr rfl fun s' _ => ?_
         ring
     _ = M.γ ^ k * (visit M (PF.toPolicy θ) (k + 1) s₀ s * localTerm M PF θ (m - 1 - k) s) := by
-        rw [step_visit M PF θ k s₀ s]; ring
+        rw [step_visit M (PF.toPolicy θ) k s₀ s]; ring
 
 /-- **Policy gradient theorem** (finite horizon).
 
