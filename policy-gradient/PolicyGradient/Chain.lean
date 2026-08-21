@@ -79,4 +79,20 @@ theorem visit_nonneg (M : FiniteMDP S A) (π : Policy S A) (t : ℕ) (s₀ s : S
     unfold step
     exact Finset.sum_nonneg fun a _ => mul_nonneg ((π s').nonneg a) ((M.P s' a).nonneg s)
 
+/-- The one-step transition probabilities are nonnegative. -/
+theorem step_nonneg (M : FiniteMDP S A) (π : Policy S A) (s s' : S) :
+    0 ≤ step M π s s' := by
+  unfold step
+  exact Finset.sum_nonneg fun a _ => mul_nonneg ((π s).nonneg a) ((M.P s a).nonneg s')
+
+/-- `step` is a probability distribution over next states. -/
+theorem step_sum_eq_one (M : FiniteMDP S A) (π : Policy S A) (s : S) :
+    ∑ s', step M π s s' = 1 := by
+  unfold step
+  rw [Finset.sum_comm]
+  have : ∀ a, ∑ s', (π s) a * (M.P s a) s' = (π s) a := by
+    intro a
+    rw [← Finset.mul_sum, (M.P s a).sum_eq_one, mul_one]
+  rw [Finset.sum_congr rfl (fun a _ => this a), (π s).sum_eq_one]
+
 end PolicyGradient

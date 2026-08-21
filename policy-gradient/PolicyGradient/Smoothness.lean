@@ -165,4 +165,50 @@ theorem SmoothAt.const_mul {f f' : ℝ → ℝ} {β c : ℝ} (hc : 0 ≤ c)
         mul_le_mul_of_nonneg_left hf' hc
     _ = c * β / 2 * (y - x) ^ 2 := by ring
 
+/-!
+### Bounding the value gradient
+
+`dV` is defined by the recursion `dV_{m+1} = localTerm_m + γ·∑ step·dV_m`. If
+the local term is bounded by `L` then `|dV_m| ≤ L·∑_{i<m} γⁱ ≤ L/(1-γ)`, by the
+same induction that bounds `V` itself.
+-/
+
+variable (M : FiniteMDP S A) (PF : DiffPolicy S A) (θ : ℝ)
+
+/-- The value gradient is bounded whenever the local (score × action-value)
+term is, with the geometric factor `1/(1-γ)` from the discounting. -/
+theorem abs_dV_le (L : ℝ) (hL : 0 ≤ L)
+    (hloc : ∀ (j : ℕ) (s : S), |localTerm M PF θ j s| ≤ L)
+    (hγ₀ : 0 ≤ M.γ) (m : ℕ) (s : S) :
+    |dV M PF θ m s| ≤ L * ∑ i ∈ range m, M.γ ^ i := by
+  induction m generalizing s with
+  | zero => simp
+  | succ m ih =>
+    rw [dV_succ]
+    have hrec : |M.γ * ∑ s', step M (PF.toPolicy θ) s s' * dV M PF θ m s'|
+        ≤ M.γ * (L * ∑ i ∈ range m, M.γ ^ i) := by
+      rw [abs_mul, abs_of_nonneg hγ₀]
+      refine mul_le_mul_of_nonneg_left ?_ hγ₀
+      calc |∑ s', step M (PF.toPolicy θ) s s' * dV M PF θ m s'|
+          ≤ ∑ s', |step M (PF.toPolicy θ) s s' * dV M PF θ m s'| :=
+            Finset.abs_sum_le_sum_abs _ _
+        _ = ∑ s', step M (PF.toPolicy θ) s s' * |dV M PF θ m s'| := by
+            refine Finset.sum_congr rfl fun s' _ => ?_
+            rw [abs_mul, abs_of_nonneg (step_nonneg M (PF.toPolicy θ) s s')]
+        _ ≤ ∑ s', step M (PF.toPolicy θ) s s' * (L * ∑ i ∈ range m, M.γ ^ i) := by
+            refine Finset.sum_le_sum fun s' _ => ?_
+            exact mul_le_mul_of_nonneg_left (ih s')
+              (step_nonneg M (PF.toPolicy θ) s s')
+        _ = L * ∑ i ∈ range m, M.γ ^ i := by
+            rw [← Finset.sum_mul, step_sum_eq_one, one_mul]
+    calc |localTerm M PF θ m s + M.γ * ∑ s', step M (PF.toPolicy θ) s s' * dV M PF θ m s'|
+        ≤ |localTerm M PF θ m s|
+          + |M.γ * ∑ s', step M (PF.toPolicy θ) s s' * dV M PF θ m s'| := abs_add_le _ _
+      _ ≤ L + M.γ * (L * ∑ i ∈ range m, M.γ ^ i) := add_le_add (hloc m s) hrec
+      _ = L * ∑ i ∈ range (m + 1), M.γ ^ i := by
+          rw [Finset.sum_range_succ']
+          simp only [pow_zero, pow_succ]
+          rw [← Finset.sum_mul]
+          ring
+
 end PolicyGradient
