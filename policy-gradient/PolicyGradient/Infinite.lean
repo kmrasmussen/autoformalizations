@@ -155,4 +155,37 @@ theorem stepReward_succ (π : Policy S A) (t : ℕ) (s₀ : S) :
   refine Finset.sum_congr rfl fun s' _ => ?_
   ring
 
+/-- **Bellman equation for `Vinf`.**
+
+`Vinf s₀ = r̄(s₀) + γ · ∑_{s'} step s₀ s' · Vinf s'`
+
+This is the bridge from the `tsum` definition to the recursive structure the
+rest of the development uses. The proof splits off the `t = 0` term of the
+`tsum` and applies `stepReward_succ` to the tail — the infinite-horizon
+analogue of `Finset.sum_range_succ'`. -/
+theorem Vinf_bellman (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
+    (hr : ∀ s a, |M.r s a| ≤ R) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    Vinf M π s₀
+      = (∑ a, (π s₀) a * M.r s₀ a)
+        + M.γ * ∑ s', step M π s₀ s' * Vinf M π s' := by
+  unfold Vinf
+  rw [Summable.tsum_eq_zero_add (summable_stepReward M π R hR hr hγ₀ hγ₁ s₀)]
+  congr 1
+  · -- t = 0 term: γ^0 = 1 and visit 0 s₀ s = [s = s₀]
+    unfold stepReward
+    simp [visit]
+  · -- tail: ∑' t, stepReward (t+1) = γ * ∑_{s'} step s₀ s' * Vinf s'
+    calc ∑' t, stepReward M π (t + 1) s₀
+        = ∑' t, M.γ * ∑ s', step M π s₀ s' * stepReward M π t s' := by
+          exact tsum_congr fun t => stepReward_succ M π t s₀
+      _ = M.γ * ∑' t, ∑ s', step M π s₀ s' * stepReward M π t s' := by
+          rw [tsum_mul_left]
+      _ = M.γ * ∑ s', step M π s₀ s' * Vinf M π s' := by
+          congr 1
+          rw [Summable.tsum_finsetSum (fun s' _ =>
+            (summable_stepReward M π R hR hr hγ₀ hγ₁ s').mul_left _)]
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [tsum_mul_left]
+          rfl
+
 end PolicyGradient
