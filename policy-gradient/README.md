@@ -169,6 +169,24 @@ logit ascent.
 | `npg_ratio_mono` | one step moves the probability *ratio* between any two actions toward the higher advantage |
 | `softmax_add_const` | softmax quotients out constant logit shifts, so the advantage-form update is well defined |
 
+### The optimization machinery (`AKM.lean`, `Rate.lean`)
+
+| result | content |
+|---|---|
+| `SmoothAt` | AKM's smoothness: a **two-sided** second-order Taylor bound, not a Lipschitz-gradient condition (Mathlib has no such predicate) |
+| `ascent_step` | one step with `η = 1/β` gains at least `\|f'\|²/(2β)` |
+| `quad_decrease_of_domination` | smoothness + gradient domination ⟹ quadratic decrease of the suboptimality |
+| `quad_decrease_rate` | `δ_{t+1} ≤ δ_t − Kδ_t²` ⟹ `δ_t ≤ 1/(Kt)` — the induction **no paper writes out** |
+| `domination_rate` | the three composed: suboptimality `≤ 2β/(c²T)` after `T` steps |
+| `approx_domination_floor` | Section 6: with transfer error `ε`, the decrease is toward an irreducible `ε/c` floor |
+| `ascent_monotone`, `ascent_converges` | Theorem 5.1's asymptotic content — monotone + bounded ⟹ convergent |
+| `optimal_of_greedy` | greedy ⟹ globally optimal, the conclusion Thm 5.1 reaches |
+
+`domination_rate` is AKM Theorem 4.1 and Corollary 5.1 in skeleton form: their
+constants (`64γ|S||A|/((1−γ)⁶ε²)`, `320|S|²|A|²/((1−γ)⁶ε²)`) are instantiations,
+with `β` from the value function's smoothness and `c` from the
+distribution-mismatch coefficient.
+
 ## Status / next
 
 - [x] Finite-horizon episodic, finite S/A

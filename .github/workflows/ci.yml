@@ -55,6 +55,13 @@ jobs:
           #print axioms PolicyGradient.npg_softmax_update
           #print axioms PolicyGradient.npg_ratio_mono
           #print axioms PolicyGradient.softmaxScore_sum_eq_zero
+          #print axioms PolicyGradient.ascent_step
+          #print axioms PolicyGradient.domination_rate
+          #print axioms PolicyGradient.approx_domination_floor
+          #print axioms PolicyGradient.ascent_converges
+          #print axioms PolicyGradient.optimal_of_greedy
+          #print axioms PolicyGradient.kl_telescope
+          #print axioms PolicyGradient.quad_decrease_rate
           EOF
           lake env lean AxiomCheck.lean | tee axioms.txt
           rm -f AxiomCheck.lean
