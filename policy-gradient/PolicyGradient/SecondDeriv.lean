@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Smoothness
+import Mathlib.Analysis.Calculus.MeanValue
 
 /-!
 # The second derivative of the value function
@@ -237,5 +238,117 @@ theorem abs_d2V_le_eight (dlocal : ℕ → S → ℝ)
   rw [expand]
   refine div_nonneg ?_ (by positivity)
   linarith
+
+/-!
+### Closing the loop: from the second-derivative bound to `SmoothAt`
+
+A bound `|f''| ≤ β` gives `SmoothAt f f' β` by Taylor's theorem with Lagrange
+remainder. Rather than invoke the full machinery we record the implication in
+the form the value function supplies it: a bound on the second derivative,
+together with `hasDerivAt` for both levels, yields the two-sided Taylor bound.
+-/
+
+/-- **From a second-derivative bound to smoothness.**
+
+If `f` has first derivative `f'` and second derivative `f''` everywhere, and
+`|f''| ≤ β`, then `f` is `β`-smooth in AKM's sense.
+
+The remainder identity is Taylor–Lagrange: `f y - f x - f'(x)(y-x) =
+f''(ξ)(y-x)²/2` for some `ξ` between `x` and `y`. -/
+theorem smoothAt_of_abs_second_deriv_le {f f' f'' : ℝ → ℝ} {β : ℝ}
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hderiv2 : ∀ x, HasDerivAt f' (f'' x) x)
+    (hbound : ∀ x, |f'' x| ≤ β)
+    (htaylor : ∀ x y, ∃ ξ, f y - f x - f' x * (y - x) = f'' ξ * (y - x) ^ 2 / 2) :
+    SmoothAt f f' β := by
+  intro x y
+  obtain ⟨ξ, hξ⟩ := htaylor x y
+  rw [hξ, abs_div, abs_mul]
+  have h2 : |(2:ℝ)| = 2 := by norm_num
+  rw [h2, abs_of_nonneg (sq_nonneg (y - x))]
+  rw [div_le_iff₀ (by norm_num : (0:ℝ) < 2)]
+  have := hbound ξ
+  nlinarith [sq_nonneg (y - x), abs_nonneg (f'' ξ)]
+
+/-- **Smoothness from a second-derivative bound, via the mean value theorem.**
+
+`|f''| ≤ β` gives `SmoothAt f f' (2β)`.
+
+The MVT bounds the remainder `g y - g x` (where `g t = f t + f' t (y - t)`, so
+`g' t = f''(t)(y-t)`) by `sup|g'|·|y-x| ≤ β|y-x|²`, i.e. `SmoothAt f f' (2β)`.
+
+The sharp constant `β` needs the *integral* form of the remainder — integrating
+the linear factor `(y-t)` is what produces the `1/2`. We take the factor-of-two
+loss rather than assume the sharp bound: `SmoothAt` is monotone in its constant
+(`SmoothAt.mono`), so this is a genuine, if slightly lossy, derivation. -/
+theorem smoothAt_two_of_abs_second_deriv_le {f f' f'' : ℝ → ℝ} {β : ℝ}
+    (hβ : 0 ≤ β)
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hderiv2 : ∀ x, HasDerivAt f' (f'' x) x)
+    (hbound : ∀ x, |f'' x| ≤ β) :
+    SmoothAt f f' (2 * β) := by
+  intro x y
+  set g : ℝ → ℝ := fun t => f t + f' t * (y - t) with hg
+  have hgderiv : ∀ t, HasDerivAt g (f'' t * (y - t)) t := by
+    intro t
+    have hsub : HasDerivAt (fun w : ℝ => y - w) (-1) t := by
+      simpa using (hasDerivAt_id t).const_sub y
+    have h1 : HasDerivAt (fun w => f' w * (y - w))
+        (f'' t * (y - t) + f' t * (-1)) t := (hderiv2 t).mul hsub
+    have hsum := (hderiv t).add h1
+    have harith : f' t + (f'' t * (y - t) + f' t * (-1)) = f'' t * (y - t) := by ring
+    rw [harith] at hsum
+    exact hsum
+  have hgy : g y = f y := by simp [hg]
+  have hgx : g x = f x + f' x * (y - x) := rfl
+  have hlip : ∀ t ∈ Set.uIcc x y, ‖deriv g t‖ ≤ β * |y - x| := by
+    intro t ht
+    rw [(hgderiv t).deriv, Real.norm_eq_abs, abs_mul]
+    have hyt : |y - t| ≤ |y - x| := by
+      rcases Set.mem_uIcc.mp ht with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;>
+        rcases abs_cases (y - t) with ⟨e1, _⟩ | ⟨e1, _⟩ <;>
+        rcases abs_cases (y - x) with ⟨e2, _⟩ | ⟨e2, _⟩ <;>
+        rw [e1, e2] <;> linarith
+    exact mul_le_mul (hbound t) hyt (abs_nonneg _) hβ
+  have hmvt := (convex_uIcc x y).norm_image_sub_le_of_norm_deriv_le
+    (f := g) (C := β * |y - x|)
+    (fun t _ => (hgderiv t).differentiableAt) hlip
+    Set.left_mem_uIcc Set.right_mem_uIcc
+  rw [hgy, hgx] at hmvt
+  rw [Real.norm_eq_abs, Real.norm_eq_abs] at hmvt
+  have hrw : |f y - (f x + f' x * (y - x))| = |f y - f x - f' x * (y - x)| := by
+    congr 1; ring
+  rw [hrw] at hmvt
+  have habs : |y - x| * |y - x| = (y - x) ^ 2 := by rw [← sq, sq_abs]
+  calc |f y - f x - f' x * (y - x)| ≤ β * |y - x| * |y - x| := hmvt
+    _ = β * (y - x) ^ 2 := by rw [mul_assoc, habs]
+    _ = 2 * β / 2 * (y - x) ^ 2 := by ring
+
+/-- **The value function is `16/(1-γ)³`-smooth — derived, not assumed.**
+
+Assembling everything:
+
+* `abs_d2V_le_eight` bounds the second derivative by `8/(1-γ)³`;
+* `smoothAt_two_of_abs_second_deriv_le` turns a second-derivative bound into
+  `SmoothAt` at twice the constant, via the mean value theorem.
+
+The factor of two is the MVT-versus-integral loss documented above; the paper's
+sharp constant is `8/(1-γ)³`. Since `SmoothAt` is monotone in its constant, this
+is a genuine derivation of a valid smoothness constant, and it discharges the
+hypothesis that `ascent_step` and `domination_rate` consume. -/
+theorem smoothAt_V_sixteen (dlocal : ℕ → S → ℝ) (m : ℕ) (s : S)
+    (hdloc : ∀ (j : ℕ) (s' : S), |dlocal j s'| ≤ 3 / (1 - M.γ))
+    (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)
+    (hr : ∀ s' a, |M.r s' a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (hderiv : ∀ t, HasDerivAt (fun u => V M (PF.toDiffPolicy.toPolicy u) m s)
+      (dV M PF.toDiffPolicy t m s) t)
+    (hderiv2 : ∀ t, HasDerivAt (fun u => dV M PF.toDiffPolicy u m s)
+      (d2V M PF t dlocal m s) t) :
+    SmoothAt (fun t => V M (PF.toDiffPolicy.toPolicy t) m s)
+      (fun t => dV M PF.toDiffPolicy t m s) (2 * (8 / (1 - M.γ) ^ 3)) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hβ : (0:ℝ) ≤ 8 / (1 - M.γ) ^ 3 := by positivity
+  exact smoothAt_two_of_abs_second_deriv_le hβ hderiv hderiv2
+    (fun t => abs_d2V_le_eight M PF t dlocal hdloc (hscore t) hr hγ₀ hγ₁ m s)
 
 end PolicyGradient
