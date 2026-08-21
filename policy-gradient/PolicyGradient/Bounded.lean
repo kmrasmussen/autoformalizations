@@ -1,7 +1,7 @@
 /-
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
-import PolicyGradient.Value
+import PolicyGradient.Chain
 
 /-!
 # Uniform bounds on rewards and finite-horizon values
