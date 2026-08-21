@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Smoothness
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Analysis.Calculus.Deriv.MeanValue
 
 /-!
 # The second derivative of the value function
@@ -333,6 +334,148 @@ theorem hasDerivAt_dV (dlocal : ℕ → S → ℝ)
     have hsum := HasDerivAt.fun_sum hterm
     exact (hdlocal m s).add (hsum.const_mul M.γ)
 
+/-- **Sharp smoothness from a second-derivative bound.**
+
+`|f''| ≤ β` gives `SmoothAt f f' β` — the *sharp* constant, matching AKM
+Lemma E.4 rather than losing a factor of two.
+
+The trick avoiding the integral form: apply the mean value theorem not to the
+remainder `R(t) = f y - f t - f'(t)(y-t)` directly, but to
+
+  `h(t) = R(t) - (β/2)(y-t)²`   and   `k(t) = R(t) + (β/2)(y-t)²`.
+
+Then `h'(t) = -f''(t)(y-t) + β(y-t) = (y-t)(β - f''(t)) ≥ 0` for `t ≤ y`, so `h`
+is monotone; likewise `k' ≤ 0`. Since `h(y) = k(y) = 0`, monotonicity pins
+`R(x)` between `∓(β/2)(y-x)²`, which is exactly the two-sided Taylor bound. -/
+theorem smoothAt_of_abs_second_deriv_le_sharp {f f' f'' : ℝ → ℝ} {β : ℝ}
+    (hderiv : ∀ x, HasDerivAt f (f' x) x)
+    (hderiv2 : ∀ x, HasDerivAt f' (f'' x) x)
+    (hbound : ∀ x, |f'' x| ≤ β) :
+    SmoothAt f f' β := by
+  intro x y
+  -- R t = f y - f t - f' t * (y - t);  R' t = -f'' t * (y - t)
+  set R : ℝ → ℝ := fun t => f y - f t - f' t * (y - t) with hR
+  have hRderiv : ∀ t, HasDerivAt R (-(f'' t * (y - t))) t := by
+    intro t
+    have hsub : HasDerivAt (fun w : ℝ => y - w) (-1) t := by
+      simpa using (hasDerivAt_id t).const_sub y
+    have h1 : HasDerivAt (fun w => f' w * (y - w))
+        (f'' t * (y - t) + f' t * (-1)) t := (hderiv2 t).mul hsub
+    have h2 : HasDerivAt (fun w => f y - f w) (-(f' t)) t := by
+      simpa using (hderiv t).const_sub (f y)
+    have hsum := h2.sub h1
+    have harith : -(f' t) - (f'' t * (y - t) + f' t * (-1)) = -(f'' t * (y - t)) := by
+      ring
+    rw [harith] at hsum
+    exact hsum
+  have hRy : R y = 0 := by simp [hR]
+  -- h t = R t - (β/2)(y-t)^2 has h' t = (y-t)(β - f'' t) ≥ 0 for t ≤ y
+  set h : ℝ → ℝ := fun t => R t - β / 2 * (y - t) ^ 2 with hh
+  set k : ℝ → ℝ := fun t => R t + β / 2 * (y - t) ^ 2 with hk
+  have hsqderiv : ∀ t, HasDerivAt (fun w : ℝ => (y - w) ^ 2) (-2 * (y - t)) t := by
+    intro t
+    have hsub : HasDerivAt (fun w : ℝ => y - w) (-1) t := by
+      simpa using (hasDerivAt_id t).const_sub y
+    have hmul := hsub.mul hsub
+    have harith : (-1 : ℝ) * (y - t) + (y - t) * (-1) = -2 * (y - t) := by ring
+    have hsq : (fun w : ℝ => (y - w) ^ 2) = fun w : ℝ => (y - w) * (y - w) := by
+      funext w; ring
+    rw [hsq, ← harith]
+    exact hmul
+  have hhderiv : ∀ t, HasDerivAt h ((y - t) * (β - f'' t)) t := by
+    intro t
+    have := (hRderiv t).sub ((hsqderiv t).const_mul (β / 2))
+    have harith : -(f'' t * (y - t)) - β / 2 * (-2 * (y - t)) = (y - t) * (β - f'' t) := by
+      ring
+    rw [harith] at this
+    exact this
+  have hkderiv : ∀ t, HasDerivAt k (-((y - t) * (β + f'' t))) t := by
+    intro t
+    have := (hRderiv t).add ((hsqderiv t).const_mul (β / 2))
+    have harith : -(f'' t * (y - t)) + β / 2 * (-2 * (y - t))
+        = -((y - t) * (β + f'' t)) := by ring
+    rw [harith] at this
+    exact this
+  have hbnn : ∀ t, 0 ≤ β - f'' t := fun t => by
+    have := hbound t; cases abs_cases (f'' t) with
+    | inl hc => linarith [hc.1]
+    | inr hc => linarith [hc.1]
+  have hbnn' : ∀ t, 0 ≤ β + f'' t := fun t => by
+    have := hbound t; cases abs_cases (f'' t) with
+    | inl hc => linarith [hc.1]
+    | inr hc => linarith [hc.1]
+  have hRx : R x = f y - f x - f' x * (y - x) := rfl
+  have hhy : h y = 0 := by simp [hh, hR]
+  have hky : k y = 0 := by simp [hk, hR]
+  -- Case on the order of x and y; in each case monotonicity of h and k pins R x.
+  rcases le_total x y with hxy | hxy
+  · -- x ≤ y : on [x,y], h' ≥ 0 so h is monotone, h x ≤ h y = 0
+    have hhmono : ∀ t ∈ Set.Icc x y, 0 ≤ (y - t) * (β - f'' t) := by
+      intro t ht
+      exact mul_nonneg (by linarith [ht.2]) (hbnn t)
+    have hkmono : ∀ t ∈ Set.Icc x y, -((y - t) * (β + f'' t)) ≤ 0 := by
+      intro t ht
+      have : 0 ≤ (y - t) * (β + f'' t) :=
+        mul_nonneg (by linarith [ht.2]) (hbnn' t)
+      linarith
+    have hmono : MonotoneOn h (Set.Icc x y) := by
+      refine monotoneOn_of_deriv_nonneg (convex_Icc x y)
+        (fun t _ => (hhderiv t).continuousAt.continuousWithinAt)
+        (fun t _ => (hhderiv t).differentiableAt.differentiableWithinAt) ?_
+      intro t ht
+      rw [(hhderiv t).deriv]
+      exact hhmono t (interior_subset ht)
+    have hh_le : h x ≤ h y :=
+      hmono (Set.left_mem_Icc.mpr hxy) (Set.right_mem_Icc.mpr hxy) hxy
+    have hanti : AntitoneOn k (Set.Icc x y) := by
+      refine antitoneOn_of_deriv_nonpos (convex_Icc x y)
+        (fun t _ => (hkderiv t).continuousAt.continuousWithinAt)
+        (fun t _ => (hkderiv t).differentiableAt.differentiableWithinAt) ?_
+      intro t ht
+      rw [(hkderiv t).deriv]
+      exact hkmono t (interior_subset ht)
+    have hk_ge : k y ≤ k x :=
+      hanti (Set.left_mem_Icc.mpr hxy) (Set.right_mem_Icc.mpr hxy) hxy
+    rw [hhy] at hh_le
+    rw [hky] at hk_ge
+    simp only [hh, hk] at hh_le hk_ge
+    rw [abs_le]
+    constructor <;> [linarith; linarith]
+  · -- y ≤ x : on [y,x], the same derivatives have the opposite sign pattern
+    have hhmono : ∀ t ∈ Set.Icc y x, (y - t) * (β - f'' t) ≤ 0 := by
+      intro t ht
+      have h1 : y - t ≤ 0 := by linarith [ht.1]
+      exact mul_nonpos_of_nonpos_of_nonneg h1 (hbnn t)
+    have hkmono : ∀ t ∈ Set.Icc y x, 0 ≤ -((y - t) * (β + f'' t)) := by
+      intro t ht
+      have h1 : y - t ≤ 0 := by linarith [ht.1]
+      have : (y - t) * (β + f'' t) ≤ 0 :=
+        mul_nonpos_of_nonpos_of_nonneg h1 (hbnn' t)
+      linarith
+    have hanti : AntitoneOn h (Set.Icc y x) := by
+      refine antitoneOn_of_deriv_nonpos (convex_Icc y x)
+        (fun t _ => (hhderiv t).continuousAt.continuousWithinAt)
+        (fun t _ => (hhderiv t).differentiableAt.differentiableWithinAt) ?_
+      intro t ht
+      rw [(hhderiv t).deriv]
+      exact hhmono t (interior_subset ht)
+    have hh_le : h x ≤ h y :=
+      hanti (Set.left_mem_Icc.mpr hxy) (Set.right_mem_Icc.mpr hxy) hxy
+    have hmono : MonotoneOn k (Set.Icc y x) := by
+      refine monotoneOn_of_deriv_nonneg (convex_Icc y x)
+        (fun t _ => (hkderiv t).continuousAt.continuousWithinAt)
+        (fun t _ => (hkderiv t).differentiableAt.differentiableWithinAt) ?_
+      intro t ht
+      rw [(hkderiv t).deriv]
+      exact hkmono t (interior_subset ht)
+    have hk_ge : k y ≤ k x :=
+      hmono (Set.left_mem_Icc.mpr hxy) (Set.right_mem_Icc.mpr hxy) hxy
+    rw [hhy] at hh_le
+    rw [hky] at hk_ge
+    simp only [hh, hk] at hh_le hk_ge
+    rw [abs_le]
+    constructor <;> [linarith; linarith]
+
 /-- **Smoothness from a second-derivative bound, via the mean value theorem.**
 
 `|f''| ≤ β` gives `SmoothAt f f' (2β)`.
@@ -431,7 +574,7 @@ theorem hasDerivAt_dV_canonical (m : ℕ) (s : S) :
   hasDerivAt_dV M PF θ (dLocalTerm M PF θ)
     (fun j s' => hasDerivAt_localTerm M PF θ j s') m s
 
-/-- **The value function is `16/(1-γ)³`-smooth — every derivative discharged.**
+/-- **The value function is `8/(1-γ)³`-smooth — AKM Lemma E.4's exact constant.**
 
 The final form. Inputs are exactly the paper's standing assumptions plus the
 bound on the local-term derivative:
@@ -441,18 +584,17 @@ bound on the local-term derivative:
 * `|r| ≤ 1`, `0 ≤ γ < 1`.
 
 No `HasDerivAt` hypotheses: `hasDerivAt_V`, `hasDerivAt_localTerm` and
-`hasDerivAt_dV_canonical` are all theorems. This is what `ascent_step` and
-`domination_rate` consume, so AKM Theorem 4.1 is instantiable for a concrete
-MDP. -/
+`hasDerivAt_dV_canonical` are all theorems. The constant is the paper's sharp
+`8/(1-γ)³`, obtained from `smoothAt_of_abs_second_deriv_le_sharp`. This is what
+`ascent_step` and `domination_rate` consume, so AKM Theorem 4.1 is instantiable
+for a concrete MDP. -/
 theorem smoothAt_V_final (m : ℕ) (s : S)
     (hdloc : ∀ (t : ℝ) (j : ℕ) (s' : S), |dLocalTerm M PF t j s'| ≤ 3 / (1 - M.γ))
     (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)
     (hr : ∀ s' a, |M.r s' a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
     SmoothAt (fun t => V M (PF.toDiffPolicy.toPolicy t) m s)
-      (fun t => dV M PF.toDiffPolicy t m s) (2 * (8 / (1 - M.γ) ^ 3)) := by
-  have hpos : 0 < 1 - M.γ := by linarith
-  have hβ : (0:ℝ) ≤ 8 / (1 - M.γ) ^ 3 := by positivity
-  refine smoothAt_two_of_abs_second_deriv_le hβ
+      (fun t => dV M PF.toDiffPolicy t m s) (8 / (1 - M.γ) ^ 3) := by
+  refine smoothAt_of_abs_second_deriv_le_sharp
     (fun t => hasDerivAt_V M PF.toDiffPolicy t m s)
     (fun t => hasDerivAt_dV_canonical M PF t m s) ?_
   intro t
