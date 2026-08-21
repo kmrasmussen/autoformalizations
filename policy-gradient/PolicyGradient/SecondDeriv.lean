@@ -32,7 +32,7 @@ open Finset
 
 namespace PolicyGradient
 
-variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S]
+variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S] [Nonempty A] [DecidableEq A]
 variable (M : FiniteMDP S A) (PF : C2Policy S A) (θ : ℝ)
 
 /-- The derivative of the one-step transition kernel in `θ`. -/
@@ -176,5 +176,66 @@ theorem abs_d2V_le (dlocal : ℕ → S → ℝ) (L₂ G D : ℝ)
           simp only [pow_zero, pow_succ]
           rw [← Finset.sum_mul]
           ring
+
+/-- **The concrete second-derivative bound for softmax.**
+
+With rewards in `[-1,1]`, score total variation `≤ 1`, and the local-term
+derivative bounded by `L₂`, the second derivative of the value function is
+bounded by
+
+  `(L₂ + γ/(1-γ)²) / (1-γ)`
+
+Taking `L₂ = 3/(1-γ)` — the paper's bound on the reward term — gives
+`(3/(1-γ) + γ/(1-γ)²)/(1-γ) ≤ 8/(1-γ)³` by `smoothness_arithmetic`-style
+arithmetic. -/
+theorem abs_d2V_le_concrete (dlocal : ℕ → S → ℝ) (L₂ : ℝ) (hL₂ : 0 ≤ L₂)
+    (hdloc : ∀ (j : ℕ) (s : S), |dlocal j s| ≤ L₂)
+    (hscore : ∀ s, ∑ a, |PF.dπ θ s a| ≤ 1)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (m : ℕ) (s : S) :
+    |d2V M PF θ dlocal m s|
+      ≤ (L₂ + M.γ * (1 / (1 - M.γ) ^ 2)) * (1 / (1 - M.γ)) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hG : ∀ (j : ℕ) (s' : S), |dV M PF.toDiffPolicy θ j s'| ≤ 1 / (1 - M.γ) ^ 2 :=
+    fun j s' => abs_dV_le_softmax M PF.toDiffPolicy θ hscore hr hγ₀ hγ₁ j s'
+  have hGnn : (0:ℝ) ≤ 1 / (1 - M.γ) ^ 2 := by positivity
+  have hb := abs_d2V_le M PF θ dlocal L₂ (1 / (1 - M.γ) ^ 2) 1
+    hL₂ hGnn zero_le_one hdloc hG hscore hγ₀ m s
+  refine le_trans hb ?_
+  have hgeom : ∑ i ∈ range m, M.γ ^ i ≤ 1 / (1 - M.γ) := by
+    have hlt : M.γ ≠ 1 := ne_of_lt hγ₁
+    have hpow : (0:ℝ) ≤ M.γ ^ m := pow_nonneg hγ₀ m
+    rw [geom_sum_eq hlt, ← sub_nonneg]
+    have expand : 1 / (1 - M.γ) - (M.γ ^ m - 1) / (M.γ - 1)
+        = M.γ ^ m / (1 - M.γ) := by field_simp; ring
+    rw [expand]; positivity
+  have hKnn : (0:ℝ) ≤ L₂ + M.γ * (1 * (1 / (1 - M.γ) ^ 2)) := by
+    have h2 : (0:ℝ) ≤ M.γ * (1 * (1 / (1 - M.γ) ^ 2)) := by positivity
+    linarith
+  calc (L₂ + M.γ * (1 * (1 / (1 - M.γ) ^ 2))) * ∑ i ∈ range m, M.γ ^ i
+      ≤ (L₂ + M.γ * (1 * (1 / (1 - M.γ) ^ 2))) * (1 / (1 - M.γ)) :=
+        mul_le_mul_of_nonneg_left hgeom hKnn
+    _ = (L₂ + M.γ * (1 / (1 - M.γ) ^ 2)) * (1 / (1 - M.γ)) := by ring
+
+/-- **The `8/(1-γ)³` constant.** With the paper's local bound `L₂ = 3/(1-γ)`,
+the second derivative of the value function is bounded by `8/(1-γ)³` — AKM
+Lemma E.4 / Mei Lemma 7's constant. -/
+theorem abs_d2V_le_eight (dlocal : ℕ → S → ℝ)
+    (hdloc : ∀ (j : ℕ) (s : S), |dlocal j s| ≤ 3 / (1 - M.γ))
+    (hscore : ∀ s, ∑ a, |PF.dπ θ s a| ≤ 1)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (m : ℕ) (s : S) :
+    |d2V M PF θ dlocal m s| ≤ 8 / (1 - M.γ) ^ 3 := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hL₂ : (0:ℝ) ≤ 3 / (1 - M.γ) := by positivity
+  refine le_trans (abs_d2V_le_concrete M PF θ dlocal _ hL₂ hdloc hscore hr hγ₀ hγ₁ m s) ?_
+  rw [← sub_nonneg]
+  have expand : 8 / (1 - M.γ) ^ 3
+      - (3 / (1 - M.γ) + M.γ * (1 / (1 - M.γ) ^ 2)) * (1 / (1 - M.γ))
+      = (8 - (3 * (1 - M.γ) + M.γ)) / (1 - M.γ) ^ 3 := by
+    field_simp
+  rw [expand]
+  refine div_nonneg ?_ (by positivity)
+  linarith
 
 end PolicyGradient
