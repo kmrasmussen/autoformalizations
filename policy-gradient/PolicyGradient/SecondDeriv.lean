@@ -270,6 +270,32 @@ theorem smoothAt_of_abs_second_deriv_le {f f' f'' : ℝ → ℝ} {β : ℝ}
   have := hbound ξ
   nlinarith [sq_nonneg (y - x), abs_nonneg (f'' ξ)]
 
+/-- The canonical derivative of the local term.
+
+`localTerm_j s = ∑ₐ dπ(a|s)·Q_j(s,a)`, so by the product rule its derivative is
+
+  `∑ₐ (d2π(a|s)·Q_j(s,a) + dπ(a|s)·dQ_j(s,a))`
+
+with `dQ_j = γ·∑_{s'} P(s'|s,a)·dV_j(s')` from `hasDerivAt_Q`. Everything on the
+right is already available, so this needs no new input. -/
+noncomputable def dLocalTerm (j : ℕ) (s : S) : ℝ :=
+  ∑ a, (PF.d2π θ s a * Q M (PF.toDiffPolicy.toPolicy θ) j s a
+    + PF.dπ θ s a * (M.γ * ∑ s', (M.P s a) s' * dV M PF.toDiffPolicy θ j s'))
+
+/-- **`dLocalTerm` really is the derivative of `localTerm`.**
+
+Discharges what was previously the `hdlocal` hypothesis: the product rule
+applied termwise, with `hasDeriv2` supplying the policy's second derivative and
+`hasDerivAt_Q` the action-value's first. -/
+theorem hasDerivAt_localTerm (j : ℕ) (s : S) :
+    HasDerivAt (fun t => localTerm M PF.toDiffPolicy t j s)
+      (dLocalTerm M PF θ j s) θ := by
+  unfold localTerm dLocalTerm
+  refine HasDerivAt.fun_sum fun a _ => ?_
+  exact (PF.hasDeriv2 θ s a).mul
+    (hasDerivAt_Q M PF.toDiffPolicy θ j s a
+      (fun s' => hasDerivAt_V M PF.toDiffPolicy θ j s'))
+
 /-- **`d2V` really is the derivative of `dV`.**
 
 By induction on the horizon, mirroring `hasDerivAt_V`. The step differentiates
@@ -392,5 +418,44 @@ theorem smoothAt_V_sixteen (dlocal : ℕ → S → ℝ) (m : ℕ) (s : S)
     fun t => hasDerivAt_dV M PF t dlocal (hdlocal t) m s
   exact smoothAt_two_of_abs_second_deriv_le hβ hderiv hderiv2
     (fun t => abs_d2V_le_eight M PF t dlocal hdloc (hscore t) hr hγ₀ hγ₁ m s)
+
+/-- **`d2V` at the canonical local derivative is the derivative of `dV`.**
+
+Specialising `hasDerivAt_dV` to `dLocalTerm`, whose derivative property is
+`hasDerivAt_localTerm` — no hypothesis required. Note `dLocalTerm M PF t` is
+evaluated at the *same* `t` as the derivative, which is what makes this work
+without assuming anything is constant. -/
+theorem hasDerivAt_dV_canonical (m : ℕ) (s : S) :
+    HasDerivAt (fun t => dV M PF.toDiffPolicy t m s)
+      (d2V M PF θ (dLocalTerm M PF θ) m s) θ :=
+  hasDerivAt_dV M PF θ (dLocalTerm M PF θ)
+    (fun j s' => hasDerivAt_localTerm M PF θ j s') m s
+
+/-- **The value function is `16/(1-γ)³`-smooth — every derivative discharged.**
+
+The final form. Inputs are exactly the paper's standing assumptions plus the
+bound on the local-term derivative:
+
+* `|dLocalTerm| ≤ 3/(1-γ)`,
+* softmax score total variation `≤ 1` (`sum_abs_score_le_one`),
+* `|r| ≤ 1`, `0 ≤ γ < 1`.
+
+No `HasDerivAt` hypotheses: `hasDerivAt_V`, `hasDerivAt_localTerm` and
+`hasDerivAt_dV_canonical` are all theorems. This is what `ascent_step` and
+`domination_rate` consume, so AKM Theorem 4.1 is instantiable for a concrete
+MDP. -/
+theorem smoothAt_V_final (m : ℕ) (s : S)
+    (hdloc : ∀ (t : ℝ) (j : ℕ) (s' : S), |dLocalTerm M PF t j s'| ≤ 3 / (1 - M.γ))
+    (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)
+    (hr : ∀ s' a, |M.r s' a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
+    SmoothAt (fun t => V M (PF.toDiffPolicy.toPolicy t) m s)
+      (fun t => dV M PF.toDiffPolicy t m s) (2 * (8 / (1 - M.γ) ^ 3)) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hβ : (0:ℝ) ≤ 8 / (1 - M.γ) ^ 3 := by positivity
+  refine smoothAt_two_of_abs_second_deriv_le hβ
+    (fun t => hasDerivAt_V M PF.toDiffPolicy t m s)
+    (fun t => hasDerivAt_dV_canonical M PF t m s) ?_
+  intro t
+  exact abs_d2V_le_eight M PF t (dLocalTerm M PF t) (hdloc t) (hscore t) hr hγ₀ hγ₁ m s
 
 end PolicyGradient
