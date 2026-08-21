@@ -6,3 +6,4 @@ import PolicyGradient.Theorem
 import PolicyGradient.PerformanceDifference
 import PolicyGradient.Infinite
 import PolicyGradient.InfiniteGradient
+import PolicyGradient.Softmax
