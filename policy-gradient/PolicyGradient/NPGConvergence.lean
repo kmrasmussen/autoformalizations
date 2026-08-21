@@ -74,4 +74,57 @@ theorem npg_log_ratio (π : Policy S A) (j : ℕ) (η : ℝ) (w : S → A → �
       Real.log_exp] at this
   linarith
 
+/-!
+### The KL potential
+-/
+
+/-- KL divergence from `p` to `q` at a state, `∑ₐ p(a)·log(p(a)/q(a))`. -/
+noncomputable def klDiv (p q : Dist A) : ℝ :=
+  ∑ a, p a * (Real.log (p a) - Real.log (q a))
+
+/-- **The per-step KL decrease.**
+
+`KL(π*‖π_t) - KL(π*‖π_{t+1}) = η·∑ₐ π*(a|s)·A^{π_t}(s,a) - log Z_t(s)`
+
+The KL to any comparison policy decreases by exactly the `π*`-weighted
+advantage, less the normalizer. Combined with `performance_difference` — which
+says the `π*`-weighted advantage *is* the suboptimality — this is what turns
+the potential argument into a rate.
+
+This is the step where the occupancy measure would appear for ordinary policy
+gradient but does not for NPG, which is the source of the dimension-free
+constant. -/
+theorem kl_step (π : Policy S A) (j : ℕ) (η : ℝ) (w : S → A → ℝ)
+    (πstar : Policy S A) (s : S) :
+    klDiv (πstar s) (softmax (w s)) - klDiv (πstar s) (softmax (npgStep M π j η w s))
+      = η * (∑ a, (πstar s) a * adv M π j s a)
+        - Real.log (npgNormalizer M π j η w s) := by
+  unfold klDiv
+  rw [← Finset.sum_sub_distrib]
+  have expand : ∀ a,
+      (πstar s) a * (Real.log ((πstar s) a) - Real.log ((softmax (w s)) a))
+      - (πstar s) a * (Real.log ((πstar s) a)
+          - Real.log ((softmax (npgStep M π j η w s)) a))
+      = (πstar s) a * (η * adv M π j s a
+          - Real.log (npgNormalizer M π j η w s)) := by
+    intro a
+    have h := npg_log_ratio M π j η w s a
+    -- LHS = πstar a * (log π_{t+1} a - log π_t a) = πstar a * (η A - log Z)
+    have hfactor : (πstar s) a * (Real.log ((πstar s) a)
+          - Real.log ((softmax (w s)) a))
+        - (πstar s) a * (Real.log ((πstar s) a)
+            - Real.log ((softmax (npgStep M π j η w s)) a))
+        = (πstar s) a * (Real.log ((softmax (npgStep M π j η w s)) a)
+            - Real.log ((softmax (w s)) a)) := by ring
+    rw [hfactor, h]
+  rw [Finset.sum_congr rfl (fun a _ => expand a)]
+  simp only [mul_sub]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_mul, (πstar s).sum_eq_one, one_mul]
+  have : ∑ a, (πstar s) a * (η * adv M π j s a)
+      = η * ∑ a, (πstar s) a * adv M π j s a := by
+    rw [Finset.mul_sum]
+    refine Finset.sum_congr rfl fun a _ => ?_
+    ring
+  rw [this]
+
 end PolicyGradient
