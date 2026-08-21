@@ -211,4 +211,101 @@ theorem abs_dV_le (L : ℝ) (hL : 0 ≤ L)
           rw [← Finset.sum_mul]
           ring
 
+/-- `|Q_m| ≤ 1/(1-γ)` when rewards are in `[-1,1]`: the action-value inherits
+the geometric bound from the value. -/
+theorem abs_Q_le_geom (π : Policy S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (m : ℕ)
+    (s : S) (a : A) :
+    |Q M π m s a| ≤ 1 / (1 - M.γ) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  unfold Q
+  have hV : |∑ s', (M.P s a) s' * V M π m s'| ≤ 1 / (1 - M.γ) := by
+    calc |∑ s', (M.P s a) s' * V M π m s'|
+        ≤ ∑ s', |(M.P s a) s' * V M π m s'| := Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ s', (M.P s a) s' * |V M π m s'| := by
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [abs_mul, abs_of_nonneg ((M.P s a).nonneg s')]
+      _ ≤ ∑ s', (M.P s a) s' * (1 / (1 - M.γ)) := by
+          refine Finset.sum_le_sum fun s' _ => ?_
+          exact mul_le_mul_of_nonneg_left (V_le_geom M π hr hγ₀ hγ₁ m s')
+            ((M.P s a).nonneg s')
+      _ = 1 / (1 - M.γ) := by rw [← Finset.sum_mul, (M.P s a).sum_eq_one, one_mul]
+  calc |M.r s a + M.γ * ∑ s', (M.P s a) s' * V M π m s'|
+      ≤ |M.r s a| + |M.γ * ∑ s', (M.P s a) s' * V M π m s'| := abs_add_le _ _
+    _ ≤ 1 + M.γ * (1 / (1 - M.γ)) := by
+        refine add_le_add (hr s a) ?_
+        rw [abs_mul, abs_of_nonneg hγ₀]
+        exact mul_le_mul_of_nonneg_left hV hγ₀
+    _ = 1 / (1 - M.γ) := by
+        field_simp
+        ring
+
+/-- **The local term is bounded by the score total-variation times `1/(1-γ)`.**
+
+`|localTerm_j s| = |∑ₐ dπ(a|s)·Q_j(s,a)| ≤ (∑ₐ|dπ(a|s)|)·max|Q| ≤ D/(1-γ)`
+
+where `D` bounds the score's total variation. For softmax `D = 1`
+(`sum_abs_score_le_one`), which is where the concrete constant comes from. -/
+theorem abs_localTerm_le (D : ℝ) (hD : 0 ≤ D)
+    (hscore : ∀ s, ∑ a, |PF.dπ θ s a| ≤ D)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (j : ℕ) (s : S) :
+    |localTerm M PF θ j s| ≤ D * (1 / (1 - M.γ)) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  unfold localTerm
+  calc |∑ a, PF.dπ θ s a * Q M (PF.toPolicy θ) j s a|
+      ≤ ∑ a, |PF.dπ θ s a * Q M (PF.toPolicy θ) j s a| := Finset.abs_sum_le_sum_abs _ _
+    _ = ∑ a, |PF.dπ θ s a| * |Q M (PF.toPolicy θ) j s a| := by
+        refine Finset.sum_congr rfl fun a _ => abs_mul _ _
+    _ ≤ ∑ a, |PF.dπ θ s a| * (1 / (1 - M.γ)) := by
+        refine Finset.sum_le_sum fun a _ => ?_
+        exact mul_le_mul_of_nonneg_left
+          (abs_Q_le_geom M (PF.toPolicy θ) hr hγ₀ hγ₁ j s a) (abs_nonneg _)
+    _ = (∑ a, |PF.dπ θ s a|) * (1 / (1 - M.γ)) := by rw [← Finset.sum_mul]
+    _ ≤ D * (1 / (1 - M.γ)) := by
+        refine mul_le_mul_of_nonneg_right (hscore s) (by positivity)
+
+/-- **The concrete value-gradient bound.**
+
+Combining `abs_localTerm_le` with `abs_dV_le`:
+
+  `|dV_m(s)| ≤ D/(1-γ)²`
+
+for a policy family whose score has total variation at most `D`, with rewards in
+`[-1,1]` and `γ < 1`. For softmax `D = 1` (`sum_abs_score_le_one`), giving the
+`1/(1-γ)²` bound that appears throughout AKM. -/
+theorem abs_dV_le_concrete (D : ℝ) (hD : 0 ≤ D)
+    (hscore : ∀ s, ∑ a, |PF.dπ θ s a| ≤ D)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (m : ℕ) (s : S) :
+    |dV M PF θ m s| ≤ D / (1 - M.γ) ^ 2 := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hL : 0 ≤ D * (1 / (1 - M.γ)) := by positivity
+  have hbound := abs_dV_le M PF θ (D * (1 / (1 - M.γ))) hL
+    (fun j s' => abs_localTerm_le M PF θ D hD hscore hr hγ₀ hγ₁ j s') hγ₀ m s
+  refine le_trans hbound ?_
+  -- D/(1-γ) · ∑_{i<m} γⁱ ≤ D/(1-γ) · 1/(1-γ)
+  have hgeom : ∑ i ∈ range m, M.γ ^ i ≤ 1 / (1 - M.γ) := by
+    have hlt : M.γ ≠ 1 := ne_of_lt hγ₁
+    have hpow : (0:ℝ) ≤ M.γ ^ m := pow_nonneg hγ₀ m
+    rw [geom_sum_eq hlt, ← sub_nonneg]
+    have expand : 1 / (1 - M.γ) - (M.γ ^ m - 1) / (M.γ - 1)
+        = M.γ ^ m / (1 - M.γ) := by
+      field_simp; ring
+    rw [expand]; positivity
+  calc D * (1 / (1 - M.γ)) * ∑ i ∈ range m, M.γ ^ i
+      ≤ D * (1 / (1 - M.γ)) * (1 / (1 - M.γ)) :=
+        mul_le_mul_of_nonneg_left hgeom hL
+    _ = D / (1 - M.γ) ^ 2 := by field_simp
+
+/-- **The softmax instance.** For a softmax policy family the score total
+variation is at most one, so the value gradient is bounded by `1/(1-γ)²` with
+no free parameter — the concrete constant AKM uses. -/
+theorem abs_dV_le_softmax
+    (hscore : ∀ s, ∑ a, |PF.dπ θ s a| ≤ 1)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (m : ℕ) (s : S) :
+    |dV M PF θ m s| ≤ 1 / (1 - M.γ) ^ 2 := by
+  simpa using abs_dV_le_concrete M PF θ 1 zero_le_one hscore hr hγ₀ hγ₁ m s
+
 end PolicyGradient
