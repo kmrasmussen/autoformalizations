@@ -172,4 +172,54 @@ theorem approx_domination_floor {f f' : ℝ → ℝ} {β c fstar ε : ℝ}
     exact mul_le_mul_of_nonneg_left hsq (le_of_lt hinv)
   linarith [hasc, hstep]
 
+/-!
+### Asymptotic convergence (AKM Theorem 5.1)
+
+Theorem 5.1 is asymptotic and carries no rate: softmax policy gradient with a
+small enough stepsize drives `V^{(t)}(s) → V*(s)`. The mechanism is that the
+suboptimality is monotonically non-increasing and bounded, hence convergent,
+and the limit must satisfy the greedy condition — which `optimal_of_greedy`
+then converts into optimality.
+
+This is the theorem Mei et al. cite for their `c > 0`, and it is the reason
+their `O(1/t)` rate is not self-contained.
+-/
+
+/-- A gradient-ascent trajectory on a smooth function has monotonically
+non-decreasing value. -/
+theorem ascent_monotone {f f' : ℝ → ℝ} {β : ℝ} (hβ : 0 < β) (hs : SmoothAt f f' β)
+    (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t)) (t : ℕ) :
+    f (x t) ≤ f (x (t + 1)) := by
+  have h := ascent_step hβ hs (x t)
+  rw [← hx t] at h
+  have hgain : 0 ≤ 1 / (2 * β) * (f' (x t)) ^ 2 := by positivity
+  linarith [h, hgain]
+
+/-- The suboptimality along a gradient-ascent trajectory is non-increasing. -/
+theorem subopt_antitone {f f' : ℝ → ℝ} {β fstar : ℝ} (hβ : 0 < β)
+    (hs : SmoothAt f f' β) (x : ℕ → ℝ)
+    (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t)) (t : ℕ) :
+    fstar - f (x (t + 1)) ≤ fstar - f (x t) := by
+  have := ascent_monotone hβ hs x hx t
+  linarith
+
+/-- **The value sequence converges.** Bounded above by `fstar` and monotone, the
+value along a gradient-ascent trajectory converges.
+
+This is the analytic content of AKM Theorem 5.1: the limit exists. Identifying
+the limit as the optimum is then `optimal_of_greedy`, once one knows the limit
+policy is greedy. -/
+theorem ascent_converges {f f' : ℝ → ℝ} {β fstar : ℝ} (hβ : 0 < β)
+    (hs : SmoothAt f f' β) (x : ℕ → ℝ)
+    (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t))
+    (hbdd : ∀ t, f (x t) ≤ fstar) :
+    ∃ L : ℝ, L ≤ fstar ∧
+      Filter.Tendsto (fun t => f (x t)) Filter.atTop (nhds L) := by
+  have hmono : Monotone (fun t => f (x t)) :=
+    monotone_nat_of_le_succ (fun t => ascent_monotone hβ hs x hx t)
+  have hbdd' : BddAbove (Set.range fun t => f (x t)) :=
+    ⟨fstar, fun y hy => by obtain ⟨t, rfl⟩ := hy; exact hbdd t⟩
+  refine ⟨⨆ t, f (x t), ?_, tendsto_atTop_ciSup hmono hbdd'⟩
+  exact ciSup_le hbdd
+
 end PolicyGradient
