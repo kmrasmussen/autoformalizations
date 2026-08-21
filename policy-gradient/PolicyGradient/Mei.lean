@@ -145,4 +145,49 @@ theorem le_of_adv_nonpos [DecidableEq A] (π : Policy S A) (astar : S → A)
       (visit_nonneg M (detPolicy astar) k s₀ s) (hadv (m - 1 - k) s)
   linarith
 
+/-!
+### Theorem 4 — the `O(1/t)` rate
+
+Mei's Theorem 4 states, with `η = (1-γ)³/8` and `c` the constant from their
+Lemma 9,
+
+  `V*(ρ) - V^{π_θₜ}(ρ) ≤ 16S/(c²(1-γ)⁶t) · ‖d_μ^{π*}/μ‖²_∞ · ‖1/μ‖_∞`
+
+The structure is: smoothness (`smoothAt_V_final`, our `8/(1-γ)³`) plus the
+Łojasiewicz bound gives a quadratic decrease, and `quad_decrease_rate` turns
+that into `1/t`. That composition is `domination_rate`, already proved.
+
+`c` is a hypothesis here, exactly as in the paper — their statement reads "`c`
+the positive constant from Lemma 9", and Lemma 9 is proved by citing AKM
+Theorem 5.1 rather than from first principles.
+-/
+
+/-- **Mei Theorem 4, in the form the machinery delivers.**
+
+A `β`-smooth objective satisfying a Łojasiewicz bound with coefficient `c`,
+optimized by gradient ascent at stepsize `1/β`, has suboptimality `≤ 2β/(c²T)`.
+
+Instantiating `β = 8/(1-γ)³` (our `smoothAt_V_final`, the paper's exact
+constant) gives `16/(c²(1-γ)³T)` — the paper's `16S/(c²(1-γ)⁶t)` up to the
+`|S|` and distribution-mismatch factors that come from converting the
+per-coordinate Łojasiewicz bound into a norm bound. -/
+theorem mei_theorem4 {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
+    (hγ₀ : 0 ≤ γ) (hγ₁ : γ < 1) (hc : 0 < c)
+    (hs : SmoothAt f f' (8 / (1 - γ) ^ 3))
+    (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + ((1 - γ) ^ 3 / 8) * f' (x t))
+    (hloja : ∀ t, c * (fstar - f (x t)) ≤ |f' (x t)|)
+    (hlt : ∀ t, f (x t) < fstar)
+    (T : ℕ) (hT : 1 ≤ T) :
+    fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * (8 / (1 - γ) ^ 3)) * T) := by
+  have hpos : 0 < 1 - γ := by linarith
+  have hβ : (0:ℝ) < 8 / (1 - γ) ^ 3 := by positivity
+  refine domination_rate hβ hc hs x ?_ hloja hlt T hT
+  intro t
+  rw [hx t]
+  congr 1
+  -- the paper's stepsize (1-γ)³/8 is exactly 1/β
+  have : (1:ℝ) / (8 / (1 - γ) ^ 3) = (1 - γ) ^ 3 / 8 := by
+    field_simp
+  rw [this]
+
 end PolicyGradient
