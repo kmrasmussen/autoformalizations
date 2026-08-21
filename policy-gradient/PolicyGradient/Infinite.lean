@@ -122,4 +122,37 @@ theorem summable_dvisit (π : Policy S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ <
 noncomputable def Qinf (π : Policy S A) (s : S) (a : A) : ℝ :=
   M.r s a + M.γ * ∑ s', (M.P s a) s' * Vinf M π s'
 
+/-!
+### The Bellman equation
+
+`Vinf` was defined as a `tsum` over time. The Bellman equation is what connects
+that to the recursive structure the finite-horizon development uses, and it is
+the bridge every later result crosses.
+-/
+
+/-- The time-`t+1` visitation is the time-`t` visitation pushed one step. -/
+theorem stepReward_succ (π : Policy S A) (t : ℕ) (s₀ : S) :
+    stepReward M π (t + 1) s₀
+      = M.γ * ∑ s', step M π s₀ s' * stepReward M π t s' := by
+  unfold stepReward
+  -- γ^(t+1) ∑_s visit (t+1) s₀ s · rbar s = γ · ∑_{s'} step s₀ s' · γ^t ∑_s visit t s' s · rbar s
+  have hswap : ∑ s, visit M π (t + 1) s₀ s * ∑ a, (π s) a * M.r s a
+      = ∑ s', step M π s₀ s' * ∑ s, visit M π t s' s * ∑ a, (π s) a * M.r s a := by
+    calc ∑ s, visit M π (t + 1) s₀ s * ∑ a, (π s) a * M.r s a
+        = ∑ s, (∑ s', step M π s₀ s' * visit M π t s' s) * ∑ a, (π s) a * M.r s a := by
+          refine Finset.sum_congr rfl fun s _ => ?_
+          rw [step_visit M π t s₀ s]
+      _ = ∑ s, ∑ s', step M π s₀ s' * (visit M π t s' s * ∑ a, (π s) a * M.r s a) := by
+          refine Finset.sum_congr rfl fun s _ => ?_
+          rw [Finset.sum_mul]
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          ring
+      _ = ∑ s', step M π s₀ s' * ∑ s, visit M π t s' s * ∑ a, (π s) a * M.r s a := by
+          rw [Finset.sum_comm]
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [Finset.mul_sum]
+  rw [hswap, Finset.mul_sum, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun s' _ => ?_
+  ring
+
 end PolicyGradient
