@@ -187,6 +187,32 @@ constants (`64γ|S||A|/((1−γ)⁶ε²)`, `320|S|²|A|²/((1−γ)⁶ε²)`) ar
 with `β` from the value function's smoothness and `c` from the
 distribution-mismatch coefficient.
 
+## Mei et al. — convergence rates (`Mei.lean`)
+
+[*On the Global Convergence Rates of Softmax Policy Gradient Methods*](https://arxiv.org/abs/2005.06392)
+(ICML 2020).
+
+| result | content |
+|---|---|
+| `lojaCoeff` | `minₛ π(a*(s)\|s)` — the non-uniform Łojasiewicz coefficient |
+| `loja_pointwise` | the coefficient bounds the weighted advantage below |
+| `subopt_eq_weighted_adv` | suboptimality as a visitation-weighted sum of optimal-action advantages |
+| **`mei_theorem4`** | **the `O(1/T)` rate**, with the paper's exact stepsize `(1−γ)³/8` and smoothness `8/(1−γ)³` |
+| `geometric_decay` | `δ_{t+1} ≤ (1−K)δ_t ⟹ δ_t ≤ (1−K)ᵗδ_0` |
+| **`mei_theorem6`** | **the entropy-regularized geometric rate** |
+
+**Why the constants differ.** Theorem 4's recursion is `δ_{t+1} ≤ δ_t − Kδ_t²`,
+giving `O(1/t)` with a constant `c` the paper admits is non-explicit — and which
+Li–Wei–Chi–Chen later showed can be exponentially small. Theorem 6's recursion is
+linear, giving a geometric rate with an explicit constant. That is the trade the
+entropy term buys.
+
+**A dependency the paper does not advertise.** Mei's Lemma 9 (`c > 0`) is proved
+by citing *"the asymptotic convergence results of Agarwal et al. [Theorem 5.1]"* —
+it is not proved in their paper. We have that content (`ascent_converges`,
+`optimal_of_greedy`), so `c` enters here as an explicit hypothesis exactly as
+their theorem statement does ("`c` the positive constant from Lemma 9").
+
 ## Status / next
 
 - [x] Finite-horizon episodic, finite S/A

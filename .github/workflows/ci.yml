@@ -62,6 +62,12 @@ jobs:
           #print axioms PolicyGradient.optimal_of_greedy
           #print axioms PolicyGradient.kl_telescope
           #print axioms PolicyGradient.quad_decrease_rate
+          #print axioms PolicyGradient.smoothAt_V_final
+          #print axioms PolicyGradient.hasDerivAt_dV
+          #print axioms PolicyGradient.abs_d2V_le_eight
+          #print axioms PolicyGradient.mei_theorem4
+          #print axioms PolicyGradient.mei_theorem6
+          #print axioms PolicyGradient.subopt_eq_weighted_adv
           EOF
           lake env lean AxiomCheck.lean | tee axioms.txt
           rm -f AxiomCheck.lean

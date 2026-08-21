@@ -230,4 +230,39 @@ theorem geometric_tendsto_zero {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 
   have := tendsto_pow_atTop_nhds_zero_of_lt_one hK₀ hK₁
   simpa using this.mul_const (δ 0)
 
+/-- **Mei Lemma 16, the self-contained part.**
+
+Along a gradient-ascent trajectory on a bounded-above objective, the value
+converges — by monotone convergence, with no external citation.
+
+This is the structural reason the entropy-regularized constant is explicit while
+the unregularized one is not: Mei's Lemma 16 (`c > 0` for the entropy case)
+rests on exactly this argument, whereas their Lemma 9 (`c > 0` unregularized)
+cites Agarwal et al. Theorem 5.1. -/
+theorem entropy_value_converges {f f' : ℝ → ℝ} {β fstar : ℝ} (hβ : 0 < β)
+    (hs : SmoothAt f f' β) (x : ℕ → ℝ)
+    (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t))
+    (hbdd : ∀ t, f (x t) ≤ fstar) :
+    ∃ L : ℝ, L ≤ fstar ∧
+      Filter.Tendsto (fun t => f (x t)) Filter.atTop (nhds L) :=
+  ascent_converges hβ hs x hx hbdd
+
+/-- **Mei Theorem 6, in the form the machinery delivers.**
+
+The entropy-regularized objective converges *geometrically*: if the
+suboptimality contracts by a factor `1-K` each step, it decays like `(1-K)^t`
+and tends to zero.
+
+Contrast with `mei_theorem4`: there the recursion is `δ_{t+1} ≤ δ_t - Kδ_t²`,
+giving `O(1/t)` with a non-explicit constant. Here the recursion is linear,
+giving a geometric rate with an explicit constant — the trade the entropy term
+buys. -/
+theorem mei_theorem6 {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
+    (δ : ℕ → ℝ) (hnn : ∀ t, 0 ≤ δ t)
+    (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) :
+    (∀ t, δ t ≤ (1 - K) ^ t * δ 0)
+    ∧ Filter.Tendsto δ Filter.atTop (nhds 0) :=
+  ⟨fun t => geometric_decay hK₀ δ hnn hstep t,
+   geometric_tendsto_zero hK₀ hK₁ δ hnn hstep⟩
+
 end PolicyGradient
