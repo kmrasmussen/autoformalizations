@@ -86,4 +86,52 @@ theorem advGap_nonpos_iff (π πstar : Policy S A) (j : ℕ) (s : S) :
   rw [Finset.sum_sub_distrib, ← Finset.sum_mul, (πstar s).sum_eq_one, one_mul]
   constructor <;> intro h <;> linarith
 
+/-!
+### Value sub-optimality
+
+The comparison-policy advantage against `π` is exactly the suboptimality gap
+at each state. This is the identity behind the `ρ → μ` transfer step in both
+AKM Theorem 5.1 and Mei et al. Theorem 4.
+-/
+
+/-- The advantage gap of `π*` against `π` at a state, written in terms of
+values: it is the amount by which acting according to `π*` for one step and
+then following `π` improves on `π`. -/
+theorem advGap_eq_sub (π πstar : Policy S A) (j : ℕ) (s : S) :
+    advGap M πstar π j s
+      = (∑ a, (πstar s) a * Q M π j s a) - V M π (j + 1) s := by
+  unfold advGap adv
+  simp only [mul_sub]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_mul, (πstar s).sum_eq_one, one_mul]
+
+/-- If `π` is greedy with respect to its own `Q` — no action distribution
+improves on it — then its advantage gap against every policy is nonpositive,
+hence by `optimal_of_no_advantage` it is optimal.
+
+This is the bridge from a *pointwise* greedy condition to global optimality,
+i.e. the policy-improvement half of the AKM argument. -/
+theorem advGap_nonpos_of_greedy (π : Policy S A) (j : ℕ)
+    (hgreedy : ∀ (s : S) (a : A), Q M π j s a ≤ V M π (j + 1) s)
+    (πstar : Policy S A) (s : S) :
+    advGap M πstar π j s ≤ 0 := by
+  rw [advGap_eq_sub]
+  have hle : ∑ a, (πstar s) a * Q M π j s a
+      ≤ ∑ a, (πstar s) a * V M π (j + 1) s := by
+    refine Finset.sum_le_sum fun a _ => ?_
+    exact mul_le_mul_of_nonneg_left (hgreedy s a) ((πstar s).nonneg a)
+  rw [← Finset.sum_mul, (πstar s).sum_eq_one, one_mul] at hle
+  linarith
+
+/-- **Greedy implies optimal.** A policy that cannot be improved at any state
+by any one-step deviation is globally optimal.
+
+This is the conclusion AKM Theorem 5.1 reaches asymptotically: softmax policy
+gradient drives the policy towards satisfying this condition, and the condition
+certifies global optimality. -/
+theorem optimal_of_greedy (π : Policy S A) (m : ℕ) (hγ₀ : 0 ≤ M.γ)
+    (hgreedy : ∀ (j : ℕ) (s : S) (a : A), Q M π j s a ≤ V M π (j + 1) s) :
+    ∀ (πstar : Policy S A) (s₀ : S), V M πstar m s₀ ≤ V M π m s₀ :=
+  optimal_of_no_advantage M π m hγ₀
+    (fun πstar j s => advGap_nonpos_of_greedy M π j (hgreedy j) πstar s)
+
 end PolicyGradient
