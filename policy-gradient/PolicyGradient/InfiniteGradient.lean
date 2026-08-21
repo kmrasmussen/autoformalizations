@@ -83,4 +83,92 @@ theorem hasDerivAt_Vinf (B : TermDerivBound M PF) (s₀ : S) :
   exact hasDerivAt_tsum B.hu (fun t z => B.hasDeriv t z s₀)
     (fun t z => B.bound t z s₀) (B.base s₀) θ
 
+/-!
+### The gradient satisfies the linear Bellman identity
+
+`Vinf` obeys `Vinf s = ∑ₐ π(a|s)·Qinf(s,a)`. Differentiating both sides by the
+product rule gives
+
+  dVinf s = ∑ₐ dπ(a|s)·Qinf(s,a) + γ·∑_{s'} step s s' · dVinf s'
+
+— the same recursion the finite-horizon `dV` satisfies, with `Vinf` in place of
+`V m`. Unfolding it is what produces the occupancy-weighted sum.
+-/
+
+/-- The local term: score times action-value at a single state. -/
+noncomputable def localInfTerm (s : S) : ℝ :=
+  ∑ a, PF.dπ θ s a * Qinf M (PF.toPolicy θ) s a
+
+/-- A packaged solution to the gradient's Bellman equation.
+
+`grad` is the derivative of `Vinf` in `θ`, and it satisfies the linear
+identity obtained by differentiating the Bellman equation. -/
+structure GradSolution (M : FiniteMDP S A) (PF : DiffPolicy S A) (θ : ℝ) where
+  /-- The derivative of `Vinf` at each state. -/
+  grad : S → ℝ
+  /-- It really is the derivative. -/
+  hasDeriv : ∀ s, HasDerivAt (fun z => Vinf M (PF.toPolicy z) s) (grad s) θ
+  /-- It satisfies the differentiated Bellman equation. -/
+  bellman : ∀ s, grad s
+      = localInfTerm M PF θ s
+        + M.γ * ∑ s', step M (PF.toPolicy θ) s s' * grad s'
+
+/-- Unfolding the gradient's Bellman equation `n` times leaves a remainder
+weighted by `γⁿ` and the `n`-step visitation. -/
+theorem grad_unfold (G : GradSolution M PF θ) (n : ℕ) (s₀ : S) :
+    G.grad s₀
+      = (∑ k ∈ range n, M.γ ^ k *
+          ∑ s, visit M (PF.toPolicy θ) k s₀ s * localInfTerm M PF θ s)
+        + M.γ ^ n * ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s := by
+  induction n generalizing s₀ with
+  | zero => simp [visit]
+  | succ n ih =>
+    rw [ih s₀, Finset.sum_range_succ]
+    -- expand the remainder one more step
+    have hstep : ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s
+        = (∑ s, visit M (PF.toPolicy θ) n s₀ s * localInfTerm M PF θ s)
+          + M.γ * ∑ s, visit M (PF.toPolicy θ) (n + 1) s₀ s * G.grad s := by
+      calc ∑ s, visit M (PF.toPolicy θ) n s₀ s * G.grad s
+          = ∑ s, visit M (PF.toPolicy θ) n s₀ s *
+              (localInfTerm M PF θ s
+                + M.γ * ∑ s', step M (PF.toPolicy θ) s s' * G.grad s') := by
+            refine Finset.sum_congr rfl fun s _ => ?_
+            rw [G.bellman s]
+        _ = (∑ s, visit M (PF.toPolicy θ) n s₀ s * localInfTerm M PF θ s)
+              + ∑ s, visit M (PF.toPolicy θ) n s₀ s *
+                  (M.γ * ∑ s', step M (PF.toPolicy θ) s s' * G.grad s') := by
+            rw [← Finset.sum_add_distrib]
+            refine Finset.sum_congr rfl fun s _ => ?_
+            ring
+        _ = (∑ s, visit M (PF.toPolicy θ) n s₀ s * localInfTerm M PF θ s)
+              + M.γ * ∑ s, visit M (PF.toPolicy θ) (n + 1) s₀ s * G.grad s := by
+            congr 1
+            -- ∑_s visit n s · γ ∑_{s'} step s s' · grad s'
+            --   = γ ∑_{s'} (∑_s visit n s · step s s') · grad s'
+            --   = γ ∑_{s'} visit (n+1) s' · grad s'          [visit_succ]
+            calc ∑ s, visit M (PF.toPolicy θ) n s₀ s *
+                    (M.γ * ∑ s', step M (PF.toPolicy θ) s s' * G.grad s')
+                = M.γ * ∑ s', (∑ s, visit M (PF.toPolicy θ) n s₀ s
+                    * step M (PF.toPolicy θ) s s') * G.grad s' := by
+                  calc ∑ s, visit M (PF.toPolicy θ) n s₀ s *
+                          (M.γ * ∑ s', step M (PF.toPolicy θ) s s' * G.grad s')
+                      = ∑ s, ∑ s', M.γ * (visit M (PF.toPolicy θ) n s₀ s
+                          * step M (PF.toPolicy θ) s s' * G.grad s') := by
+                        refine Finset.sum_congr rfl fun s _ => ?_
+                        rw [Finset.mul_sum, Finset.mul_sum]
+                        refine Finset.sum_congr rfl fun s' _ => ?_
+                        ring
+                    _ = ∑ s', ∑ s, M.γ * (visit M (PF.toPolicy θ) n s₀ s
+                          * step M (PF.toPolicy θ) s s' * G.grad s') := Finset.sum_comm
+                    _ = M.γ * ∑ s', (∑ s, visit M (PF.toPolicy θ) n s₀ s
+                          * step M (PF.toPolicy θ) s s') * G.grad s' := by
+                        rw [Finset.mul_sum]
+                        refine Finset.sum_congr rfl fun s' _ => ?_
+                        rw [Finset.sum_mul, Finset.mul_sum]
+              _ = M.γ * ∑ s, visit M (PF.toPolicy θ) (n + 1) s₀ s * G.grad s := by
+                  refine congrArg _ (Finset.sum_congr rfl fun s' _ => ?_)
+                  rw [← visit_succ]
+    rw [hstep]
+    ring
+
 end PolicyGradient
