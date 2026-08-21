@@ -73,4 +73,49 @@ theorem V_le_geom (M : FiniteMDP S A) (π : Policy S A)
     positivity
   linarith [hb, hgeom]
 
+/-!
+### Softmax derivative bounds
+
+The other half of the `8/(1-γ)³` constant. Under softmax the score is
+`π(a)([a=b] - π(b))`, so the total variation of the derivative across actions is
+controlled by the policy being a probability vector.
+-/
+
+variable [Nonempty A] [DecidableEq A]
+
+/-- Any `Dist` value is at most one. -/
+theorem Dist.le_one {ι : Type*} [Fintype ι] (p : Dist ι) (i : ι) : p i ≤ 1 := by
+  have hle : p i ≤ ∑ j, p j :=
+    Finset.single_le_sum (fun j _ => p.nonneg j) (mem_univ i)
+  rw [p.sum_eq_one] at hle
+  exact hle
+
+/-- Each softmax score is bounded in absolute value by the action probability. -/
+theorem abs_score_le (w : A → ℝ) (a b : A) :
+    |softmaxScore w a b| ≤ (softmax w) a := by
+  unfold softmaxScore
+  rw [abs_mul, abs_of_nonneg ((softmax w).nonneg a)]
+  refine mul_le_of_le_one_right ((softmax w).nonneg a) ?_
+  have hb0 : 0 ≤ (softmax w) b := (softmax w).nonneg b
+  have hb1 : (softmax w) b ≤ 1 := Dist.le_one _ b
+  by_cases h : a = b
+  · simp only [if_pos h]
+    rw [abs_of_nonneg (by linarith)]
+    linarith
+  · simp only [if_neg h, zero_sub, abs_neg]
+    rw [abs_of_nonneg hb0]
+    exact hb1
+
+/-- **`∑_a |score(a,b)| ≤ 1`.**
+
+The total variation of the softmax score across actions is at most one, since
+each term is bounded by the corresponding probability and those sum to one.
+This is the bound the smoothness constant needs — the paper's `2‖u‖` factor
+comes from applying it twice (once for the policy, once for the transition). -/
+theorem sum_abs_score_le_one (w : A → ℝ) (b : A) :
+    ∑ a, |softmaxScore w a b| ≤ 1 := by
+  calc ∑ a, |softmaxScore w a b| ≤ ∑ a, (softmax w) a :=
+        Finset.sum_le_sum fun a _ => abs_score_le w a b
+    _ = 1 := (softmax w).sum_eq_one
+
 end PolicyGradient
