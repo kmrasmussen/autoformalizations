@@ -139,12 +139,46 @@ the term derivatives — what legitimizes the interchange) and `GradSolution` (a
 solution of the differentiated Bellman equation). Neither is vacuous: the `t`-th
 term's derivative grows like `C·(t+1)·γᵗ`, measured in `pg_inf_stmt.py`.
 
+## Agarwal–Kakade–Lee–Mahajan
+
+Working through [*On the Theory of Policy Gradient Methods*](https://arxiv.org/abs/1908.00261)
+(JMLR 22(98), 2021).
+
+**Softmax** (`Softmax.lean`) — `softmax`, `softmax_pos` (every action keeps
+strictly positive probability, the property the global-convergence argument
+turns on), `softmaxScore`, `softmaxScore_sum_eq_zero` (scores sum to zero, so
+the gradient is invariant to shifting all logits at a state).
+
+**Gradient domination** (`GradientDomination.lean`) — AKM Lemma 4.1.
+`suboptimality_eq` reads the performance difference lemma as a statement about
+suboptimality; `le_of_advGap_nonpos` and `optimal_of_no_advantage` give the
+local-to-global step: a purely local condition (no state has an improving
+advantage) certifies global optimality. For a general non-convex objective that
+implication is false — it holds here because of the MDP structure that
+`performance_difference` encodes.
+
+**Natural policy gradient** (`NPG.lean`) — Kakade (NeurIPS 2001); AKM Thm 5.3.
+The structural fact: for softmax parameterization the Fisher inverse and the
+occupancy weighting *cancel*, so the NPG step is exactly advantage-weighted
+logit ascent.
+
+| | |
+|---|---|
+| `npg_softmax_update` | `π_{t+1}(a\|s) ∝ exp(w + η·A)` |
+| `npg_ratio` | `π_{t+1}(a\|s)·Z = π_t(a\|s)·exp(η·A)` — no occupancy measure appears |
+| `npg_ratio_mono` | one step moves the probability *ratio* between any two actions toward the higher advantage |
+| `softmax_add_const` | softmax quotients out constant logit shifts, so the advantage-form update is well defined |
+
 ## Status / next
 
 - [x] Finite-horizon episodic, finite S/A
 - [x] Performance difference lemma (also unmechanized anywhere)
 - [x] Infinite-horizon discounted, including the ∂/∂θ ↔ ∑ interchange
-- [ ] Softmax global convergence (Agarwal et al. Thm 5.1 / Mei et al. Thm 4)
+- [x] Softmax parameterization and its score
+- [x] Gradient domination / local-to-global optimality (AKM Lemma 4.1)
+- [x] NPG closed form and monotonicity (AKM Thm 5.3 machinery)
+- [ ] The AKM Thm 5.1 / 5.3 rates themselves
+- [ ] Mei et al. smoothness + non-uniform Łojasiewicz → the O(1/t) rate
 
 Actor-critic is out of reach for now: it needs time-inhomogeneous chains and
 the ODE method, neither in Mathlib.

@@ -50,6 +50,11 @@ jobs:
           #print axioms PolicyGradient.grad_unfold
           #print axioms PolicyGradient.policy_gradient_infinite
           #print axioms PolicyGradient.policy_gradient_infinite_tsum
+          #print axioms PolicyGradient.optimal_of_no_advantage
+          #print axioms PolicyGradient.suboptimality_eq
+          #print axioms PolicyGradient.npg_softmax_update
+          #print axioms PolicyGradient.npg_ratio_mono
+          #print axioms PolicyGradient.softmaxScore_sum_eq_zero
           EOF
           lake env lean AxiomCheck.lean | tee axioms.txt
           rm -f AxiomCheck.lean
