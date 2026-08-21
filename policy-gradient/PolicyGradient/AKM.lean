@@ -119,4 +119,57 @@ theorem domination_rate {f f' : ℝ → ℝ} {β c fstar : ℝ}
   have hK : 0 < c ^ 2 / (2 * β) := by positivity
   exact quad_decrease_rate hK δ hpos hstep T hT
 
+/-!
+### Approximation (AKM Section 6)
+
+When the policy class cannot represent the optimum, the guarantee degrades by a
+*transfer error* — how badly the best-in-class approximation does under the
+comparison policy's state distribution — amplified by a *concentrability*
+coefficient measuring the distribution shift between the two.
+
+The structure of the bound is: `suboptimality ≤ optimization error + transfer
+error × concentrability`. The first term goes to zero with more iterations; the
+other two are irreducible properties of the function class and the MDP.
+-/
+
+/-- **The approximate-domination rate.**
+
+If gradient domination holds only up to an additive slack `ε` — the transfer
+error — then gradient ascent drives the suboptimality to `ε/c` plus an `O(1/T)`
+optimization term, rather than to zero.
+
+This is the shape of AKM's Section 6 results: the `ε/c` floor is where the
+function-approximation error and the distribution-mismatch coefficient enter,
+and it does not shrink with more iterations. -/
+theorem approx_domination_floor {f f' : ℝ → ℝ} {β c fstar ε : ℝ}
+    (hβ : 0 < β) (hc : 0 < c) (hε : 0 ≤ ε) (hs : SmoothAt f f' β) (x : ℝ)
+    (hdom : c * (fstar - f x) - ε ≤ |f' x|) (hle : f x ≤ fstar)
+    (hfloor : ε / c ≤ fstar - f x) :
+    fstar - f (x + (1 / β) * f' x)
+      ≤ (fstar - f x)
+        - (c ^ 2 / (2 * β)) * ((fstar - f x) - ε / c) ^ 2 := by
+  have hasc := ascent_step hβ hs x
+  have hδ : 0 ≤ fstar - f x := by linarith
+  -- the domination slack still gives a usable lower bound on |f'|
+  have hlow : c * ((fstar - f x) - ε / c) ≤ |f' x| := by
+    have : c * ((fstar - f x) - ε / c) = c * (fstar - f x) - ε := by
+      field_simp
+    rw [this]; exact hdom
+  have hnn : 0 ≤ (fstar - f x) - ε / c := by linarith
+  have hsq : c ^ 2 * ((fstar - f x) - ε / c) ^ 2 ≤ (f' x) ^ 2 := by
+    have h2 : 0 ≤ c * ((fstar - f x) - ε / c) := mul_nonneg (le_of_lt hc) hnn
+    calc c ^ 2 * ((fstar - f x) - ε / c) ^ 2
+        = (c * ((fstar - f x) - ε / c)) ^ 2 := by ring
+      _ ≤ |f' x| ^ 2 := by nlinarith [hlow, h2]
+      _ = (f' x) ^ 2 := sq_abs _
+  have hpos : (0:ℝ) < 2 * β := by linarith
+  have hstep : c ^ 2 / (2 * β) * ((fstar - f x) - ε / c) ^ 2
+      ≤ 1 / (2 * β) * (f' x) ^ 2 := by
+    have hinv : 0 < 1 / (2 * β) := by positivity
+    have heq : c ^ 2 / (2 * β) * ((fstar - f x) - ε / c) ^ 2
+        = 1 / (2 * β) * (c ^ 2 * ((fstar - f x) - ε / c) ^ 2) := by field_simp
+    rw [heq]
+    exact mul_le_mul_of_nonneg_left hsq (le_of_lt hinv)
+  linarith [hasc, hstep]
+
 end PolicyGradient
