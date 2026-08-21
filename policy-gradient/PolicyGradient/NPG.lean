@@ -55,4 +55,42 @@ theorem softmax_add_const (w : A → ℝ) (c : ℝ) :
   rw [mul_comm (∑ a', Real.exp (w a')) (Real.exp c)]
   rw [mul_div_mul_left _ _ (ne_of_gt (Real.exp_pos c))]
 
+/-- **The softmax NPG update in closed form.**
+
+After one NPG step the new policy reweights the old one by `exp(η·A)`:
+
+  `π_{t+1}(a|s) ∝ π_t(a|s) · exp(η · A^{π_t}(s,a))`
+
+This is the form AKM Lemma 5.2 establishes and the form the convergence proof
+uses. Note there is no occupancy measure anywhere in it — the `d^π(s)` that
+appears in the ordinary policy gradient has been cancelled by the Fisher
+inverse. -/
+theorem npg_softmax_update (π : Policy S A) (j : ℕ) (η : ℝ)
+    (w : S → A → ℝ) (s : S) (a : A) :
+    (softmax (npgStep M π j η w s)) a
+      = Real.exp (w s a) * Real.exp (η * adv M π j s a)
+        / ∑ a', Real.exp (w s a') * Real.exp (η * adv M π j s a') := by
+  simp only [softmax_apply, npgStep_apply, Real.exp_add]
+
+/-- The NPG update multiplies the action probabilities by `exp(η·A)` up to
+renormalization: the ratio of new to old probability is proportional to
+`exp(η·A)`, with a constant depending only on the state. -/
+theorem npg_ratio (π : Policy S A) (j : ℕ) (η : ℝ) (w : S → A → ℝ) (s : S) :
+    ∃ Z : ℝ, 0 < Z ∧ ∀ a,
+      (softmax (npgStep M π j η w s)) a * Z
+        = (softmax (w s)) a * Real.exp (η * adv M π j s a) := by
+  refine ⟨(∑ a', Real.exp (w s a') * Real.exp (η * adv M π j s a'))
+            / (∑ a', Real.exp (w s a')), ?_, ?_⟩
+  · refine div_pos ?_ ?_
+    · exact Finset.sum_pos (fun a' _ => mul_pos (Real.exp_pos _) (Real.exp_pos _))
+        ⟨Classical.arbitrary A, mem_univ _⟩
+    · exact softmax_denom_pos (w s)
+  · intro a
+    rw [npg_softmax_update, softmax_apply]
+    have h1 : (0:ℝ) < ∑ a', Real.exp (w s a') * Real.exp (η * adv M π j s a') :=
+      Finset.sum_pos (fun a' _ => mul_pos (Real.exp_pos _) (Real.exp_pos _))
+        ⟨Classical.arbitrary A, mem_univ _⟩
+    have h2 : (0:ℝ) < ∑ a', Real.exp (w s a') := softmax_denom_pos (w s)
+    field_simp
+
 end PolicyGradient
