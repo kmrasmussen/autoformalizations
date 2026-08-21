@@ -284,4 +284,40 @@ theorem V_eq_sum_stepReward (π : Policy S A) (m : ℕ) (s₀ : S) :
       unfold stepReward
       simp [visit]
 
+/-- `V m → Vinf` : the finite-horizon values converge to the infinite-horizon
+value, since `V m` is the `m`-th partial sum of a summable series. -/
+theorem tendsto_V_Vinf (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
+    (hr : ∀ s a, |M.r s a| ≤ R) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    Filter.Tendsto (fun m => V M π m s₀) Filter.atTop (nhds (Vinf M π s₀)) := by
+  have hsum := summable_stepReward M π R hR hr hγ₀ hγ₁ s₀
+  have := hsum.hasSum.tendsto_sum_nat
+  simpa [V_eq_sum_stepReward, Vinf] using this
+
+/-- The infinite-horizon value satisfies the same one-step identity as the
+finite-horizon values, so `Vinf` is the fixed point of the Bellman operator. -/
+theorem Vinf_eq_rbar_add (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
+    (hr : ∀ s a, |M.r s a| ≤ R) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    Vinf M π s₀ = ∑ a, (π s₀) a * Qinf M π s₀ a := by
+  rw [Vinf_bellman M π R hR hr hγ₀ hγ₁ s₀]
+  unfold Qinf step
+  have expand : ∑ a, (π s₀) a * (M.r s₀ a + M.γ * ∑ s', (M.P s₀ a) s' * Vinf M π s')
+      = (∑ a, (π s₀) a * M.r s₀ a)
+        + ∑ a, (π s₀) a * (M.γ * ∑ s', (M.P s₀ a) s' * Vinf M π s') := by
+    rw [← Finset.sum_add_distrib]
+    refine Finset.sum_congr rfl fun a _ => ?_
+    ring
+  rw [expand]
+  congr 1
+  calc M.γ * ∑ s', (∑ a, (π s₀) a * (M.P s₀ a) s') * Vinf M π s'
+      = ∑ s', ∑ a, M.γ * ((π s₀) a * (M.P s₀ a) s' * Vinf M π s') := by
+        rw [Finset.mul_sum]
+        refine Finset.sum_congr rfl fun s' _ => ?_
+        rw [Finset.sum_mul, Finset.mul_sum]
+    _ = ∑ a, ∑ s', M.γ * ((π s₀) a * (M.P s₀ a) s' * Vinf M π s') := Finset.sum_comm
+    _ = ∑ a, (π s₀) a * (M.γ * ∑ s', (M.P s₀ a) s' * Vinf M π s') := by
+        refine Finset.sum_congr rfl fun a _ => ?_
+        rw [Finset.mul_sum, Finset.mul_sum]
+        refine Finset.sum_congr rfl fun s' _ => ?_
+        ring
+
 end PolicyGradient
