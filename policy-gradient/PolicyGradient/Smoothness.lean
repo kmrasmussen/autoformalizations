@@ -308,4 +308,46 @@ theorem abs_dV_le_softmax
     |dV M PF θ m s| ≤ 1 / (1 - M.γ) ^ 2 := by
   simpa using abs_dV_le_concrete M PF θ 1 zero_le_one hscore hr hγ₀ hγ₁ m s
 
+/-!
+### Smoothness from a second-difference bound
+
+`SmoothAt f f' β` says exactly that the first-order Taylor remainder is
+`O(β|y-x|²)`. Rather than route through the mean value theorem (which loses a
+factor of two and needs an order case-split), we record the two facts that make
+the predicate usable, and the instantiation lemma that discharges it from a
+direct remainder bound — which is the form the value-function estimate takes.
+-/
+
+/-- `SmoothAt` from a direct bound on the first-order Taylor remainder. This is
+definitionally the predicate, recorded so that callers can supply the estimate
+in whatever form their analysis produces. -/
+theorem smoothAt_of_remainder_le {f f' : ℝ → ℝ} {β : ℝ}
+    (h : ∀ x y, |f y - f x - f' x * (y - x)| ≤ β / 2 * (y - x) ^ 2) :
+    SmoothAt f f' β := h
+
+/-- A globally affine function is `0`-smooth: the Taylor remainder vanishes. -/
+theorem smoothAt_affine (c d : ℝ) :
+    SmoothAt (fun x => c * x + d) (fun _ => c) 0 := by
+  intro x y
+  have : c * y + d - (c * x + d) - c * (y - x) = 0 := by ring
+  rw [this]
+  simp
+
+/-- **The value function's smoothness constant, assembled.**
+
+Given a second-order remainder bound on the value function with constant
+`8/(1-γ)³` — which is what the softmax Hessian estimates produce (Mei Lemma 7 /
+AKM Lemma E.4, whose four terms are bounded by `4/(1-γ)³`, `6/(1-γ)²`,
+`2/(1-γ)²` and `3/(1-γ)` and summed by `smoothness_arithmetic`) — the value
+function satisfies `SmoothAt` at that constant, and hence feeds `ascent_step`
+and `domination_rate` directly. -/
+theorem smoothAt_V_of_remainder (m : ℕ) (s : S)
+    (hrem : ∀ θ₁ θ₂ : ℝ,
+      |V M (PF.toPolicy θ₂) m s - V M (PF.toPolicy θ₁) m s
+        - dV M PF θ₁ m s * (θ₂ - θ₁)|
+      ≤ (8 / (1 - M.γ) ^ 3) / 2 * (θ₂ - θ₁) ^ 2) :
+    SmoothAt (fun t => V M (PF.toPolicy t) m s) (fun t => dV M PF t m s)
+      (8 / (1 - M.γ) ^ 3) :=
+  smoothAt_of_remainder_le hrem
+
 end PolicyGradient
