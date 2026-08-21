@@ -36,6 +36,16 @@ structure DiffPolicy (S A : Type*) [Fintype A] where
   /-- `dπ` really is the derivative. -/
   hasDeriv : ∀ θ s a, HasDerivAt (fun t => (toPolicy t s) a) (dπ θ s a) θ
 
+/-- A twice-differentiable policy family: carries the second derivative of the
+action probabilities as well as the first.
+
+Needed for the smoothness constant, which is a bound on `∂²V/∂θ²`. -/
+structure C2Policy (S A : Type*) [Fintype A] extends DiffPolicy S A where
+  /-- The pointwise second derivative `∂²π(a|s)/∂θ²`. -/
+  d2π : ℝ → S → A → ℝ
+  /-- `d2π` really is the derivative of `dπ`. -/
+  hasDeriv2 : ∀ θ s a, HasDerivAt (fun t => dπ t s a) (d2π θ s a) θ
+
 variable (M : FiniteMDP S A) (PF : DiffPolicy S A) (θ : ℝ)
 
 /-- The "local" term: derivative hitting the policy at state `s`, with `m` steps
