@@ -54,4 +54,31 @@ theorem softmax_pos [Nonempty A] (w : A → ℝ) (a : A) : 0 < (softmax w) a := 
   rw [softmax_apply]
   exact div_pos (Real.exp_pos _) (softmax_denom_pos w)
 
+/-!
+### The softmax score
+
+`∂π_θ(a|s)/∂θ_{s,b} = π_θ(a|s) · ([a = b] - π_θ(b|s))`.
+-/
+
+variable [Nonempty A]
+
+/-- The softmax score: the derivative of `softmax w a` with respect to `w b`. -/
+noncomputable def softmaxScore (w : A → ℝ) (a b : A) : ℝ :=
+  (softmax w) a * ((if a = b then 1 else 0) - (softmax w) b)
+
+/-- The scores at a state sum to zero over actions — the reason the policy
+gradient is invariant to adding a constant to all logits. -/
+theorem softmaxScore_sum_eq_zero (w : A → ℝ) (b : A) :
+    ∑ a, softmaxScore w a b = 0 := by
+  have expand : ∀ a, softmaxScore w a b
+      = (if a = b then (softmax w) a else 0) - (softmax w) a * (softmax w) b := by
+    intro a
+    unfold softmaxScore
+    by_cases h : a = b <;> simp [h] <;> ring
+  rw [Finset.sum_congr rfl (fun a _ => expand a)]
+  rw [Finset.sum_sub_distrib]
+  rw [Finset.sum_ite_eq' univ b (fun a => (softmax w) a)]
+  rw [← Finset.sum_mul, (softmax w).sum_eq_one, one_mul]
+  simp
+
 end PolicyGradient
