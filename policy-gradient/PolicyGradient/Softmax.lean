@@ -110,4 +110,28 @@ theorem pdSum_self (π : Policy S A) (m : ℕ) (s₀ : S) :
   rw [Finset.sum_congr rfl (fun s _ => this s)]
   simp
 
+/-!
+### The softmax policy family
+
+A softmax-parameterized family of policies, and the fact that its score is the
+`softmaxScore` above. This packages a `DiffPolicy` from a differentiable
+logit map, which is what makes the policy gradient theorem applicable to
+softmax policies.
+-/
+
+/-- A softmax policy family driven by logits that depend on the parameter. -/
+noncomputable def softmaxPolicy (logits : ℝ → S → A → ℝ) : ℝ → Policy S A :=
+  fun θ s => softmax (logits θ s)
+
+@[simp] theorem softmaxPolicy_apply (logits : ℝ → S → A → ℝ) (θ : ℝ) (s : S) (a : A) :
+    (softmaxPolicy logits θ s) a
+      = Real.exp (logits θ s a) / ∑ a', Real.exp (logits θ s a') := rfl
+
+/-- Softmax policies assign strictly positive probability to every action, at
+every parameter value. This is the property AKM's global-convergence argument
+relies on: no action is ever permanently ruled out. -/
+theorem softmaxPolicy_pos (logits : ℝ → S → A → ℝ) (θ : ℝ) (s : S) (a : A) :
+    0 < (softmaxPolicy logits θ s) a :=
+  softmax_pos _ _
+
 end PolicyGradient
