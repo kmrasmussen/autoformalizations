@@ -127,4 +127,40 @@ theorem kl_step (π : Policy S A) (j : ℕ) (η : ℝ) (w : S → A → ℝ)
     ring
   rw [this]
 
+/-!
+### Telescoping
+
+Summing `kl_step` over `T` iterations telescopes: the KL terms cancel and only
+the endpoints survive, leaving the average advantage bounded by `KL₀/(η·T)`.
+That `1/T` is AKM Theorem 5.3's rate.
+-/
+
+/-- **The telescoped bound**, stated directly over a sequence of logits.
+
+If `w (t+1)` is the NPG step from `w t`, then summing `kl_step` telescopes:
+
+`∑_{t<T} (η·Aₜ - log Zₜ) = KL(π*‖π₀) - KL(π*‖π_T)`
+
+Every intermediate KL cancels. Since KL to the comparison policy is bounded
+below, the left side is bounded by `KL(π*‖π₀)`, so the *average* of
+`η·Aₜ - log Zₜ` over `T` steps is `O(1/T)` — with a constant depending only on
+the initial policy, not on `|S|` or `|A|`. That is AKM Theorem 5.3's rate. -/
+theorem kl_telescope (j : ℕ) (η : ℝ) (w : ℕ → S → A → ℝ)
+    (hstep : ∀ t, w (t + 1) = npgStep M (fun s => softmax (w t s)) j η (w t))
+    (πstar : Policy S A) (s : S) (T : ℕ) :
+    ∑ t ∈ range T,
+        (η * (∑ a, (πstar s) a * adv M (fun s => softmax (w t s)) j s a)
+          - Real.log (npgNormalizer M (fun s => softmax (w t s)) j η (w t) s))
+      = klDiv (πstar s) (softmax (w 0 s)) - klDiv (πstar s) (softmax (w T s)) := by
+  induction T with
+  | zero => simp
+  | succ T ih =>
+    rw [Finset.sum_range_succ, ih]
+    have h := kl_step M (fun s => softmax (w T s)) j η (w T) πstar s
+    have hnext : softmax (w (T + 1) s)
+        = softmax (npgStep M (fun s => softmax (w T s)) j η (w T) s) := by
+      rw [hstep T]
+    rw [hnext]
+    linarith [h]
+
 end PolicyGradient
