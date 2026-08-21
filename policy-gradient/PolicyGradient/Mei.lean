@@ -99,4 +99,50 @@ theorem loja_pointwise [DecidableEq A] (π : Policy S A) (astar : S → A)
       ≤ (π s) (astar s) * adv M π j s (astar s) :=
   mul_le_mul_of_nonneg_right (lojaCoeff_le π astar s) hadv
 
+/-!
+### Suboptimality controlled by the optimal-action advantage
+
+`performance_difference` says the value gap is the visitation-weighted advantage
+gap. Against a deterministic optimal policy that gap is the optimal-action
+advantage, so the suboptimality is a visitation-weighted sum of those.
+-/
+
+/-- **Suboptimality as a weighted sum of optimal-action advantages.**
+
+`V^{π*}_m(s₀) - V^π_m(s₀) = ∑ₖ γᵏ ∑ₛ visit^{π*} k s₀ s · A^π_{m-1-k}(s, a*(s))`
+
+The right-hand side is what the Łojasiewicz argument bounds: if every
+optimal-action advantage is small then the policy is near-optimal, and the
+Łojasiewicz coefficient says the gradient sees a `π(a*|s)` fraction of it. -/
+theorem subopt_eq_weighted_adv [DecidableEq A] (π : Policy S A) (astar : S → A)
+    (m : ℕ) (s₀ : S) :
+    V M (detPolicy astar) m s₀ - V M π m s₀
+      = ∑ k ∈ range m, M.γ ^ k *
+          ∑ s, visit M (detPolicy astar) k s₀ s * adv M π (m - 1 - k) s (astar s) := by
+  rw [performance_difference M (detPolicy astar) π m s₀]
+  unfold pdSum
+  refine Finset.sum_congr rfl fun k _ => ?_
+  refine congrArg _ (Finset.sum_congr rfl fun s _ => ?_)
+  rw [advGap_detPolicy]
+
+/-- **If every optimal-action advantage is nonpositive, the policy is optimal
+against the deterministic comparison.**
+
+The converse direction of the Łojasiewicz argument: no advantage means no
+suboptimality. Combined with `optimal_of_greedy` this is how the limit of the
+optimization is identified as optimal. -/
+theorem le_of_adv_nonpos [DecidableEq A] (π : Policy S A) (astar : S → A)
+    (m : ℕ) (s₀ : S) (hγ₀ : 0 ≤ M.γ)
+    (hadv : ∀ (j : ℕ) (s : S), adv M π j s (astar s) ≤ 0) :
+    V M (detPolicy astar) m s₀ ≤ V M π m s₀ := by
+  have heq := subopt_eq_weighted_adv M π astar m s₀
+  have hle : ∑ k ∈ range m, M.γ ^ k *
+      ∑ s, visit M (detPolicy astar) k s₀ s * adv M π (m - 1 - k) s (astar s) ≤ 0 := by
+    refine Finset.sum_nonpos fun k _ => ?_
+    refine mul_nonpos_of_nonneg_of_nonpos (pow_nonneg hγ₀ k) ?_
+    refine Finset.sum_nonpos fun s _ => ?_
+    exact mul_nonpos_of_nonneg_of_nonpos
+      (visit_nonneg M (detPolicy astar) k s₀ s) (hadv (m - 1 - k) s)
+  linarith
+
 end PolicyGradient
