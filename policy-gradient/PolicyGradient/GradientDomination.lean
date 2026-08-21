@@ -53,4 +53,37 @@ theorem le_of_advGap_nonpos (π πstar : Policy S A) (m : ℕ) (s₀ : S)
     exact mul_nonpos_of_nonneg_of_nonpos (visit_nonneg M πstar k s₀ s) (h k s)
   linarith
 
+/-!
+### Optimality certificates
+
+The converse direction: a policy with no improving advantage anywhere is
+optimal against *every* comparison policy — the global-optimality conclusion.
+-/
+
+/-- **Global optimality from a local condition.**
+
+If under every policy's visitation no state has a positive advantage gap
+against `π`, then `π` is optimal: no policy beats it from any start state.
+
+This is the shape of AKM Theorem 5.1's conclusion. The content is that a purely
+*local* condition (nothing to gain by deviating at any state) certifies a
+*global* property (optimality), which is exactly what one cannot conclude for a
+general non-convex objective — it holds here because of the MDP structure that
+`performance_difference` encodes. -/
+theorem optimal_of_no_advantage (π : Policy S A) (m : ℕ) (hγ₀ : 0 ≤ M.γ)
+    (h : ∀ (πstar : Policy S A) (j : ℕ) (s : S), advGap M πstar π j s ≤ 0) :
+    ∀ (πstar : Policy S A) (s₀ : S), V M πstar m s₀ ≤ V M π m s₀ := by
+  intro πstar s₀
+  exact le_of_advGap_nonpos M π πstar m s₀ hγ₀ (fun k s => h πstar (m - 1 - k) s)
+
+/-- The advantage gap against `π` is nonpositive at `s` exactly when no action
+distribution beats `π`'s own — the pointwise optimality condition. -/
+theorem advGap_nonpos_iff (π πstar : Policy S A) (j : ℕ) (s : S) :
+    advGap M πstar π j s ≤ 0
+      ↔ ∑ a, (πstar s) a * Q M π j s a ≤ V M π (j + 1) s := by
+  unfold advGap adv
+  simp only [mul_sub]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_mul, (πstar s).sum_eq_one, one_mul]
+  constructor <;> intro h <;> linarith
+
 end PolicyGradient
