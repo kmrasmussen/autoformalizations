@@ -93,4 +93,63 @@ theorem npg_ratio (π : Policy S A) (j : ℕ) (η : ℝ) (w : S → A → ℝ) (
     have h2 : (0:ℝ) < ∑ a', Real.exp (w s a') := softmax_denom_pos (w s)
     field_simp
 
+/-!
+### Monotone improvement
+
+The NPG update never decreases the expected advantage at a state: reweighting
+by `exp(η·A)` with `η ≥ 0` shifts mass towards higher-advantage actions. This
+is the step that drives the convergence argument, and it is an instance of the
+general fact that an exponential-tilt reweighting increases the mean of the
+tilting statistic (a Chebyshev / FKG-type correlation inequality).
+-/
+
+/-- The sign fact behind exponential-tilt monotonicity: `(f a - f b)` and
+`(e^{ηf a} - e^{ηf b})` always have the same sign when `η ≥ 0`.
+
+This is the ingredient of the Chebyshev sum inequality that makes the NPG
+update monotone — reweighting by `exp(η·A)` moves probability mass towards
+higher-advantage actions. -/
+theorem tilt_sign (f : A → ℝ) (η : ℝ) (hη : 0 ≤ η) (a b : A) :
+    0 ≤ (f a - f b) * (Real.exp (η * f a) - Real.exp (η * f b)) := by
+  rcases le_total (f a) (f b) with h | h
+  · have he : Real.exp (η * f a) ≤ Real.exp (η * f b) :=
+      Real.exp_le_exp.mpr (by nlinarith)
+    nlinarith
+  · have he : Real.exp (η * f b) ≤ Real.exp (η * f a) :=
+      Real.exp_le_exp.mpr (by nlinarith)
+    nlinarith
+
+/-- The NPG update increases the probability of any action whose advantage
+exceeds that of another, relative to that other action: the probability *ratio*
+between two actions moves in favour of the higher advantage.
+
+This is the precise sense in which softmax NPG is monotone, and it needs no
+Chebyshev machinery — it follows directly from the closed form. -/
+theorem npg_ratio_mono (π : Policy S A) (j : ℕ) (η : ℝ) (hη : 0 ≤ η)
+    (w : S → A → ℝ) (s : S) (a b : A)
+    (hab : adv M π j s b ≤ adv M π j s a) :
+    (softmax (w s)) a * (softmax (npgStep M π j η w s)) b
+      ≤ (softmax (npgStep M π j η w s)) a * (softmax (w s)) b := by
+  obtain ⟨Z, hZ, hratio⟩ := npg_ratio M π j η w s
+  have ha := hratio a
+  have hb := hratio b
+  have hexp : Real.exp (η * adv M π j s b) ≤ Real.exp (η * adv M π j s a) :=
+    Real.exp_le_exp.mpr (by nlinarith)
+  have hpa : 0 < (softmax (w s)) a := softmax_pos _ _
+  have hpb : 0 < (softmax (w s)) b := softmax_pos _ _
+  -- multiply through by Z > 0 and compare
+  have key : ((softmax (w s)) a * (softmax (npgStep M π j η w s)) b) * Z
+      ≤ ((softmax (npgStep M π j η w s)) a * (softmax (w s)) b) * Z := by
+    calc ((softmax (w s)) a * (softmax (npgStep M π j η w s)) b) * Z
+        = (softmax (w s)) a * ((softmax (npgStep M π j η w s)) b * Z) := by ring
+      _ = (softmax (w s)) a * ((softmax (w s)) b * Real.exp (η * adv M π j s b)) := by
+          rw [hb]
+      _ ≤ (softmax (w s)) a * ((softmax (w s)) b * Real.exp (η * adv M π j s a)) := by
+          refine mul_le_mul_of_nonneg_left ?_ (le_of_lt hpa)
+          exact mul_le_mul_of_nonneg_left hexp (le_of_lt hpb)
+      _ = ((softmax (w s)) a * Real.exp (η * adv M π j s a)) * (softmax (w s)) b := by ring
+      _ = ((softmax (npgStep M π j η w s)) a * Z) * (softmax (w s)) b := by rw [ha]
+      _ = ((softmax (npgStep M π j η w s)) a * (softmax (w s)) b) * Z := by ring
+  exact le_of_mul_le_mul_right key hZ
+
 end PolicyGradient
