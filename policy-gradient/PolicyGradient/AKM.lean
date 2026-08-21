@@ -55,4 +55,68 @@ theorem ascent_step {f f' : ℝ → ℝ} {β : ℝ} (hβ : 0 < β) (hs : SmoothA
     ring
   nlinarith [hlow, expand]
 
+/-!
+### The convergence skeleton
+
+Gradient domination gives `|f'(x)| ≥ c·(f* - f(x))`. The ascent lemma turns
+that into a quadratic decrease of the suboptimality, and `quad_decrease_rate`
+turns *that* into `O(1/T)`. This composition is the shape of AKM Theorem 4.1
+and Corollary 5.1, and of Mei et al. Theorem 4.
+-/
+
+/-- **Gradient domination gives a quadratic decrease of the suboptimality.**
+
+If `f` is `β`-smooth and satisfies the gradient-domination bound
+`c·(fstar - f x) ≤ |f' x|`, then one ascent step decreases the suboptimality
+`δ = fstar - f` by at least `(c²/(2β))·δ²`. -/
+theorem quad_decrease_of_domination {f f' : ℝ → ℝ} {β c fstar : ℝ}
+    (hβ : 0 < β) (hc : 0 ≤ c) (hs : SmoothAt f f' β) (x : ℝ)
+    (hdom : c * (fstar - f x) ≤ |f' x|) (hle : f x ≤ fstar) :
+    fstar - f (x + (1 / β) * f' x)
+      ≤ (fstar - f x) - c ^ 2 / (2 * β) * (fstar - f x) ^ 2 := by
+  have hasc := ascent_step hβ hs x
+  -- |f' x|² ≥ c²(fstar - f x)²
+  have hsq : c ^ 2 * (fstar - f x) ^ 2 ≤ (f' x) ^ 2 := by
+    have h1 : 0 ≤ fstar - f x := by linarith
+    have h2 : 0 ≤ c * (fstar - f x) := mul_nonneg hc h1
+    calc c ^ 2 * (fstar - f x) ^ 2 = (c * (fstar - f x)) ^ 2 := by ring
+      _ ≤ |f' x| ^ 2 := by nlinarith [hdom, h2]
+      _ = (f' x) ^ 2 := sq_abs _
+  have hpos : 0 < 2 * β := by linarith
+  have : c ^ 2 / (2 * β) * (fstar - f x) ^ 2 ≤ 1 / (2 * β) * (f' x) ^ 2 := by
+    have hinv : 0 < 1 / (2 * β) := by positivity
+    have heq1 : c ^ 2 / (2 * β) * (fstar - f x) ^ 2
+        = 1 / (2 * β) * (c ^ 2 * (fstar - f x) ^ 2) := by
+      field_simp
+    rw [heq1]
+    exact mul_le_mul_of_nonneg_left hsq (le_of_lt hinv)
+  linarith [hasc, this]
+
+/-- **The full skeleton: gradient domination ⟹ `O(1/T)`.**
+
+A `β`-smooth objective satisfying gradient domination with constant `c`,
+optimized by gradient ascent with stepsize `1/β`, has suboptimality at most
+`2β/(c²·T)` after `T` steps.
+
+This is the shape of AKM Theorem 4.1 and Corollary 5.1. The constants there are
+instantiations: `β` from the smoothness of the value function and `c` from the
+distribution-mismatch coefficient. -/
+theorem domination_rate {f f' : ℝ → ℝ} {β c fstar : ℝ}
+    (hβ : 0 < β) (hc : 0 < c) (hs : SmoothAt f f' β)
+    (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t))
+    (hdom : ∀ t, c * (fstar - f (x t)) ≤ |f' (x t)|)
+    (hlt : ∀ t, f (x t) < fstar)
+    (T : ℕ) (hT : 1 ≤ T) :
+    fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) := by
+  set δ : ℕ → ℝ := fun t => fstar - f (x t) with hδ
+  have hpos : ∀ t, 0 < δ t := fun t => by simp only [hδ]; linarith [hlt t]
+  have hstep : ∀ t, δ (t + 1) ≤ δ t - (c ^ 2 / (2 * β)) * (δ t) ^ 2 := by
+    intro t
+    simp only [hδ]
+    rw [hx t]
+    exact quad_decrease_of_domination hβ (le_of_lt hc) hs (x t) (hdom t)
+      (le_of_lt (hlt t))
+  have hK : 0 < c ^ 2 / (2 * β) := by positivity
+  exact quad_decrease_rate hK δ hpos hstep T hT
+
 end PolicyGradient
