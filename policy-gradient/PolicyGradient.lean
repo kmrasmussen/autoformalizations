@@ -1,4 +1,5 @@
 import PolicyGradient.Defs
 import PolicyGradient.Value
+import PolicyGradient.Bounded
 import PolicyGradient.Theorem
 import PolicyGradient.PerformanceDifference
