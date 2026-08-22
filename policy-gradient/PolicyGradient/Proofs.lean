@@ -1292,5 +1292,437 @@ that with the tabular `hF` the family is genuinely `C²`, which the current
 
 Until G7 is restated, its `sorry` stands. -/
 
+/-! ## G1 and G2 — both FALSE as stated: `mismatch` is a free universal real
+
+`g1_lojasiewicz` and `g2_gradient_domination` each take
+
+  `(mismatch : ℝ) (hmis : 0 < mismatch)`
+
+as an ordinary **universally quantified** hypothesis, with nothing tying it to
+the MDP. `Target.lean` defines `mismatchCoeff M π μ`; neither goal uses it. So
+the caller — not the MDP — chooses the constant, and can choose it adversarially.
+
+* In **G2** `mismatch` multiplies the right-hand side:
+  `Vstar - Vinf ≤ (mismatch/(1-γ)) · ‖∇V‖`. Sending `mismatch → 0⁺` drives the
+  bound to `0`, so the statement entails `Vstar - Vinf ≤ 0` for *every* softmax
+  policy. That is false for any MDP where softmax is strictly suboptimal.
+* In **G1** `mismatch` *divides* the left-hand side:
+  `(⨅ₛ π(a*|s))/(√|S|·mismatch) · (Vstar - Vinf) ≤ ‖∇V‖`. Sending
+  `mismatch → 0⁺` drives the left side to `+∞` while the right side is a fixed
+  real, so the statement is again unsatisfiable whenever
+  `(⨅ₛ π(a*|s))·(Vstar - Vinf) > 0` — which softmax positivity plus strict
+  suboptimality guarantees.
+
+This is exactly the defect recorded for `mei_theorem4`: *a floating quantity is
+a defect in both directions — existential and unconstrained makes a goal too
+weak, universal makes it too strong.* Here it is universal, so both goals are
+**unprovable as stated**, independently of any question about `logits`.
+
+### The witness
+
+`badMDP` (already defined above for the G7 refutation) is enough: one state,
+two actions, `γ = 0`, reward `1` for `true` and `0` for `false`. Then
+`Vinf M π () = π(true)`, so `Vstar = 1`, while any softmax policy has
+`π(true) < 1`. Concretely the *tabular* family at `θ = 0` gives `π(true) = 1/2`
+and `Vstar - Vinf = 1/2 > 0`.
+
+Note the witness uses the **tabular** parameterization `logits θ s a = θ (s,a)`
+— the one AKM and Mei actually analyse, and the one `g7a`/`g7b` were repaired
+to. So this refutation does **not** rely on the unconstrained-`logits` loophole
+that killed `g7_smoothness`: fixing `logits` would not save either goal. It also
+does not rely on `γ`, on unbounded rewards (`|r| ≤ 1` holds), or on the missing
+`hr` hypothesis. -/
+
+section MismatchFree
+
+/-- The tabular softmax logits on the `badMDP` parameter space. -/
+noncomputable def tabLogits :
+    EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ :=
+  fun θ s a => θ (s, a)
+
+theorem tabLogits_diff (s : Unit) (a : Bool) :
+    Differentiable ℝ (fun θ : EuclideanSpace ℝ (Unit × Bool) => tabLogits θ s a) :=
+  ((EuclideanSpace.proj (s, a) : EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)).differentiable
+
+/-- The tabular softmax `VecPolicy` on `badMDP`'s spaces. -/
+noncomputable def tabF : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool)) where
+  toPolicy := fun θ s => softmax (tabLogits θ s)
+  dπ := fun θ s a => fderiv ℝ (fun t => (softmax (tabLogits t s)) a) θ
+  hasFDeriv := fun θ s a =>
+    (softmax_diff (fun t => tabLogits t s) (fun a' => tabLogits_diff s a') a θ).hasFDerivAt
+
+theorem tabF_hF : ∀ θ s a, (tabF.toPolicy θ s) a = softmax (tabLogits θ s) a :=
+  fun _ _ _ => rfl
+
+/-- Every policy value on `badMDP` is at most `1`. -/
+theorem Vinf_badMDP_le_one (π : Policy Unit Bool) : Vinf badMDP π () ≤ 1 := by
+  rw [Vinf_badMDP]
+  have := (π ()).sum_eq_one
+  have hnn := (π ()).nonneg false
+  rw [Fintype.sum_bool] at this
+  linarith
+
+/-- `Vstar badMDP () = 1`: the deterministic policy playing `true` attains it. -/
+theorem Vstar_badMDP : Vstar badMDP () = 1 := by
+  apply le_antisymm
+  · exact ciSup_le fun π => Vinf_badMDP_le_one π
+  · have h : Vinf badMDP (detPolicy (fun _ => true)) () = 1 := by
+      rw [Vinf_badMDP]; simp [detPolicy, pointMass]
+    rw [← h]
+    refine le_ciSup (f := fun π : Policy Unit Bool => Vinf badMDP π ()) ?_ _
+    exact ⟨1, by rintro x ⟨π, rfl⟩; exact Vinf_badMDP_le_one π⟩
+
+/-- At `θ = 0` the tabular softmax on two actions is uniform, so the value is
+`1/2` and the suboptimality is exactly `1/2`. -/
+theorem tab_value_at_zero :
+    Vinf badMDP (tabF.toPolicy (0 : EuclideanSpace ℝ (Unit × Bool))) () = 1/2 := by
+  rw [Vinf_badMDP]
+  show (softmax (tabLogits (0 : EuclideanSpace ℝ (Unit × Bool)) ())) true = 1/2
+  rw [softmax_apply]
+  have h0 : ∀ a : Bool, tabLogits (0 : EuclideanSpace ℝ (Unit × Bool)) () a = 0 := by
+    intro a; simp [tabLogits]
+  rw [h0, Fintype.sum_bool, h0, h0]
+  norm_num
+
+theorem tab_subopt :
+    Vstar badMDP () - Vinf badMDP (tabF.toPolicy (0 : EuclideanSpace ℝ (Unit × Bool))) ()
+      = 1/2 := by
+  rw [Vstar_badMDP, tab_value_at_zero]; norm_num
+
+/-- The `⨅` over the single state `Unit` of the optimal-action probability is
+`1/2` for the uniform tabular softmax. -/
+theorem tab_iInf :
+    (⨅ s : Unit, (tabF.toPolicy (0 : EuclideanSpace ℝ (Unit × Bool)) s) (true)) = 1/2 := by
+  have : ∀ s : Unit,
+      (tabF.toPolicy (0 : EuclideanSpace ℝ (Unit × Bool)) s) (true) = 1/2 := by
+    intro s
+    show (softmax (tabLogits (0 : EuclideanSpace ℝ (Unit × Bool)) s)) true = 1/2
+    rw [softmax_apply]
+    have h0 : ∀ a : Bool, tabLogits (0 : EuclideanSpace ℝ (Unit × Bool)) s a = 0 := by
+      intro a; simp [tabLogits]
+    rw [h0, Fintype.sum_bool, h0, h0]
+    norm_num
+  simp only [this]
+  exact ciInf_const
+
+/-! ### G2 -/
+
+/-- **G2 is false as stated**, on the concrete `badMDP` witness with the
+tabular softmax family: the caller is free to send `mismatch → 0`. -/
+theorem g2_false :
+    ¬ (∀ (M : FiniteMDP Unit Bool)
+        (logits : EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ)
+        (F : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (μ : Unit) (θ : EuclideanSpace ℝ (Unit × Bool)) (mismatch : ℝ), 0 < mismatch →
+          Vstar M μ - Vinf M (F.toPolicy θ) μ
+            ≤ (mismatch / (1 - M.γ)) * ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  set G := ‖fderiv ℝ (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+    Vinf badMDP (tabF.toPolicy t) ()) (0 : EuclideanSpace ℝ (Unit × Bool))‖ with hG
+  have hGnn : 0 ≤ G := norm_nonneg _
+  -- choose `mismatch` small enough that the right-hand side is below `1/2`
+  set m : ℝ := 1 / (4 * (G + 1)) with hm
+  have hGp : (0:ℝ) < G + 1 := by linarith
+  have hmpos : 0 < m := by rw [hm]; positivity
+  have hb := h badMDP tabLogits tabF tabF_hF badMDP_γ₀ badMDP_γ₁ () 0 m hmpos
+  rw [tab_subopt] at hb
+  have hγ : (1 : ℝ) - badMDP.γ = 1 := by norm_num [badMDP]
+  rw [hγ, div_one] at hb
+  -- `m * G < 1/2`
+  have hmg : m * G < 1/2 := by
+    rw [hm]
+    rw [div_mul_eq_mul_div, one_mul, div_lt_div_iff₀ (by linarith) (by norm_num)]
+    nlinarith
+  rw [← hG] at hb
+  linarith
+
+/-- The exact shape of `g2_gradient_domination`, as a hypothesis. If G2 held in
+general, this would follow; `g2_false` shows it cannot. -/
+theorem g2_general_false :
+    ¬ (∀ (S A : Type) (_ : Fintype S) (_ : Fintype A) (_ : DecidableEq S) (_ : DecidableEq A)
+        (_ : Nonempty S) (_ : Nonempty A)
+        (M : FiniteMDP S A)
+        (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+        (F : VecPolicy S A (EuclideanSpace ℝ (S × A))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (μ : S) (θ : EuclideanSpace ℝ (S × A)) (mismatch : ℝ), 0 < mismatch →
+          Vstar M μ - Vinf M (F.toPolicy θ) μ
+            ≤ (mismatch / (1 - M.γ))
+                * ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  exact g2_false (fun M logits F hF hγ₀ hγ₁ μ θ mismatch hmis =>
+    h Unit Bool inferInstance inferInstance inferInstance inferInstance
+      inferInstance inferInstance M logits F hF hγ₀ hγ₁ μ θ mismatch hmis)
+
+/-! ### G1 -/
+
+/-- **G1 is false as stated**: `mismatch` divides the left-hand side, so sending
+`mismatch → 0` makes it exceed any fixed gradient norm. -/
+theorem g1_false :
+    ¬ (∀ (M : FiniteMDP Unit Bool)
+        (logits : EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ)
+        (F : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (astar : Unit → Bool) (μ : Unit) (θ : EuclideanSpace ℝ (Unit × Bool))
+          (mismatch : ℝ), 0 < mismatch →
+          (⨅ s : Unit, (F.toPolicy θ s) (astar s))
+              / (Real.sqrt (Fintype.card Unit) * mismatch)
+              * (Vstar M μ - Vinf M (F.toPolicy θ) μ)
+            ≤ ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  set G := ‖fderiv ℝ (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+    Vinf badMDP (tabF.toPolicy t) ()) (0 : EuclideanSpace ℝ (Unit × Bool))‖ with hG
+  have hGnn : 0 ≤ G := norm_nonneg _
+  -- `mismatch` small: left side is `(1/2)/(1·m) · (1/2) = 1/(4m)`
+  set m : ℝ := 1 / (4 * (G + 1)) with hm
+  have hGp : (0:ℝ) < G + 1 := by linarith
+  have hmpos : 0 < m := by rw [hm]; positivity
+  have hb := h badMDP tabLogits tabF tabF_hF badMDP_γ₀ badMDP_γ₁ (fun _ => true) () 0 m hmpos
+  rw [tab_subopt, tab_iInf] at hb
+  have hcard : Real.sqrt (Fintype.card Unit) = 1 := by
+    simp
+  rw [hcard, one_mul, ← hG] at hb
+  -- so `(1/2)/m * (1/2) ≤ G`, i.e. `1/(4m) ≤ G`, but `1/(4m) = G + 1`
+  have hval : (1:ℝ)/2 / m * (1/2) = G + 1 := by
+    rw [hm]
+    field_simp
+    ring
+  rw [hval] at hb
+  linarith
+
+/-- The exact shape of `g1_lojasiewicz`, as a hypothesis. If G1 held in general,
+this would follow; `g1_false` shows it cannot. -/
+theorem g1_general_false :
+    ¬ (∀ (S A : Type) (_ : Fintype S) (_ : Fintype A) (_ : DecidableEq S) (_ : DecidableEq A)
+        (_ : Nonempty S) (_ : Nonempty A)
+        (M : FiniteMDP S A)
+        (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+        (F : VecPolicy S A (EuclideanSpace ℝ (S × A))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (astar : S → A) (μ : S) (θ : EuclideanSpace ℝ (S × A)) (mismatch : ℝ),
+          0 < mismatch →
+          (⨅ s : S, (F.toPolicy θ s) (astar s))
+              / (Real.sqrt (Fintype.card S) * mismatch)
+              * (Vstar M μ - Vinf M (F.toPolicy θ) μ)
+            ≤ ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  exact g1_false (fun M logits F hF hγ₀ hγ₁ astar μ θ mismatch hmis =>
+    h Unit Bool inferInstance inferInstance inferInstance inferInstance
+      inferInstance inferInstance M logits F hF hγ₀ hγ₁ astar μ θ mismatch hmis)
+
+/-! ### G1 fails a second time, independently, on the unconstrained `logits`
+
+The refutation above uses only the free `mismatch`. G1 has a *second*,
+independent defect, the same one that killed `g7_smoothness`: `logits` is
+universally quantified with no regularity or pinning hypothesis. In G1 the
+gradient sits on the **right**, so the adversarial direction is `c → 0`:
+`badLogits c` flattens the value function's dependence on `θ` without changing
+the policy at `θ = 0` (still uniform, `π(true) = 1/2`, suboptimality `1/2`).
+The left-hand side stays at `(1/2)/(1·mismatch)·(1/2)`; the right-hand side is
+`c/4 → 0`.
+
+So even with `mismatch` fixed at `1`, G1 is refutable. Repairing the free
+`mismatch` alone would not be enough — the tabular `hF` is also required. -/
+
+/-- The exact operator norm of the derivative: `|c|/4`. -/
+theorem norm_fderiv_le (c : ℝ) :
+    ‖fderiv ℝ (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+      Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits c t s)) ())
+      (0 : EuclideanSpace ℝ (Unit × Bool))‖ ≤ |c|/4 := by
+  rw [(Vinf_hasFDeriv c).fderiv, norm_smul]
+  have hp : ‖(EuclideanSpace.proj ((), true) :
+      EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)‖ ≤ 1 :=
+    ContinuousLinearMap.opNorm_le_bound _ zero_le_one (fun x => by
+      rw [one_mul]; simpa using PiLp.norm_apply_le x ((), true))
+  have h1 : ‖c/4‖ = |c|/4 := by
+    rw [Real.norm_eq_abs, abs_div]; norm_num
+  rw [h1]
+  calc |c|/4 * ‖(EuclideanSpace.proj ((), true) :
+        EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)‖
+      ≤ |c|/4 * 1 := by
+        apply mul_le_mul_of_nonneg_left hp (by positivity)
+    _ = |c|/4 := by ring
+
+theorem badF_value_at_zero (c : ℝ) :
+    Vinf badMDP ((badF c).toPolicy (0 : EuclideanSpace ℝ (Unit × Bool))) () = 1/2 := by
+  rw [Vinf_badMDP]
+  show (softmax (badLogits c (0 : EuclideanSpace ℝ (Unit × Bool)) ())) true = 1/2
+  rw [softmax_apply]
+  have h0 : ∀ a : Bool, badLogits c (0 : EuclideanSpace ℝ (Unit × Bool)) () a = 0 := by
+    intro a; cases a <;> simp [badLogits]
+  rw [h0, Fintype.sum_bool, h0, h0]
+  norm_num
+
+theorem badF_iInf (c : ℝ) :
+    (⨅ s : Unit, ((badF c).toPolicy (0 : EuclideanSpace ℝ (Unit × Bool)) s) (true)) = 1/2 := by
+  have h : ∀ s : Unit,
+      ((badF c).toPolicy (0 : EuclideanSpace ℝ (Unit × Bool)) s) (true) = 1/2 := by
+    intro s
+    show (softmax (badLogits c (0 : EuclideanSpace ℝ (Unit × Bool)) s)) true = 1/2
+    rw [softmax_apply]
+    have h0 : ∀ a : Bool, badLogits c (0 : EuclideanSpace ℝ (Unit × Bool)) s a = 0 := by
+      intro a; cases a <;> simp [badLogits]
+    rw [h0, Fintype.sum_bool, h0, h0]
+    norm_num
+  simp only [h]
+  exact ciInf_const
+
+/-- **G1 is false a second time**, with `mismatch` pinned to `1`: an
+unconstrained `logits` can make the gradient arbitrarily small while the policy,
+and hence both left-hand factors, stay fixed. Take `c = 1/2`: the left side is
+`1/4` and the right side is at most `1/8`. -/
+theorem g1_false_logits :
+    ¬ (∀ (M : FiniteMDP Unit Bool)
+        (logits : EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ)
+        (F : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (astar : Unit → Bool) (μ : Unit) (θ : EuclideanSpace ℝ (Unit × Bool))
+          (mismatch : ℝ), 0 < mismatch →
+          (⨅ s : Unit, (F.toPolicy θ s) (astar s))
+              / (Real.sqrt (Fintype.card Unit) * mismatch)
+              * (Vstar M μ - Vinf M (F.toPolicy θ) μ)
+            ≤ ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  have hb := h badMDP (badLogits (1/2)) (badF (1/2)) (badF_hF (1/2))
+    badMDP_γ₀ badMDP_γ₁ (fun _ => true) () 0 1 one_pos
+  rw [badF_iInf, Vstar_badMDP, badF_value_at_zero] at hb
+  have hcard : Real.sqrt (Fintype.card Unit) = 1 := by simp
+  rw [hcard] at hb
+  have heq : (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+      Vinf badMDP ((badF (1/2)).toPolicy t) ())
+      = (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+          Vinf badMDP (show Policy Unit Bool from
+            fun s => softmax (badLogits (1/2) t s)) ()) := rfl
+  rw [heq] at hb
+  have hup := norm_fderiv_le (1/2)
+  have : |(1:ℝ)/2|/4 = 1/8 := by norm_num
+  rw [this] at hup
+  norm_num at hb
+  linarith
+
+/-- The exact shape of `g1_lojasiewicz`, refuted a second time via `logits`
+alone (with `mismatch = 1`). Both defects must be fixed. -/
+theorem g1_general_false_logits :
+    ¬ (∀ (S A : Type) (_ : Fintype S) (_ : Fintype A) (_ : DecidableEq S) (_ : DecidableEq A)
+        (_ : Nonempty S) (_ : Nonempty A)
+        (M : FiniteMDP S A)
+        (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+        (F : VecPolicy S A (EuclideanSpace ℝ (S × A))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        0 ≤ M.γ → M.γ < 1 →
+        ∀ (astar : S → A) (μ : S) (θ : EuclideanSpace ℝ (S × A)) (mismatch : ℝ),
+          0 < mismatch →
+          (⨅ s : S, (F.toPolicy θ s) (astar s))
+              / (Real.sqrt (Fintype.card S) * mismatch)
+              * (Vstar M μ - Vinf M (F.toPolicy θ) μ)
+            ≤ ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖) := by
+  intro h
+  exact g1_false_logits (fun M logits F hF hγ₀ hγ₁ astar μ θ mismatch hmis =>
+    h Unit Bool inferInstance inferInstance inferInstance inferInstance
+      inferInstance inferInstance M logits F hF hγ₀ hγ₁ astar μ θ mismatch hmis)
+
+end MismatchFree
+
+/-! ### What G1 and G2 should say instead
+
+The refutations above are **not** about the constants. Both goals are broken by
+the same single defect — `mismatch` is a caller-chosen real — and no numeric
+choice on either side repairs that. `Target.lean` already defines the right
+object, `mismatchCoeff M π μ = ⨆ s, dinfDist M π μ s / μ s`; the fix is to use
+it. Three changes are needed, and they are independent.
+
+**1. Replace the free `mismatch` by `mismatchCoeff` (mandatory).** It must be
+the coefficient of the **optimal** policy, `mismatchCoeff M πstar μ`, since AKM
+and Mei both write `‖d^{π*}_μ / μ‖_∞`. That forces two further adjustments:
+`mismatchCoeff` is a ratio against a start *distribution*, so `μ : S` must
+become `μ : Dist S`; and `mismatch_bound`/`mismatch_pos` both carry
+`hμ : ∀ s, 0 < μ s`, which is exactly the full-support condition that makes the
+ratio meaningful (see the note on `mismatch_bound` in `Goal.lean`). The value
+side then needs `μ`-averaged versions
+
+```lean
+noncomputable def VinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) : ℝ :=
+  ∑ s, μ s * Vinf M π s
+noncomputable def VstarDist (M : FiniteMDP S A) (μ : Dist S) : ℝ :=
+  ∑ s, μ s * Vstar M s
+```
+
+which belong in `Target.lean` (both were typechecked against this repo).
+
+**2. Pin the parameterization.** As with G7, `logits` is unconstrained here.
+`badLogits c` above is differentiable and rescales the gradient by `c`, so for
+G1 (whose gradient is on the *right*) an adversarial `logits` with small `c`
+breaks the inequality independently of `mismatch`. Both goals should carry the
+tabular `hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a`.
+
+**3. G2's conclusion is the wrong inequality even after (1) and (2).** AKM's
+Lemma 4.1 bounds suboptimality by
+`(1/(1-γ))·‖d^{π*}_μ/μ‖_∞ · max_{π'∈Π} ⟨∇V, π'-π⟩` — a *directional* term over
+a bounded parameter set, and their Lemma 4.1 is stated for the **direct**
+(simplex) parameterization, where that max is the ℓ¹-type quantity. For softmax
+the corresponding gradient carries an extra factor `π(a|s)`, so `‖∇V‖` alone
+cannot dominate the suboptimality: a 3000-MDP random sweep (random `P`, `r`,
+`μ`, `θ`, `2–4` states/actions, `γ ∈ [0,0.95)`) found
+`Vstar - Vinf` exceeding `(mismatchCoeff/(1-γ))·‖∇V‖` by factors up to **74×**,
+with the overshoot tracking `1/min_s π(a*|s)` — the same exponentially small
+quantity Mei's Lemma 8 makes explicit. The same sweep found **zero** violations
+of the corrected G1 (below) in 4000 MDPs.
+
+So `Vstar - Vinf ≤ (mismatchCoeff/(1-γ))·‖∇V‖` is **still false** for the
+softmax family, whatever `mismatchCoeff` is. G2 must either (a) keep the AKM
+directional form, or (b) be restated for softmax with the `min_s π(a*|s)`
+factor — at which point it *is* G1 rearranged, which is the honest reading:
+Mei's Lemma 8 is the softmax version of AKM's Lemma 4.1.
+
+**Recommended replacements** (both typecheck against this repo):
+
+```lean
+-- G1 (Mei Lemma 8) — corrected. Numerically clean over 4000 random MDPs.
+theorem g1_lojasiewicz (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (astar : S → A) (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : EuclideanSpace ℝ (S × A)) :
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖
+
+-- G2 (AKM Lemma 4.1) — corrected, keeping AKM's directional right-hand side.
+theorem g2_gradient_domination (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : EuclideanSpace ℝ (S × A)) :
+    VstarDist M μ - VinfDist M (F.toPolicy θ) μ
+      ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
+          * (⨆ s : S, ⨆ a : A, |advInf M (F.toPolicy θ) s a|)
+```
+
+`advInf` (the infinite-horizon advantage `Q^π - V^π`) does not exist yet —
+`PerformanceDifference.lean:47` defines `adv` only for the *finite-horizon* `V`,
+indexed by a horizon `j`. If G2 is to be kept distinct from G1, an `advInf` has
+to be defined in `Target.lean` first. If instead G2 is
+meant to be the *softmax* domination result, it is the rearrangement of the
+corrected G1 and should say so rather than assert an `‖∇V‖` bound that no
+constant makes true.
+
+Note also that neither goal carries `hr : ∀ s a, |M.r s a| ≤ 1`. Unlike G3 —
+where the missing `hr` was recoverable by rescaling, because both sides of a
+strict inequality scale together — here the two sides scale *differently* once
+`mismatchCoeff` is fixed, so `hr` should be restored rather than derived.
+
+Until G1 and G2 are restated, their `sorry`s stand. -/
+
 end Proofs
 end PolicyGradient
