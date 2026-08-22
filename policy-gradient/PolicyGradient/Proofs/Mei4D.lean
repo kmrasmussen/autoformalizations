@@ -402,7 +402,73 @@ theorem mei_theorem4_of_astar_gap (M : FiniteMDP S A)
     (fun t s => astar_compat_of_gap M hr hγ₀ hγ₁ πstar hstar astar hastar hgap
       (F.toPolicy (θ t)) s) s₀ hnondeg
 
+/-! ## Removing `hnondeg`
+
+`hnondeg` was inherited from `mei4_rho_rate_of_g3`, but it is **not** a real
+extra hypothesis: it can be eliminated by a classical case split.  Either some
+state admits some strictly suboptimal policy — in which case
+`mei_theorem4_of_astar_compat` applies directly — or no state does, in which
+case `Vinf M π s = Vstar M s` for every policy and every state, so the left-hand
+side of the conclusion is exactly `0`, while the right-hand side is a product of
+nonnegative factors.  `hdom` is therefore the **only** hypothesis separating
+this file from the frozen `Goal.mei_theorem4`. -/
+
+set_option linter.unusedVariables false in
+/-- **`Goal.mei_theorem4` from its own hypotheses plus `hdom` alone.**
+
+`hnondeg` is discharged by a case split (see above), leaving the interface
+condition `(†)` as the single hypothesis beyond the frozen signature.  The
+statement below is the frozen `Goal.mei_theorem4` **verbatim**, with the one
+extra binder `hdom` inserted after `hcbound`. -/
+theorem mei_theorem4_of_astar_compat' (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    -- THE INTERFACE CONDITION `(†)` — the only hypothesis beyond the frozen ones.
+    (hdom : ∀ t s, advGapInf M (F.toPolicy (θ t)) πstar s
+      ≤ advInf M (F.toPolicy (θ t)) s (astar s)) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ := by
+  classical
+  intro T hT
+  by_cases hnd : ∃ s₀ : S, ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀
+  · obtain ⟨s₀, hs₀⟩ := hnd
+    exact mei_theorem4_of_astar_compat M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep
+      c hc astar hastar hcbound hdom s₀ hs₀ T hT
+  · -- every policy is optimal at every state: the left-hand side is `0`.
+    push_neg at hnd
+    have hzero : VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ = 0 := by
+      have heq : ∀ s, Vinf M (F.toPolicy (θ T)) s = Vstar M s := fun s =>
+        le_antisymm (vstar_upper_proof M hr hγ₀ hγ₁ (F.toPolicy (θ T)) s)
+          (hnd s (F.toPolicy (θ T)))
+      unfold VstarDist VinfDist
+      rw [← Finset.sum_sub_distrib]
+      exact Finset.sum_eq_zero fun s _ => by rw [heq s]; ring
+    rw [hzero]
+    have hpos : 0 < 1 - M.γ := by linarith
+    have hiv : 0 < invMuSup μ := invMuSup_pos μ hμ
+    have hm : 0 < mismatchCoeff M πstar μ := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+    have hScard : (0:ℝ) < (Fintype.card S : ℝ) := by
+      have := Fintype.card_pos_iff.mpr ‹Nonempty S›
+      exact_mod_cast this
+    have hTpos : (0:ℝ) < (T : ℝ) := by
+      exact_mod_cast Nat.lt_of_lt_of_le Nat.zero_lt_one hT
+    have h6 : (0:ℝ) < (1 - M.γ) ^ 6 := pow_pos hpos 6
+    positivity
+
 #print axioms mei_theorem4_of_astar_compat
+#print axioms mei_theorem4_of_astar_compat'
 #print axioms mei_theorem4_of_astar_gap
 
 end Mei4D
