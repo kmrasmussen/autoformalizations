@@ -965,6 +965,88 @@ theorem advInf_eq_zero_on_support (M : FiniteMDP S A)
   · exact absurd h (ne_of_gt hsupp)
   · exact h
 
+/-! ### Bounding the `a₊` coordinate below (AKM Lemma C.9, first claim)
+
+`θ^{(t)}(s,a₊)` is nondecreasing from the time `A^{(t)}(s,a₊) > 0` onwards
+(`theta_increasing_of_adv_pos`), hence bounded below by its value there. This is
+the easy half of AKM's Lemma C.9 and is unconditional given `eventually_adv_pos`. -/
+
+theorem theta_eventually_monotone (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (a : A) (T : ℕ)
+    (hT : ∀ t, T ≤ t → 0 < advInf M (F.toPolicy (θ t)) s a) :
+    ∀ t, T ≤ t → (θ T) (s, a) ≤ (θ t) (s, a) := by
+  intro t ht
+  induction t with
+  | zero =>
+      have : T = 0 := Nat.le_zero.mp ht
+      rw [this]
+  | succ n ih =>
+      rcases Nat.lt_or_ge T (n + 1) with hlt | hge
+      · have hTn : T ≤ n := Nat.lt_succ_iff.mp hlt
+        have hstep' := theta_increasing_of_adv_pos M F hF hr hγ₀ hγ₁ μ hμ η hη₀
+          (θ n) s a (hT n hTn)
+        rw [← hstep n] at hstep'
+        exact le_trans (ih hTn) (le_of_lt hstep')
+      · have : T = n + 1 := le_antisymm ht hge
+        rw [this]
+
+/-! ### AKM Lemma C.7: `max_a θ^{(t)}(s,a) → ∞`
+
+`softmax_ge_of_le_max` gives `π_θ(a₊|s) ≥ exp(θ(s,a₊) - Mx)/|A|` with
+`Mx = max_a θ(s,a)`. If `θ(s,a₊) ≥ c` and `π^{(t)}(a₊|s) → 0`, then
+`exp(c - Mx_t)/|A| → 0`, so `Mx_t → ∞`. -/
+
+theorem tendsto_max_theta_atTop (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (s : S) (ap : A) (c : ℝ)
+    (hlow : ∀ t, c ≤ (θ t) (s, ap))
+    (hzero : Filter.Tendsto (fun t => (F.toPolicy (θ t) s) ap) Filter.atTop (nhds 0)) :
+    Filter.Tendsto (fun t => (Finset.univ : Finset A).sup' Finset.univ_nonempty
+        (fun b => (θ t) (s, b))) Filter.atTop Filter.atTop := by
+  classical
+  set Mx : ℕ → ℝ := fun t => (Finset.univ : Finset A).sup' Finset.univ_nonempty
+    (fun b => (θ t) (s, b)) with hMx
+  have hcard : (0:ℝ) < (Fintype.card A) := by
+    have : 0 < Fintype.card A := Fintype.card_pos
+    exact_mod_cast this
+  -- `exp (c - Mx t) / |A| ≤ π^{(t)}(ap|s)`
+  have hbound : ∀ t, Real.exp (c - Mx t) / (Fintype.card A)
+      ≤ (F.toPolicy (θ t) s) ap := by
+    intro t
+    have hle : ∀ b, (θ t) (s, b) ≤ Mx t := fun b =>
+      Finset.le_sup' (fun b => (θ t) (s, b)) (Finset.mem_univ b)
+    have h := softmax_ge_of_le_max (fun a' => (θ t) (s, a')) ap (Mx t) hle
+    rw [hF]
+    refine le_trans ?_ h
+    have hmono : Real.exp (c - Mx t) ≤ Real.exp ((θ t) (s, ap) - Mx t) :=
+      Real.exp_le_exp.mpr (by linarith [hlow t])
+    gcongr
+  -- hence `exp (c - Mx t) → 0`
+  have hexp : Filter.Tendsto (fun t => Real.exp (c - Mx t)) Filter.atTop (nhds 0) := by
+    have hsq : Filter.Tendsto (fun t => Real.exp (c - Mx t) / (Fintype.card A))
+        Filter.atTop (nhds 0) := by
+      refine squeeze_zero (fun t => by positivity) hbound ?_
+      simpa using hzero
+    have := hsq.const_mul ((Fintype.card A : ℝ))
+    simpa [mul_div_cancel₀, ne_of_gt hcard] using this
+  -- `exp (c - Mx t) → 0` forces `c - Mx t → -∞`, i.e. `Mx t → ∞`
+  have hneg : Filter.Tendsto (fun t => c - Mx t) Filter.atTop Filter.atBot := by
+    by_contra hcon
+    rw [Real.tendsto_exp_comp_nhds_zero] at hexp
+    exact hcon hexp
+  refine Filter.tendsto_atTop.mpr fun b => ?_
+  have := Filter.tendsto_atBot.mp hneg (c - b)
+  exact this.mono fun t ht => by linarith
+
 end Resid
 
 end Proofs
