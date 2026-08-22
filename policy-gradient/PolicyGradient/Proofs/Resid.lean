@@ -8,7 +8,62 @@ import PolicyGradient.Proofs.DgLip
 /-!
 # Resid — the residual of AKM Theorem 5.1
 
-Transcription of Akyürek–Kakade–Mahajan (arXiv:1908.00261) Appendix C.1.
+Transcription of Akyürek–Kakade–Mahajan (arXiv:1908.00261) **Appendix C.1**, the
+proof of their Theorem 5.1 (global convergence of gradient ascent under the
+tabular softmax parameterization).
+
+## What the frozen goal needs, and where `hμ` enters
+
+`Goal.limit_adv_nonpos_offsupport` asks for `A^{π̄}(s,a) ≤ 0` at every *off-support*
+action of the limit policy. `Goal.lean` records the obstruction precisely: the
+gradient limit constrains `A^{π̄}(s,a)` only where `π̄(a|s) > 0`, because
+`∂V/∂θ(s,a) = d^π_μ(s)·π(a|s)·A^π(s,a)` and the middle factor vanishes for the
+wrong reason. Closing it needs a *rate comparison* between the decay of
+`π_t(a|s)` and the advantage — a per-coordinate asymptotic estimate on `θ_t`.
+
+That is exactly what AKM supply, and the strict positivity `hμ : ∀ s, 0 < μ s`
+is what makes it possible (their Remark 5.1 leaves convergence open without it).
+`hμ` is used here in `state_gain`, via `mu_le_dinfDist`, to make the per-state
+gain `μ(s)·(η μ(s)/5)·‖∇F_s‖²` *uniformly positive*; without it that weight is
+`0` and the whole chain is vacuous.
+
+## Constants — the two places the goal's hypotheses differ from AKM's
+
+1. **Rewards.** AKM assume `r ∈ [0,1]`, so `|A| ≤ 1/(1-γ)`. The frozen goal
+   assumes only `|r| ≤ 1`, so the honest bound is `|A| ≤ 2/(1-γ)`
+   (`abs_advInf_le`) — a factor `2` against the step-size budget.
+2. **Smoothness constant.** AKM's Lemma E.2 gives `β = 5‖c‖_∞` for the auxiliary
+   `F_s`; the repo's `dg_lipschitz` gave only `6‖c‖_∞`.
+
+Both are absorbed by `Proofs.dg_lipschitz4` (`Proofs/DgLip.lean`), which proves
+`4‖c‖_∞` — better than AKM's own `5` — by measuring the coefficient vector in
+`ℓ²` rather than `ℓ¹`. With `B = 2/(1-γ)` and `L = 4B = 8/(1-γ)`, the effective
+step at a state is `c = η·d^π_μ(s) ≤ ((1-γ)²/5)·(1/(1-γ))`, so
+
+  `c · L ≤ 8/5 < 2`,
+
+and `ascent_of_step_le` (which needs only `c·L ≤ 2`, the ascent condition, not
+the sharper `c ≤ 1/L`) applies. The margin is genuine but not large: this is why
+the exact constant `(1-γ)²/5` in the frozen statement is load-bearing.
+
+## The chain, following AKM's appendix
+
+* `sum_pi_next_adv_nonneg`, `Vinf_step_monotone` — **Lemma C.1**, per-state
+  monotone improvement `V^{(t+1)}(s) ≥ V^{(t)}(s)`.
+* `exists_Vinf_limit`, `VinfDist_monotone_traj` — **Lemma C.2**, the limits exist.
+* `eventually_adv_pos` — **Lemma C.3**, the advantage keeps its sign eventually.
+* `state_gain`, `VinfDist_gain`, `tendsto_norm_gradF_zero`, `tendsto_pi_adv_zero`
+  — **Lemma C.4**, `π^{(t)}(a|s)·A^{(t)}(s,a) → 0` for every `(s,a)`. This is
+  where `hμ` is indispensable.
+* `theta_increasing_of_adv_pos`, `theta_eventually_monotone` — **Lemma C.5**.
+* `sum_grad_coords_zero`, `sum_theta_const` — **Lemma C.6**, the conservation law
+  `∑_a θ^{(t)}(s,a) = const`.
+* `tendsto_max_theta_atTop` — **Lemma C.7**, `max_a θ^{(t)}(s,a) → ∞`.
+* `stable_step`, `stable_forward` — **Lemma C.10** (`lemma:stable`).
+
+`Proofs/ResidC8.lean` has **Lemma C.8** (`min_a θ^{(t)}(s,a) → -∞`),
+`Proofs/ResidC9.lean` has **Lemma C.9** (`θ^{(t)}(s,a) → -∞` for `a ∈ I^s_-`),
+and `Proofs/ResidAsm.lean` assembles them.
 -/
 
 namespace PolicyGradient
