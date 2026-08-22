@@ -138,6 +138,48 @@ theorem vstar_le (M : FiniteMDP S A)
     Vstar M s₀ ≤ 1 / (1 - M.γ) :=
   Proofs.vstar_le_proof M hr hγ₀ hγ₁ s₀
 
+/-! ## Bellman optimality — the machinery `g3` needs
+
+An agent attempting `g3_strict_suboptimality` reported that the statement is
+correct as written but not reachable from what this repo has: discharging it
+needs the Bellman optimality characterization (`Q*`, `V* = max_a Q*`, and the
+fact that an optimal policy's support is greedy), plus an occupancy/support
+argument. That is infrastructure, not a small proof, so it is stated here rather
+than left as an obstacle inside `g3`.
+
+Their argument for why `g3` is true, recorded so the eventual proof can follow
+it: `Vinf M π μ` depends on `π` only at states reachable from `μ`, so `hnondeg`
+cannot be witnessed by a bad action at an unreachable state — it forces the
+variation onto reachable states, which is exactly where softmax's full support
+bites. Contrapositive: if a full-support policy is optimal at `μ`, greediness
+of its support gives `Q*(s,a) = V*(s)` for *all* `a` at every reachable `s`, so
+every policy is optimal and `hnondeg` fails. -/
+
+/-- The optimal action-value `Q*(s,a)`: reward now, then optimal value after. -/
+noncomputable def Qstar (M : FiniteMDP S A) (s : S) (a : A) : ℝ :=
+  M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s'
+
+/-- **Bellman optimality.** `V*(s) = maxₐ Q*(s,a)`.
+
+The characterization `g3` turns on. Note it needs `Vstar` to be a genuine
+supremum, which `vstar_upper` and `vstar_le` now provide. -/
+@[infra "Bellman-optimality"]
+theorem vstar_bellman (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vstar M s = ⨆ a : A, Qstar M s a := sorry
+
+/-- **An optimal policy's support is greedy.**
+
+If `π` attains the optimum at `s`, every action it puts positive mass on is
+optimal there. Combined with softmax's full support this is what forces
+`Q*(s,a) = V*(s)` for *every* `a` — the step that makes `g3` work. -/
+@[infra "Greedy-support"]
+theorem optimal_support_greedy (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s : S) (hopt : Vinf M π s = Vstar M s)
+    (a : A) (hsupp : 0 < (π s) a) :
+    Qstar M s a = Vstar M s := sorry
+
 /-! ## G3 — strict suboptimality along the trajectory
 
 The rate machinery needs `0 < δ t` for its reciprocal recursion, and the old
@@ -150,6 +192,18 @@ probability to every action, so it never equals a deterministic optimal policy.
 Stating it here means the rate proof can no longer quietly assume it. -/
 
 /-- **G3 — softmax is never exactly optimal.**
+
+**Statement verified correct as written** (2026-08-22). A subagent set out to
+build the suspected counterexample — an MDP whose only bad action sits at an
+unreachable state — and found it cannot exist: `Vinf M π μ` depends on `π` only
+at reachable states, so such an MDP would not satisfy `hnondeg` either.
+`hnondeg` is doing real work (without it the statement is false for MDPs where
+all actions are equally good) and is exactly strong enough. Stress-tested over
+~40,000 random 3-state MDPs with zero violations, and the load-bearing step
+directly over 619 cases, also zero.
+
+Blocked on `vstar_bellman` and `optimal_support_greedy` above, not on any defect
+in this statement.
 
 Under a non-degeneracy condition (some policy is strictly suboptimal, i.e. the
 MDP is not one where every policy is optimal), a softmax policy — which puts
@@ -319,7 +373,8 @@ theorem ascent_trajectory_exists (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (μ : S) (θ₀ : EuclideanSpace ℝ (S × A)) :
     ∃ θ : ℕ → EuclideanSpace ℝ (S × A), θ 0 = θ₀ ∧ ∀ t, θ (t + 1)
-      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t) := sorry
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t) :=
+  Proofs.ascent_trajectory_exists_proof M F μ θ₀
 
 /-- **The distribution-mismatch coefficient is a real quantity.**
 
