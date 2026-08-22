@@ -120,7 +120,100 @@ theorem g5_g6_softmax_family
     (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (hlog : ∀ s a, Differentiable ℝ (fun θ => logits θ s a)) :
     ∃ F : VecPolicy S A (EuclideanSpace ℝ (S × A)),
-      ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a := sorry
+      ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a := by
+  -- `softmax_diff` (in `Softmax.lean`) gives Fréchet differentiability of
+  -- `θ ↦ π_θ(a|s)` for every state-action pair.
+  have hdiff : ∀ (s : S) (a : A),
+      Differentiable ℝ (fun θ : EuclideanSpace ℝ (S × A) => (softmax (logits θ s)) a) :=
+    fun s a => softmax_diff (fun θ => logits θ s) (fun a' => hlog s a') a
+  -- The witness *is* the softmax family; `dπ` is its Fréchet derivative.
+  refine ⟨{
+    toPolicy := fun θ s => softmax (logits θ s)
+    dπ := fun θ s a => fderiv ℝ (fun t => (softmax (logits t s)) a) θ
+    hasFDeriv := fun θ s a => (hdiff s a θ).hasFDerivAt }, ?_⟩
+  intro θ s a
+  rfl
+
+/-! ## Vstar is well-behaved
+
+`Vstar` is a `⨆` over the whole policy space. If that supremum were badly
+behaved the suboptimality goals could be vacuous or ill-typed in spirit, so its
+basic properties are goals rather than assumptions. -/
+
+/-- **Every policy's value is at most the optimal value.**
+
+Needs `Vinf` to be bounded above over the policy space — true because rewards
+are bounded and `γ < 1`, giving the uniform bound `1/(1-γ)`. Without this
+`⨆` could misbehave and the suboptimality statements would be hollow. -/
+@[infra "Vstar-sound"]
+theorem vstar_upper (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s₀ : S) :
+    Vinf M π s₀ ≤ Vstar M s₀ := sorry
+
+/-- **The optimal value is finite.** `Vstar ≤ 1/(1-γ)` under bounded rewards. -/
+@[infra "Vstar-finite"]
+theorem vstar_le (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    Vstar M s₀ ≤ 1 / (1 - M.γ) := sorry
+
+/-! ## G3 — strict suboptimality along the trajectory
+
+The rate machinery needs `0 < δ t` for its reciprocal recursion, and the old
+abstract theorems simply assumed `∀ t, f (x t) < fstar` — strict suboptimality
+at every iterate, forever, which is **false the moment the optimum is reached
+exactly**. Nothing proved it.
+
+For softmax it is genuinely true: a softmax policy assigns strictly positive
+probability to every action, so it never equals a deterministic optimal policy.
+Stating it here means the rate proof can no longer quietly assume it. -/
+
+/-- **G3 — softmax is never exactly optimal.**
+
+Under a non-degeneracy condition (some policy is strictly suboptimal, i.e. the
+MDP is not one where every policy is optimal), a softmax policy — which puts
+positive mass on every action — is strictly suboptimal.
+This is what licenses the `0 < δ t` the `1/t` recursion needs. -/
+@[paper "Mei2020" "Lemma 9 (strictness)"]
+theorem g3_strict_suboptimality (M : FiniteMDP S A)
+    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (μ : S) (θ : EuclideanSpace ℝ (S × A))
+    (hnondeg : ∃ π : Policy S A, Vinf M π μ < Vstar M μ) :
+    Vinf M (F.toPolicy θ) μ < Vstar M μ := sorry
+
+/-! ## G9 — the constant `c` is positive
+
+Mei's Lemma 9 asserts `c > 0` by citing AKM Theorem 5.1; it is not proved in
+their paper. `mei_theorem4` above states `c` existentially, so **this goal is
+what actually produces it** — it is not optional decoration.
+
+We have the AKM content (`ascent_converges`, `optimal_of_greedy`), but the
+composition does not exist: `ascent_converges` yields only `∃ L ≤ fstar` with
+`Tendsto`, never identifying `L = fstar`. This goal is that missing bridge. -/
+
+/-- **G9 — the Łojasiewicz coefficient stays bounded away from zero.**
+
+Tagged `@[infra]`, not `@[paper]`: the linter correctly rejected the `@[paper]`
+tag, because the conclusion is about the *policy's* probabilities rather than
+about `V`. It produces the constant that `mei_theorem4` consumes; it is not
+itself a statement about the MDP's value.
+
+Along a gradient-ascent trajectory the smallest optimal-action probability does
+not decay to zero, so the `inf` over time is strictly positive. This is what
+makes the `O(1/T)` rate meaningful rather than asymptotically vacuous. -/
+@[infra "G9"]
+theorem g9_c_positive (M : FiniteMDP S A)
+    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
+    (astar : S → A) :
+    ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 
 /-! ## G7 — the local-term bound
 
@@ -197,9 +290,19 @@ for the rate track as well. -/
 The statement the repo is actually for. Note what it mentions and the current
 `smooth_loja_rate` does not: an MDP, a softmax family, `Vinf`, and `V*`.
 
-`c` is a hypothesis exactly as in the paper — their statement reads "`c` the
-positive constant from Lemma 9", and their Lemma 9 is proved by citing AKM
-Theorem 5.1 rather than from first principles. -/
+**`c` is existential, and that is forced.** An earlier draft took `c` as a
+universally quantified hypothesis `(c : ℝ) (hc : 0 < c)`. That statement is
+**not provable**: quantifying `c` universally lets the caller send `c → ∞`,
+driving the bound to `0` and so asserting `Vstar - Vinf ≤ 0` for every
+reachable policy. Machine-checked: from `0 < x` and `∀ c > 0, x ≤ K / c²`,
+taking `c = √(2K/x)` gives `x ≤ x/2`, a contradiction.
+
+This is the mirror of the degenerate-witness trap. A quantity left floating is
+a defect either way: existential and unconstrained makes the goal too *weak*
+(the prover picks it); universal makes it too *strong* (the caller picks it).
+The paper's `c` is a specific constant determined by the MDP and the trajectory
+— their Lemma 9 — so it belongs outside the `∀ T`, chosen once, exactly as
+here. -/
 @[paper "Mei2020" "Theorem 4"]
 theorem mei_theorem4 (M : FiniteMDP S A)
     (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
@@ -208,10 +311,10 @@ theorem mei_theorem4 (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
-      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
-    (c : ℝ) (hc : 0 < c) (T : ℕ) (hT : 1 ≤ T) :
-    Vstar M μ - Vinf M (F.toPolicy (θ T)) μ
-      ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T) := sorry
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t)) :
+    ∃ c : ℝ, 0 < c ∧ ∀ T : ℕ, 1 ≤ T →
+      Vstar M μ - Vinf M (F.toPolicy (θ T)) μ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T) := sorry
 
 /-! ## G10 — the entropy-regularized track
 

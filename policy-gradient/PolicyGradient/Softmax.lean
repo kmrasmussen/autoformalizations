@@ -4,6 +4,8 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 import PolicyGradient.Chain
 import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.SpecialFunctions.Exponential
+import Mathlib.Analysis.SpecialFunctions.ExpDeriv
+import Mathlib.Analysis.InnerProductSpace.Basic
 
 /-!
 # Softmax policies
@@ -79,6 +81,63 @@ theorem softmaxScore_sum_eq_zero (w : A → ℝ) (b : A) :
   rw [Finset.sum_ite_eq' univ b (fun a => (softmax w) a)]
   rw [← Finset.sum_mul, (softmax w).sum_eq_one, one_mul]
   simp
+
+/-!
+### Differentiability of softmax
+
+`softmax` composed with differentiable logits is Fréchet-differentiable in a
+vector parameter. This is what makes the softmax family a `VecPolicy` (gap
+**G5+G6**).
+
+The domain `E` is a general real inner-product space — in particular *not* a
+field — so Mathlib's `Differentiable.div` (stated for `𝕜 → 𝕜'` between normed
+fields) does not apply. The quotient is handled as `f * g⁻¹` via
+`DifferentiableAt.inv` from `Mathlib/Analysis/Calculus/FDeriv/Mul.lean`, which
+*is* stated for an arbitrary normed-space domain.
+-/
+
+section Differentiability
+
+variable {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℝ E]
+
+/-- The softmax denominator `θ ↦ ∑ₐ' exp(logits θ a')` is differentiable.
+
+Note the `funext`/`Finset.sum_apply` step: `Differentiable.sum` is stated for a
+sum *of functions* `∑ i ∈ s, A i`, while the goal is a function *returning* a
+sum. -/
+theorem exp_sum_diff (logits : E → A → ℝ)
+    (hd : ∀ a, Differentiable ℝ (fun θ => logits θ a)) :
+    Differentiable ℝ (fun θ => ∑ a', Real.exp (logits θ a')) := by
+  have key : (fun θ : E => ∑ a', Real.exp (logits θ a'))
+      = ∑ a' : A, (fun θ : E => Real.exp (logits θ a')) := by
+    funext θ; simp [Finset.sum_apply]
+  rw [key]; intro θ
+  exact DifferentiableAt.sum (fun a' _ => DifferentiableAt.exp (hd a' θ))
+
+/-- **Softmax of differentiable logits is differentiable.**
+
+The denominator is strictly positive (`softmax_denom_pos`), so the quotient is
+differentiable everywhere — no exceptional parameter values. -/
+theorem softmax_diff [Nonempty A] (logits : E → A → ℝ)
+    (hd : ∀ a, Differentiable ℝ (fun θ => logits θ a)) (a : A) :
+    Differentiable ℝ (fun θ => (softmax (logits θ)) a) := by
+  have hnum : Differentiable ℝ (fun θ : E => Real.exp (logits θ a)) :=
+    fun θ => DifferentiableAt.exp (hd a θ)
+  have hden : Differentiable ℝ (fun θ : E => ∑ a', Real.exp (logits θ a')) :=
+    exp_sum_diff logits hd
+  have hne : ∀ θ : E, (∑ a', Real.exp (logits θ a')) ≠ 0 :=
+    fun θ => ne_of_gt (softmax_denom_pos (logits θ))
+  intro θ
+  have h1 : DifferentiableAt ℝ (fun t : E => (∑ a', Real.exp (logits t a'))⁻¹) θ :=
+    (hden θ).inv (hne θ)
+  have h2 := (hnum θ).mul h1
+  have hrw : (fun t : E => (softmax (logits t)) a)
+      = (fun t : E => Real.exp (logits t a) * (∑ a', Real.exp (logits t a'))⁻¹) := by
+    funext t; rw [softmax_apply, div_eq_mul_inv]
+  rw [hrw]
+  exact h2
+
+end Differentiability
 
 /-!
 ### The softmax policy family
