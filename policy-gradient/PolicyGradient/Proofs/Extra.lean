@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
+import PolicyGradient.Proofs.G2
 
 /-!
 # Proofs/Extra.lean — additional proof modules
@@ -15,7 +16,8 @@ collision structurally impossible — git never has to reconcile two edits to on
 region.
 
 To add a module: create `PolicyGradient/Proofs/<Topic>.lean` with
-`import PolicyGradient.Target` and `namespace PolicyGradient.Proofs`, then add
+`import PolicyGradient.Target
+import PolicyGradient.Proofs.G2` and `namespace PolicyGradient.Proofs`, then add
 one `import` line here. Import lines at distinct positions still conflict far
 less often than bodies appended at a shared anchor.
 
