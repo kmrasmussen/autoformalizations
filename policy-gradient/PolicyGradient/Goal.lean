@@ -830,7 +830,8 @@ theorem greedy_limit_points (M : FiniteMDP S A)
     (πbar : Policy S A)
     (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
       (nhds (fun s a => (πbar s) a))) :
-    ∀ s a, 0 < dinf M πbar μ s → 0 < (πbar s) a → advInf M πbar s a = 0 := sorry
+    ∀ s a, 0 < dinf M πbar μ s → 0 < (πbar s) a → advInf M πbar s a = 0 :=
+  Proofs.greedy_limit_points_proof M F hF hr hγ₀ hγ₁ μ θ hstep πbar hlim
 
 /-- **Dirac-compatible gradient domination.**
 
