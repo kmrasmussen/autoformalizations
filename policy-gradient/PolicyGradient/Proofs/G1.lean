@@ -775,6 +775,43 @@ theorem norm_testVec (astar : S → A) :
   rw [Fintype.sum_prod_type]
   simp
 
+/-- **The gradient tested against the test vector** collects the optimal-action
+policy gradient at every state. -/
+theorem dVinfDist_testVec (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (θ : E S A) (astar : S → A) :
+    dVinfDist M (F.toPolicy θ) μ θ
+        (∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ))
+      = ∑ s : S, dinfDist M (F.toPolicy θ) μ s
+          * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s)) := by
+  rw [map_sum]
+  exact Finset.sum_congr rfl fun s _ =>
+    dVinfDist_single M F hF hr hγ₀ hγ₁ μ θ s (astar s)
+
+/-- Consequently the weighted optimal-action advantage sum is bounded by
+`√|S| · ‖∇ VinfDist‖`. -/
+theorem sum_adv_le_norm (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (θ : E S A) (astar : S → A) :
+    |∑ s : S, dinfDist M (F.toPolicy θ) μ s
+        * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))|
+      ≤ Real.sqrt (Fintype.card S)
+          * ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := by
+  have hfd := hasFDerivAt_VinfDist M F hF hr hγ₀ hγ₁ μ θ
+  have hfe : fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ
+      = dVinfDist M (F.toPolicy θ) μ θ := hfd.fderiv
+  rw [hfe, ← dVinfDist_testVec M F hF hr hγ₀ hγ₁ μ θ astar]
+  set L := dVinfDist M (F.toPolicy θ) μ θ with hL
+  set v : E S A := ∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) with hv
+  calc |L v| = ‖L v‖ := (Real.norm_eq_abs _).symm
+    _ ≤ ‖L‖ * ‖v‖ := L.le_opNorm v
+    _ = ‖L‖ * Real.sqrt (Fintype.card S) := by rw [hv, norm_testVec]
+    _ = Real.sqrt (Fintype.card S) * ‖L‖ := by ring
+
 end G1
 
 end Proofs
