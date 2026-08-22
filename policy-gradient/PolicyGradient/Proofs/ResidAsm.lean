@@ -180,6 +180,40 @@ theorem pi_ratio_small (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
   rw [hratio]
   exact mul_le_mul_of_nonneg_right hexp ((F.toPolicy (θ t) s).nonneg ap)
 
+/-! ### AKM's bound (c): the `ap` term is bounded below by `π^{(t)}(ap|s)·Δ/2`
+
+By continuity `A^{(t)}(s,ap) ≥ A^{π̄}(s,ap)/2` eventually, so the `ap` summand of
+`∑_a π^{(t)}(a|s) A^{(t)}(s,a)` is at least `π^{(t)}(ap|s) · A^{π̄}(s,ap)/2`. -/
+
+theorem ap_term_lower (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (ap : A) (hpos : 0 < advInf M πbar s ap) :
+    ∀ᶠ t in Filter.atTop,
+      (F.toPolicy (θ t) s) ap * (advInf M πbar s ap / 2)
+        ≤ (F.toPolicy (θ t) s) ap * advInf M (F.toPolicy (θ t)) s ap := by
+  filter_upwards [eventually_adv_pos M F hr hγ₀ hγ₁ θ πbar hlim s ap hpos] with t ht
+  exact mul_le_mul_of_nonneg_left ht ((F.toPolicy (θ t) s).nonneg ap)
+
+/-- **AKM's bound (b) ingredient**: on `I^s_0` the trajectory advantage vanishes,
+so those summands are `o(1)` uniformly against any fixed positive scale. -/
+theorem I0_adv_small (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) (hzero : advInf M πbar s a = 0) (ε : ℝ) (hε : 0 < ε) :
+    ∀ᶠ t in Filter.atTop, |advInf M (F.toPolicy (θ t)) s a| ≤ ε := by
+  have hA := tendsto_adv_traj M F hr hγ₀ hγ₁ θ πbar hlim s a
+  rw [hzero] at hA
+  have habs : Filter.Tendsto (fun t => |advInf M (F.toPolicy (θ t)) s a|)
+      Filter.atTop (nhds 0) := by simpa using hA.abs
+  exact habs.eventually_le_const hε
+
 end ResidAsm
 
 end Proofs
