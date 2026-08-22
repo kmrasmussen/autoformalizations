@@ -10,6 +10,7 @@ import PolicyGradient.Proofs.Mei4
 import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.VecStep
 import PolicyGradient.Proofs.AKM51
+import PolicyGradient.Proofs.Dirac
 
 /-!
 # Proofs/Extra.lean — additional proof modules
