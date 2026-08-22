@@ -3,7 +3,148 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Proofs.Conv
 
-/-! # Conv2 — scratch -/
+/-!
+# Conv2 — `Goal.softmax_policy_converges`: the gap, narrowed to the tie split
+
+## Status: OPEN, but the obstruction has moved
+
+`Conv.lean` located the gap at *advantage sign-stability*, and recorded that
+every fact supplying it (`eventually_adv_neg`, `theta_eventually_antitone`,
+`theta_tendsto_atBot_of_adv_neg`, `ResidC9.ratio_step`) binds `πbar` and `hlim`,
+so using them would be circular.  **That circularity is broken here.**
+
+### 1. The reduction named in `Conv.lean` is unreachable — `(†)` is FALSE
+
+`Conv.lean` reduces the goal to `Summable (fun t => ‖θ (t+1) - θ t‖)` (`(†)`),
+via `policy_converges_of_summable_theta_increments`, and calls that "your
+target".  It is not reachable, because **it is false along the actual
+trajectory**.
+
+Numerically, on the single-state `γ = 0`, `r = (1,0)` trajectory at `η = 0.2`
+from `θ₀ = (0,0)`, the partial sums `∑_{t<T} ‖∇V(θ_t)‖` are
+
+    T = 10⁴ : 29.31      T = 10⁵ : 37.46
+    T = 10⁶ : 45.61      T = 4·10⁶ : 50.51
+
+— increments of `≈ 8.15` per decade, i.e. **logarithmic divergence**
+(`≈ 3.54 · ln 10`).  Since `θ_{t+1} - θ_t = η ∇V(θ_t)` exactly, `(†)` fails.
+
+This is not a numerical artifact; the trajectory has a closed form.  With
+`|A| = 2`, write `u_t = θ_t(s,a₁) - θ_t(s,a₂)`, so `π_t(a₁|s) = σ(u_t)` for the
+logistic `σ`.  Then `A_t(s,a₁) = 1 - σ(u_t)` and `A_t(s,a₂) = -σ(u_t)`, so both
+gradient coordinates have modulus `σ(u_t)(1 - σ(u_t)) = σ'(u_t)` and
+
+    ‖∇V(θ_t)‖ = √2 · σ'(u_t),        u_{t+1} - u_t = 2η · σ'(u_t).
+
+Hence `∑_{t<T} ‖∇V(θ_t)‖ = (√2 / (2η)) · (u_T - u_0)`: the gradient sum is the
+logit gap, up to a constant.  For large `u`, `σ'(u) ≈ e^{-u}`, so
+`e^{u} du ≈ 2η dt` gives `u_T ≈ log(2ηT)` and
+
+    ∑_{t<T} ‖∇V(θ_t)‖ ≈ (√2 / (2η)) · log(2ηT)  →  ∞.
+
+At `η = 0.2` that formula predicts `29.324, 37.465, 45.606, 50.507` for the four
+horizons above — the simulated values to three decimals.  `(†)` is false, and
+false for a structural reason: **the gradient sum *is* the logit gap**, and the
+logit gap must diverge precisely because the policy converges to a vertex.
+Over the same run the *policy* total variation `∑_t ‖π_{t+1} - π_t‖₁` saturates
+at `0.999999`.  So the path has **finite length in the simplex and infinite
+length in the logits**: `θ_t(s,a*) → +∞` like `log t`, which is exactly the
+`‖θ‖ → ∞` that `Conv.lean` already identified as killing the Łojasiewicz route.
+
+This kills route (3) of the three suggested attacks (bound `‖θ(t+1) - θ t‖` by a
+summable majorant) at the root: no such majorant exists.  It also means the
+`(†)`-reduction, though correctly proved, is a **dead end**, and any future work
+should not aim at it.  `policy_converges_of_eventually_monotone` — the *other*
+reduction in `Conv.lean` — is the live one.
+
+### 2. The advantage converges with NO limit policy (the unlock)
+
+The circularity `Conv.lean` describes rests on an assumption that turns out to
+be unnecessary.  Unfolding `Target.advInf`,
+
+    advInf M π s a = r(s,a) + γ · ∑_{s'} P(s'|s,a) · Vinf M π s' - Vinf M π s,
+
+the advantage depends on the policy **only through the value function**.  And
+the value converges along the trajectory *unconditionally*: `exists_Vinf_limit`
+(AKM Lemma C.2) makes `t ↦ Vinf M (F.toPolicy (θ t)) s₀` monotone, and
+`Vinf_le_one_div` bounds it — neither binds `πbar`.  So:
+
+* `exists_Vinf_tendsto` — the value at each state converges.  πbar-free.
+* `exists_adv_tendsto` — **the advantage `A^{(t)}(s,a)` converges.**  πbar-free.
+
+This is the πbar-free substitute for AKM Lemma C.3, and it **discharges the
+sign-stability half of `Conv.lean`'s gap outright**: a convergent sequence with
+nonzero limit is eventually of one sign, so `theta_eventually_monotone_of_adv_ne`
+makes every such logit eventually monotone with no limit policy in hand.
+
+### 3. What that buys, and what is left
+
+Write `Abar s a` for the limit of `A^{(t)}(s,a)` and `Z s = {a | Abar s a = 0}`.
+`Z s` is exactly the set of actions greedy-optimal for the limiting value
+function.  Unconditionally (all πbar-free, all proved below):
+
+* `a ∉ Z s` ⟹ `π_t(a|s) → 0` — `tendsto_pi_zero_of_adv_limit_ne`, dividing the
+  πbar-free `tendsto_pi_adv_zero` (AKM Lemma C.4) by the nonzero advantage limit;
+* the mass on `Z s` tends to `1` — `tendsto_mass_on_zero_set`;
+* if `Z s` is a singleton, **every coordinate at `s` converges** —
+  `coord_tendsto_of_unique_zero`;
+* exactly-tied actions never trade mass back — `tie_gap_monotone`.
+
+`softmax_policy_converges_of_tie_split` assembles these: it has **exactly** the
+frozen goal's hypotheses plus one extra, `hZ`, and `hZ` constrains **only the
+actions whose limiting advantage vanishes**.  Compare `Conv.lean`'s capstone,
+which needed sign-stability of *every* advantage and was *still* insufficient
+(its own obstruction note shows sign-stability fails to give monotone policy
+coordinates once `|A| ≥ 3`).  Here that half is gone and the tie split is all
+that remains.
+
+### 4. Why the tie split does not close, precisely
+
+For `a, b ∈ Z s` the logit gap moves by
+
+    Δ(θ_t(s,a) - θ_t(s,b)) = η · d^{(t)}_μ(s) · (π_t(a|s) A_t(s,a) - π_t(b|s) A_t(s,b)),
+
+and `tendsto_pi_adv_zero` sends **both** products to `0` — with no rate.  So the
+sign of the difference is unconstrained, which is the same rate comparison
+`Conv.lean` names, now confined to `Z s` instead of all of `A`.
+
+`tie_gap_monotone` closes it under an **exact** tie, `A_t(s,a) = A_t(s,b)` at
+every finite `t`: then the increment is `η d_t(s) A_t (π_t(a|s) - π_t(b|s))`,
+`softmax_mono` gives that difference the sign of the logit gap, and the dynamics
+are self-reinforcing — whichever tied action is ahead pulls further ahead, so the
+gap is monotone and the split converges (to a vertex or to an interior point,
+both of which occur).  Numerically this is what happens: over `3·10⁵` steps on
+`r = (1,1,0)` the two tied coordinates show **zero** sign flips in `A_t`, and the
+tied probabilities drift monotonically.
+
+That hypothesis is **not** available in general.  For `a, b ∈ Z s`,
+
+    A_t(s,a) - A_t(s,b) = r(s,a) - r(s,b) + γ · ∑_{s'} (P(s'|s,a) - P(s'|s,b)) · V_t(s'),
+
+which tends to `0` but is nonzero at finite `t` unless the rewards *and*
+transitions agree exactly.  A `2`-state, `3`-action sweep with `γ = 0.6` and
+random transitions confirms the difference: at states where two limiting
+advantages are close but not equal, `A_t` at one of them is **negative for
+thousands of consecutive steps** before settling — so neither the exact-tie
+hypothesis nor a uniform `A_t ≥ 0` on `Z s` survives `γ > 0`.
+
+Closing `hZ` in general needs a comparison of the **rates** at which
+`π_t(a|s) A_t(s,a)` and `π_t(b|s) A_t(s,b)` vanish, for `a, b` both in `Z s`.
+That is `ResidC9.ratio_step`'s estimate restricted to the tied set, and
+`ratio_step` binds `πbar` — the one place the circularity survives.
+
+### Summary against the three suggested routes
+
+1. **Łojasiewicz on the centered logits** — not attempted past the diagnosis;
+   §1 shows why it cannot help *as a route to `(†)`*, since `(†)` is false.
+   Whether a Łojasiewicz bound could drive the *policy*-space argument is open.
+2. **`ResidC8`/`ResidC9` facts stated without `πbar`** — `theta_decrement`,
+   `theta_step_bound`, `ratio_step`, `ratio_induction`, `antitone_from` and
+   `sum_theta_eq_zero` are all πbar-free and are used above.  The *sign-stability*
+   facts all bind `πbar`, but §2 shows they are no longer needed: the advantage
+   converges directly.
+3. **A summable majorant for `‖θ(t+1) - θ t‖`** — refuted in §1.
+-/
 
 namespace PolicyGradient
 namespace Proofs
