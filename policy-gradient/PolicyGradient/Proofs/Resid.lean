@@ -1225,6 +1225,33 @@ theorem theta_a0_bounded_below (M : FiniteMDP S A)
     (pi_le_iff_theta_le F hF (θ t) s ap a0).mp (hord t ht)
   exact le_trans (hlow t ht) h1
 
+/-! ### No action with positive limiting advantage can have `θ → -∞`
+
+If `A^{π̄}(s,b) > 0` then eventually `A^{(t)}(s,b) > 0`, so `θ^{(t)}(s,b)` is
+nondecreasing from that point (`theta_increasing_of_adv_pos`) and hence bounded
+below. In particular it cannot tend to `-∞`. -/
+
+theorem not_theta_atBot_of_adv_pos (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (b : A) (hpos : 0 < advInf M πbar s b) :
+    ∃ c : ℝ, ∃ T : ℕ, ∀ t, T ≤ t → c ≤ (θ t) (s, b) := by
+  -- eventually the advantage along the trajectory is positive
+  have hev := eventually_adv_pos M F hr hγ₀ hγ₁ θ πbar hlim s b hpos
+  obtain ⟨T, hT⟩ := Filter.eventually_atTop.mp hev
+  refine ⟨(θ T) (s, b), T, ?_⟩
+  refine theta_eventually_monotone M F hF hr hγ₀ hγ₁ μ hμ η hη₀ θ hstep s b T ?_
+  intro t ht
+  exact lt_of_lt_of_le (by linarith [hpos] : (0:ℝ) < advInf M πbar s b / 2) (hT t ht)
+
 end Resid
 
 end Proofs
