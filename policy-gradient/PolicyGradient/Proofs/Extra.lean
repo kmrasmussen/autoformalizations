@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
 import PolicyGradient.Proofs.G1
+import PolicyGradient.Proofs.G1b
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
@@ -11,6 +12,7 @@ import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.VecStep
 import PolicyGradient.Proofs.AKM51
 import PolicyGradient.Proofs.Dirac
+import PolicyGradient.Proofs.Inhabited
 
 /-!
 # Proofs/Extra.lean — additional proof modules
