@@ -422,6 +422,19 @@ theorem softmax_policy_converges_of_tie_split (M : FiniteMDP S A)
   · exact ⟨0, tendsto_pi_zero_of_adv_limit_ne M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
       s a L hL0 hL⟩
 
+
+/-! ## Axiom / type audit -/
+
+section Audit
+
+-- The capstone is a genuine theorem of the ambient logic only.
+#print axioms softmax_policy_converges_of_tie_split
+#print axioms exists_adv_tendsto
+#print axioms tie_gap_monotone
+#print axioms coord_tendsto_of_unique_zero
+
+end Audit
+
 end Conv2
 
 end Proofs
