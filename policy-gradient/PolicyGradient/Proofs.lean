@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
+import Mathlib.Analysis.Calculus.Deriv.Inv
 
 /-!
 # Proofs.lean — where the work happens
@@ -1046,6 +1047,250 @@ theorem g3_strict_suboptimality_proof (M : FiniteMDP S A)
   rwa [div_mul_cancel₀ _ (ne_of_gt hcpos), div_mul_cancel₀ _ (ne_of_gt hcpos)] at this
 
 end G3
+
+
+/-! ## G7 — the statement is FALSE as written
+
+`g7_smoothness` asks for
+
+  `‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 8 / (1 - M.γ) ^ 3`
+
+under only `hF` (F is *some* softmax family), `|r| ≤ 1`, `0 ≤ γ < 1`. **No such
+bound exists**, and the reason is not the constant.
+
+`logits` is universally quantified with **no regularity hypothesis whatsoever**
+— contrast `g5_g6_softmax_family`, which carries `hlog : ∀ s a, Differentiable ℝ
+(fun θ => logits θ s a)`. G7 dropped that, and dropped much more besides: nothing
+ties `logits` to the parameter at unit scale. AKM's Lemma E.4 is about the
+**tabular** parameterization `logits θ s a = θ (s,a)`, which is 1-Lipschitz in
+`θ`. Under `logits θ s a = c · θ (s,a)` every hypothesis of G7 still holds while
+the chain rule multiplies the gradient by `c`, which is unbounded.
+
+The witness below is as simple as it gets: one state, two actions, `γ = 0`,
+rewards `0` and `1`. Then `Vinf` is exactly `π(true)`, the softmax of a single
+scaled coordinate, whose derivative at `θ = 0` is `c/4`. With `γ = 0` the claimed
+bound is `8/(1-0)³ = 8`, and `c = 33` gives `33/4 > 8`.
+
+Note `γ = 0` is deliberate: it kills the `1/(1-γ)` factors entirely, so the
+refutation cannot be blamed on the discount. The failure is in the
+parameterization, and it persists for every `γ`.
+
+**What the statement should say** is recorded after the refutation. -/
+
+/-- One state, two actions, `γ = 0`. Reward 1 for `true`, 0 for `false`. -/
+noncomputable def badMDP : FiniteMDP Unit Bool where
+  P := fun _ _ => ⟨fun _ => 1, by intro; norm_num, by simp⟩
+  r := fun _ a => if a then 1 else 0
+  γ := 0
+
+theorem badMDP_r : ∀ s a, |badMDP.r s a| ≤ 1 := by
+  intro s a; cases a <;> norm_num [badMDP]
+
+theorem badMDP_γ₀ : (0:ℝ) ≤ badMDP.γ := le_of_eq rfl
+theorem badMDP_γ₁ : badMDP.γ < 1 := by norm_num [badMDP]
+
+theorem Vinf_gamma_zero (M : FiniteMDP Unit Bool) (hγ : M.γ = 0)
+    (π : Policy Unit Bool) (s₀ : Unit) :
+    Vinf M π s₀ = ∑ a, (π s₀) a * M.r s₀ a := by
+  unfold Vinf
+  rw [tsum_eq_single 0]
+  · unfold stepReward; simp [hγ]
+  · intro t ht; unfold stepReward; rw [hγ, zero_pow ht, zero_mul]
+
+/-- The value of the bad MDP is just the probability of action `true`. -/
+theorem Vinf_badMDP (π : Policy Unit Bool) :
+    Vinf badMDP π () = (π ()) true := by
+  rw [Vinf_gamma_zero badMDP rfl]
+  simp [badMDP, Fintype.sum_bool]
+
+
+/-- The scaled logits: `logits θ s a = c * θ(s,a)` for `a = true`, else `0`. -/
+noncomputable def badLogits (c : ℝ) :
+    EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ :=
+  fun θ _ a => if a then c * θ ((), true) else 0
+
+theorem badLogits_diff (c : ℝ) (s : Unit) (a : Bool) :
+    Differentiable ℝ (fun θ : EuclideanSpace ℝ (Unit × Bool) => badLogits c θ s a) := by
+  unfold badLogits
+  cases a
+  · simpa using (differentiable_const (0:ℝ))
+  · simp only [if_true]
+    exact (((EuclideanSpace.proj ((), true) :
+      EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)).differentiable).const_mul c
+
+/-- The softmax value as an explicit scalar function of the coordinate. -/
+theorem Vinf_softmax_formula (c : ℝ) (θ : EuclideanSpace ℝ (Unit × Bool)) :
+    Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits c θ s)) ()
+      = Real.exp (c * θ ((), true)) / (Real.exp (c * θ ((), true)) + 1) := by
+  rw [Vinf_badMDP, softmax_apply]
+  congr 1
+  · simp [badLogits]
+
+
+/-- The scalar profile `x ↦ e^{cx}/(e^{cx}+1)` has derivative `c/4` at `0`. -/
+theorem profile_deriv (c : ℝ) :
+    HasDerivAt (fun x : ℝ => Real.exp (c*x) / (Real.exp (c*x) + 1)) (c/4) 0 := by
+  have hlin : HasDerivAt (fun x : ℝ => c*x) c 0 := by
+    simpa using (hasDerivAt_id (0:ℝ)).const_mul c
+  have h1 : HasDerivAt (fun x : ℝ => Real.exp (c*x)) c 0 := by
+    have := hlin.exp
+    rwa [mul_zero, Real.exp_zero, one_mul] at this
+  have h2 : HasDerivAt (fun x : ℝ => Real.exp (c*x) + 1) c 0 := h1.add_const 1
+  have hne : Real.exp (c*0) + 1 ≠ 0 := by positivity
+  have hd := h1.div h2 hne
+  rw [mul_zero, Real.exp_zero] at hd
+  have harith : (c * (1 + 1) - 1 * c) / (1 + 1)^2 = c/4 := by ring
+  rwa [harith] at hd
+
+/-- The Fréchet derivative of the value at `θ = 0` is `(c/4) • proj`. -/
+theorem Vinf_hasFDeriv (c : ℝ) :
+    HasFDerivAt (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+        Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits c t s)) ())
+      ((c/4) • (EuclideanSpace.proj ((), true) :
+        EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)) 0 := by
+  have hfun : (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+      Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits c t s)) ())
+      = fun t : EuclideanSpace ℝ (Unit × Bool) =>
+        Real.exp (c * t ((), true)) / (Real.exp (c * t ((), true)) + 1) :=
+    funext fun t => Vinf_softmax_formula c t
+  rw [hfun]
+  have hp : HasFDerivAt (fun t : EuclideanSpace ℝ (Unit × Bool) => t ((), true))
+      (EuclideanSpace.proj ((), true) :
+        EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ) 0 :=
+    (EuclideanSpace.proj ((), true) :
+      EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ).hasFDerivAt
+  have hprof : HasDerivAt (fun x : ℝ => Real.exp (c*x) / (Real.exp (c*x) + 1)) (c/4)
+      ((0 : EuclideanSpace ℝ (Unit × Bool)) ((), true)) := by
+    have h0 : (0 : EuclideanSpace ℝ (Unit × Bool)) ((), true) = 0 := by simp
+    rw [h0]; exact profile_deriv c
+  exact hprof.comp_hasFDerivAt (0 : EuclideanSpace ℝ (Unit × Bool)) hp
+
+
+/-- The operator norm of the derivative is at least `c/4`. -/
+theorem norm_fderiv_ge (c : ℝ) (hc : 0 ≤ c) :
+    c/4 ≤ ‖fderiv ℝ (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+      Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits c t s)) ())
+      (0 : EuclideanSpace ℝ (Unit × Bool))‖ := by
+  rw [(Vinf_hasFDeriv c).fderiv]
+  set v : EuclideanSpace ℝ (Unit × Bool) := EuclideanSpace.single ((), true) (1:ℝ) with hv
+  have hvn : ‖v‖ = 1 := by rw [hv]; simp
+  have happ : ((c/4) • (EuclideanSpace.proj ((), true) :
+      EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)) v = c/4 := by
+    simp [hv]
+  have hle := ((c/4) • (EuclideanSpace.proj ((), true) :
+      EuclideanSpace ℝ (Unit × Bool) →L[ℝ] ℝ)).le_opNorm v
+  rw [hvn, mul_one, happ] at hle
+  calc c/4 = |c/4| := (abs_of_nonneg (by linarith)).symm
+    _ = ‖c/4‖ := (Real.norm_eq_abs _).symm
+    _ ≤ _ := hle
+
+
+/-- The softmax `VecPolicy` built from `badLogits c`. -/
+noncomputable def badF (c : ℝ) : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool)) where
+  toPolicy := fun θ s => softmax (badLogits c θ s)
+  dπ := fun θ s a => fderiv ℝ (fun t => (softmax (badLogits c t s)) a) θ
+  hasFDeriv := fun θ s a =>
+    (softmax_diff (fun t => badLogits c t s) (fun a' => badLogits_diff c s a') a θ).hasFDerivAt
+
+theorem badF_hF (c : ℝ) : ∀ θ s a, ((badF c).toPolicy θ s) a = softmax (badLogits c θ s) a :=
+  fun _ _ _ => rfl
+
+/-- **G7 is false as stated.** Taking `c = 33`, `γ = 0`, the one-state two-action
+MDP above satisfies every hypothesis of `g7_smoothness` yet has
+`‖fderiv‖ ≥ 33/4 > 8 = 8/(1-γ)³`. -/
+theorem g7_false :
+    ¬ (∀ (M : FiniteMDP Unit Bool)
+        (logits : EuclideanSpace ℝ (Unit × Bool) → Unit → Bool → ℝ)
+        (F : VecPolicy Unit Bool (EuclideanSpace ℝ (Unit × Bool))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        (∀ s a, |M.r s a| ≤ 1) → 0 ≤ M.γ → M.γ < 1 →
+        ∀ (θ : EuclideanSpace ℝ (Unit × Bool)) (s₀ : Unit),
+          ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 8 / (1 - M.γ) ^ 3) := by
+  intro h
+  have hbound := h badMDP (badLogits 33) (badF 33) (badF_hF 33)
+    badMDP_r badMDP_γ₀ badMDP_γ₁ 0 ()
+  have hlow := norm_fderiv_ge 33 (by norm_num)
+  have hrhs : (8 : ℝ) / (1 - badMDP.γ) ^ 3 = 8 := by norm_num [badMDP]
+  rw [hrhs] at hbound
+  -- the two functions agree definitionally
+  have heq : (fun t : EuclideanSpace ℝ (Unit × Bool) => Vinf badMDP ((badF 33).toPolicy t) ())
+      = (fun t : EuclideanSpace ℝ (Unit × Bool) =>
+          Vinf badMDP (show Policy Unit Bool from fun s => softmax (badLogits 33 t s)) ()) := rfl
+  rw [heq] at hbound
+  linarith
+
+
+/-- The exact shape of `g7_smoothness`, as a hypothesis. If G7 held in general,
+this would follow; `g7_false` shows it cannot. -/
+theorem g7_general_false :
+    ¬ (∀ (S A : Type) (_ : Fintype S) (_ : Fintype A) (_ : DecidableEq S) (_ : DecidableEq A)
+        (_ : Nonempty S) (_ : Nonempty A)
+        (M : FiniteMDP S A)
+        (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+        (F : VecPolicy S A (EuclideanSpace ℝ (S × A))),
+        (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) →
+        (∀ s a, |M.r s a| ≤ 1) → 0 ≤ M.γ → M.γ < 1 →
+        ∀ (θ : EuclideanSpace ℝ (S × A)) (s₀ : S),
+          ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 8 / (1 - M.γ) ^ 3) := by
+  intro h
+  exact g7_false (fun M logits F hF hr hγ₀ hγ₁ θ s₀ =>
+    h Unit Bool inferInstance inferInstance inferInstance inferInstance
+      inferInstance inferInstance M logits F hF hr hγ₀ hγ₁ θ s₀)
+
+/-! ### What G7 should say instead
+
+The refutation above is not about the constant `8`; no constant works. Two
+things must change, and they are independent.
+
+**1. Pin the parameterization (mandatory — this is what `g7_false` exploits).**
+`hF` must fix the *tabular* softmax AKM actually analyses,
+
+  `hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a`
+
+replacing the free `logits`. Any statement quantifying over an unconstrained
+`logits` is refutable by rescaling, whatever the right-hand side. (Assuming
+`logits` merely `Differentiable`, as `g5_g6_softmax_family` does, is *not*
+enough — `badLogits c` is differentiable for every `c`.)
+
+**2. Then choose which quantity is meant.**
+
+*If the first derivative is meant*, the constant is wrong: `8/(1-γ)³` is a
+smoothness constant. The correct gradient bound for `|r| ≤ 1` is `O(1/(1-γ)²)` —
+this repo already proves the scalar analogue as `abs_dV_le_softmax`
+(`|dV| ≤ 1/(1-γ)²`). The vector statement is
+
+```lean
+theorem g7_gradient_bound (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 2 / (1 - M.γ) ^ 2
+```
+
+*If smoothness is meant* — and the `@[paper "AKM2021" "Lemma E.4"]` tag and the
+`8/(1-γ)³` constant both say it is, since that is exactly what
+`smoothAt_V_final`/`abs_d2V_le_eight` deliver — then the conclusion must be
+about the **second** derivative:
+
+```lean
+theorem g7_smoothness (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    ‖fderiv ℝ (fun t => fderiv ℝ (fun u => Vinf M (F.toPolicy u) s₀) t) θ‖
+      ≤ 8 / (1 - M.γ) ^ 3
+```
+
+Both are well-formed (checked). The second is the faithful reading of Lemma E.4
+and the one that would actually discharge `smoothAt_V_final`'s `hdloc`; note
+that with the tabular `hF` the family is genuinely `C²`, which the current
+`VecPolicy` (first derivative only) does not record — a `C²` analogue of
+`VecPolicy`, or a `SmoothAt`-style conclusion, is needed to state it in the form
+`smoothAt_V_final` consumes.
+
+Until G7 is restated, its `sorry` stands. -/
 
 end Proofs
 end PolicyGradient
