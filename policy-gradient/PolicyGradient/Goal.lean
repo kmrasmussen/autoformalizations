@@ -4,6 +4,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 import PolicyGradient.Meta.Paper
 import PolicyGradient.Target
 import PolicyGradient.Proofs
+import PolicyGradient.Proofs.Extra
 import Mathlib.Analysis.InnerProductSpace.EuclideanDist
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.Calculus.Gradient.Basic
@@ -412,7 +413,22 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
 
 Corrected to AKM's *directional* right-hand side. Bounding by `‖∇V‖` is false
 for softmax at any constant (defect 3 above); the advantage form is what the
-paper actually proves. -/
+paper actually proves.
+
+**Proved 2026-08-22, and the proof reveals this statement is weaker than it
+looks.** It uses neither `hF` (softmax) nor the optimality content of `hstar`:
+the underlying `Proofs.Vinf_sub_le_adv_div` holds for *any* two policies, with
+`hstar` serving only to rewrite `Vstar` as `Vinf πstar`. So the goal as frozen
+is a corollary of a general fact about advantage bounds, not something specific
+to softmax. The hypotheses are kept because the statement is frozen, but a
+future revision could drop `hF` and state it at its true generality.
+
+The route also avoids the infinite-horizon performance-difference *identity*,
+which remains unproved. The observation is that the change of measure only ever
+weakens the bound — `mismatchCoeff ≥ 1` always, since `d^π_μ` dominates `μ`
+pointwise (the `t = 0` term alone contributes `μ s`) — so a pointwise bound
+averaged against `μ` and weakened by `1 ≤ mismatchCoeff` suffices. That traded
+a hard `tsum` telescoping argument for a max-state contraction. -/
 @[paper "AKM2021" "Lemma 4.1"]
 theorem g2_gradient_domination (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -423,7 +439,8 @@ theorem g2_gradient_domination (M : FiniteMDP S A)
     (θ : EuclideanSpace ℝ (S × A)) :
     VstarDist M μ - VinfDist M (F.toPolicy θ) μ
       ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
-          * (⨆ s : S, ⨆ a : A, |advInf M (F.toPolicy θ) s a|) := sorry
+          * (⨆ s : S, ⨆ a : A, |advInf M (F.toPolicy θ) s a|) :=
+  Proofs.g2_gradient_domination_proof M F hF hr hγ₀ hγ₁ μ hμ πstar hstar θ
 
 /-! ## G8 / Mei Theorem 4 — the headline rate
 
