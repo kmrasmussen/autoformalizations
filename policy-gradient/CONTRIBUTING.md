@@ -18,11 +18,20 @@ may not change it.
 
 | File | Who edits it |
 |---|---|
-| `PolicyGradient/Goal.lean` | **the orchestrator only** |
+| `PolicyGradient/Goal.lean` | **the orchestrator only** (statements) |
+| `PolicyGradient/Target.lean` | **the orchestrator only** (definitions) |
 | `PolicyGradient/Proofs.lean` | subagents |
 | everything else | either, as the task requires |
 
-Subagents may not touch `Goal.lean`. Telling a prover "don't weaken the
+`Target.lean` is spec too, and this was a real hole for a while. `Vstar`,
+`Qstar`, `mismatchCoeff` are the *vocabulary* every frozen statement is phrased
+in — redefining `mismatchCoeff` to `999999` changes what `mismatch_bound` means
+with no `sorry` appearing anywhere. Freezing statements while leaving their
+vocabulary editable freezes nothing. The gate now rejects any branch touching
+both spec and `Proofs.lean`, and prints the `Target.lean` diff for review on
+SPEC changes.
+
+Subagents may not touch `Goal.lean` or `Target.lean`. Telling a prover "don't weaken the
 statement" while handing it write access is honour-system; file ownership makes
 it structural.
 
@@ -90,6 +99,10 @@ unconstrained makes a goal too weak, universal makes it too strong.
 
 ## Rules for goals
 
+* **Agents cannot wire.** Since only the orchestrator edits `Goal.lean`, a
+  correct SOLVE branch cannot reduce `OPEN` by itself. The gate therefore
+  accepts a branch that *supplies a correctly-typed lemma*; the real check is
+  the wiring at merge, where a wrong type makes `Goal.lean` fail to compile.
 * **Frozen.** Statements in `Goal.lean` do not change to make a proof work. If a
   goal is genuinely wrong, that is a finding: say so loudly, do not adjust it
   quietly.
