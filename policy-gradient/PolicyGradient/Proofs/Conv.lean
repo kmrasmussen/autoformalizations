@@ -53,10 +53,10 @@ to the genuinely stochastic limit `(0.742, 0.258, 0.000)` at a tied state.
 
 ### The missing ingredient, precisely
 
-`finite_length_of_summable_increments` below is the reduction: **a policy path
-of finite length converges**, in exactly the frozen goal's coordinatewise form,
-with the limit produced rather than assumed.  It is proved here in full.  So the
-goal reduces to
+`policy_converges_of_summable_theta_increments` below is the reduction: **a
+policy path of finite length converges**, in exactly the frozen goal's
+coordinatewise form, with the limit produced rather than assumed.  It is proved
+here in full.  So the goal reduces to
 
     `Summable (fun t => ‖θ (t+1) - θ t‖)`,      (†)
 
@@ -82,30 +82,52 @@ repo or Mathlib currently has**:
    same "the entire difficulty sits at infinity" diagnosis that
    `Goal.limit_adv_nonpos_offsupport`'s docstring records.
 
-2. **Coordinatewise monotonicity of `θ` from some finite time on.**  A path each
-   of whose coordinates is eventually monotone has finite length as soon as it is
-   bounded — and in *policy* space it is bounded, since `π` lands in the simplex.
-   Concretely: if for every `(s,a)` the sign of `advInf M (F.toPolicy (θ t)) s a`
-   were eventually constant, then `theta_decrement` (`ResidC9.lean:168`) makes
-   each `θ_t(s,a)` eventually monotone, each `π_t(a|s)` is then eventually
-   monotone and bounded in `[0,1]`, hence convergent, and the goal follows.
-   `monotone_route` below proves exactly this implication, so the goal also
-   reduces to the *eventual sign-stability of the advantages*.
+2. **Coordinatewise monotonicity of the policy from some finite time on.**  A
+   bounded, eventually-monotone coordinate converges
+   (`tendsto_of_eventually_monotone_bounded`), and policy coordinates are
+   bounded in `[0,1]`, so eventual monotonicity of every coordinate closes the
+   goal — this is `policy_converges_of_eventually_monotone`, proved below.
 
-   **This is the more promising route**, and it is where the circularity bites:
-   `ResidC8`/`ResidC9` do prove `max_a θ_t(s,a) → ∞` and `θ_t(s,a) → −∞` on
-   `I⁻` — but every one of those results takes `πbar` **and `hlim` as
-   hypotheses** (`eventually_adv_neg`, `theta_eventually_antitone`,
-   `theta_tendsto_atBot_of_adv_neg` all bind `hlim` in their signatures).  They
-   are consequences of policy convergence, not routes to it.  Using them here
-   would be circular, and that is the sharp finding of this file: **the `Resid`
-   structural facts cannot close (†), because they are downstream of the very
-   statement they would be used to prove.**
+   **This route was pursued and is now understood to fail, in two independent
+   places.**
 
-Breaking that circle needs sign-stability of the advantages derived from
-`hstep` alone, with no limit policy in hand.  That is the missing ingredient,
-and it is genuinely new mathematics — AKM's Appendix C.1 assumes the limit
-policy exists throughout.
+   *First*, the obvious source of monotonicity is eventual sign-stability of the
+   advantages: `theta_decrement` (`ResidC9.lean:168`) makes the sign of the
+   logit increment equal to the sign of `advInf M (F.toPolicy (θ t)) s a`.  But
+   every `Resid` result that would supply that sign-stability takes `πbar`
+   **and `hlim` as hypotheses** (`eventually_adv_neg`,
+   `theta_eventually_antitone`, `theta_tendsto_atBot_of_adv_neg` all bind
+   `hlim`).  They are consequences of policy convergence, not routes to it, so
+   invoking them here would be circular.
+
+   *Second, and this is the new finding of this file*: **even granting
+   sign-stability outright, the policy coordinates are still not monotone.**
+   Softmax is monotone in its own logit only *relative to* the others
+   (`softmax_le_of_le_of_others_ge`, proved below and sharp).  Sign-stability
+   makes the distinguished action's logit rise and all the others fall — so only
+   `π_t(a₀|s)` is forced monotone (`pi_astar_monotone_of_sign_stability`, proved
+   below, unconditionally).  For two *different* abandoned actions `a, b` the
+   signs agree, their relative magnitudes are unconstrained, and the probability
+   of the slower-decaying one **rises**:
+
+       logits `(0,0,0) → (0.1, −0.01, −1.0)` sends
+       probabilities `(0.333,0.333,0.333) → (0.449, 0.402, 0.149)`.
+
+   Action `1`'s logit fell while its probability rose.  So for `|A| ≥ 3` the
+   monotone route closes exactly one coordinate per state and no more.
+
+Both failures point at the same missing object: a **rate comparison between the
+decaying coordinates** — control of the ratios of the logit decrements among the
+abandoned actions, not merely their signs.  `ResidC9.ratio_step` is precisely
+that estimate, and it too is downstream of a limit policy.  This is the same
+per-coordinate asymptotic estimate on `θ t` that
+`Goal.limit_adv_nonpos_offsupport`'s docstring names as "what AKM actually
+prove, and neither this repo nor Mathlib supplies".
+
+So the honest summary is: the goal is true, and closing it needs that rate
+estimate derived from `hstep` alone, with no limit policy in hand.  AKM's
+Appendix C.1 assumes the limit policy exists throughout, which is why the
+transcription does not reach this statement.
 -/
 
 namespace PolicyGradient
