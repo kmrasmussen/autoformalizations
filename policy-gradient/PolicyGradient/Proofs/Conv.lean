@@ -133,6 +133,76 @@ theorem exists_tendsto_of_summable_increments {f : ℕ → ℝ}
     simpa [Real.dist_eq, abs_sub_comm] using h
   exact cauchySeq_tendsto_of_complete hc
 
+/-- **Coordinatewise convergence of a policy sequence assembles into a policy
+limit**, in exactly the frozen goal's shape.
+
+Given that each coordinate `t ↦ (π t s) a` converges, the limits form a genuine
+`Policy S A`: nonnegativity and the sum-to-one constraint are closed conditions
+and so pass to the limit.  The conclusion is literally
+`∃ πbar, Tendsto (fun t s a => (π t s) a) atTop (nhds (fun s a => (πbar s) a))`,
+which is the frozen goal's conclusion with `F.toPolicy (θ t)` for `π t`. -/
+theorem exists_policy_limit_of_coord_tendsto (π : ℕ → Policy S A)
+    (h : ∀ s a, ∃ L : ℝ, Tendsto (fun t => (π t s) a) atTop (nhds L)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (π t s) a) atTop (nhds (fun s a => (πbar s) a)) := by
+  classical
+  choose L hL using h
+  -- the limit is nonnegative in each coordinate
+  have hnn : ∀ s a, 0 ≤ L s a := by
+    intro s a
+    exact ge_of_tendsto' (hL s a) (fun t => (π t s).nonneg a)
+  -- and sums to one in each state
+  have hsum : ∀ s, ∑ a, L s a = 1 := by
+    intro s
+    have hts : Tendsto (fun t => ∑ a, (π t s) a) atTop (nhds (∑ a, L s a)) :=
+      tendsto_finsetSum _ (fun a _ => hL s a)
+    have hone : (fun t => ∑ a, (π t s) a) = fun _ => (1 : ℝ) :=
+      funext fun t => (π t s).sum_eq_one
+    rw [hone] at hts
+    exact (tendsto_nhds_unique tendsto_const_nhds hts).symm
+  refine ⟨fun s => ⟨L s, hnn s, hsum s⟩, ?_⟩
+  -- convergence in the product topology is coordinatewise convergence
+  rw [tendsto_pi_nhds]
+  intro s
+  rw [tendsto_pi_nhds]
+  intro a
+  exact hL s a
+
+/-- **The reduction.** If every coordinate of the parameter sequence has
+summable increments, the softmax policy sequence converges — the frozen goal's
+conclusion, with the limit produced rather than assumed.
+
+Softmax is continuous, so it suffices that each `θ_t (s,a)` converges; the
+policy limit is then assembled by `exists_policy_limit_of_coord_tendsto`. -/
+theorem policy_converges_of_summable_theta_increments
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hsum : ∀ s a, Summable (fun t => |(θ (t + 1)) (s, a) - (θ t) (s, a)|)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (F.toPolicy (θ t) s) a) atTop
+        (nhds (fun s a => (πbar s) a)) := by
+  classical
+  -- each parameter coordinate converges
+  have hth : ∀ s a, ∃ L : ℝ, Tendsto (fun t => (θ t) (s, a)) atTop (nhds L) :=
+    fun s a => exists_tendsto_of_summable_increments (hsum s a)
+  choose Lth hLth using hth
+  -- softmax is continuous in the logits, so each policy coordinate converges
+  refine exists_policy_limit_of_coord_tendsto (fun t => F.toPolicy (θ t)) ?_
+  intro s a
+  refine ⟨softmax (fun a' => Lth s a') a, ?_⟩
+  -- softmax is `exp(w a) / ∑ exp(w a')`, continuous since the denominator is positive
+  have hnum : Tendsto (fun t => Real.exp ((θ t) (s, a))) atTop
+      (nhds (Real.exp (Lth s a))) := (Real.continuous_exp.tendsto _).comp (hLth s a)
+  have hden : Tendsto (fun t => ∑ a', Real.exp ((θ t) (s, a'))) atTop
+      (nhds (∑ a', Real.exp (Lth s a'))) :=
+    tendsto_finsetSum _ (fun a' _ => (Real.continuous_exp.tendsto _).comp (hLth s a'))
+  have hdpos : (0:ℝ) < ∑ a', Real.exp (Lth s a') := softmax_denom_pos _
+  have hdiv : Tendsto (fun t => Real.exp ((θ t) (s, a)) / ∑ a', Real.exp ((θ t) (s, a')))
+      atTop (nhds (Real.exp (Lth s a) / ∑ a', Real.exp (Lth s a'))) :=
+    hnum.div hden (ne_of_gt hdpos)
+  simpa only [hF, softmax_apply] using hdiv
+
 end Conv
 
 end Proofs
