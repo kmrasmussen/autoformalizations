@@ -720,6 +720,61 @@ theorem dVinfDist_single (M : FiniteMDP S A)
     * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a))]
   simp
 
+/-! ### The test vector
+
+`v = ∑_s single (s, a*(s))` picks the optimal-action coordinate at each state.
+The coordinates `(s, a*(s))` are pairwise distinct (they differ in the first
+component), so `‖v‖ = √|S|`. -/
+
+/-- `ofLp` of a sum of coordinate vectors, split termwise. -/
+theorem testVec_sum_apply (astar : S → A) (x : S) (b : A) (u : Finset S) :
+    ((∑ s ∈ u, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
+      = ∑ s ∈ u, (if (x,b) = ((s, astar s) : S × A) then (1:ℝ) else 0) := by
+  classical
+  induction u using Finset.induction with
+  | empty => simp
+  | insert c t hc ih =>
+      rw [Finset.sum_insert hc, Finset.sum_insert hc, ← ih]
+      simp [PiLp.add_apply]
+
+/-- The coordinates of the test vector. -/
+theorem testVec_apply (astar : S → A) (x : S) (b : A) :
+    ((∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
+      = if b = astar x then (1:ℝ) else 0 := by
+  classical
+  rw [testVec_sum_apply astar x b univ]
+  have hterm : ∀ c : S, (if ((x, b) : S × A) = (c, astar c) then (1:ℝ) else 0)
+      = if c = x ∧ b = astar x then (1:ℝ) else 0 := by
+    intro c
+    by_cases h : ((x, b) : S × A) = (c, astar c)
+    · have h1 : x = c := congrArg Prod.fst h
+      have h2 : b = astar c := congrArg Prod.snd h
+      subst h1
+      simp [h, h2]
+    · have hne : ¬ (c = x ∧ b = astar x) := by rintro ⟨rfl, rfl⟩; exact h rfl
+      simp [h, hne]
+  rw [Finset.sum_congr rfl (fun c _ => hterm c)]
+  by_cases hb : b = astar x
+  · simp [hb]
+  · simp [hb]
+
+/-- **The test vector has norm `√|S|`.** -/
+theorem norm_testVec (astar : S → A) :
+    ‖(∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)‖
+      = Real.sqrt (Fintype.card S) := by
+  classical
+  rw [EuclideanSpace.norm_eq]
+  congr 1
+  have hcoord : ∀ p : S × A,
+      ‖((∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) p‖ ^ 2
+      = if p.2 = astar p.1 then (1:ℝ) else 0 := by
+    rintro ⟨x, b⟩
+    rw [testVec_apply astar x b]
+    by_cases hb : b = astar x <;> simp [hb]
+  rw [Finset.sum_congr rfl (fun p _ => hcoord p)]
+  rw [Fintype.sum_prod_type]
+  simp
+
 end G1
 
 end Proofs
