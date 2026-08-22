@@ -9,6 +9,7 @@ import PolicyGradient.Proofs.Conv
 import PolicyGradient.Proofs.Conv2
 import PolicyGradient.Proofs.Conv3
 import PolicyGradient.Proofs.Conv5
+import PolicyGradient.Proofs.Conv6
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Entropy
@@ -40,7 +41,6 @@ import PolicyGradient.Proofs.ResidFinal
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.VecRate
 import PolicyGradient.Proofs.VecStep
-import PolicyGradient.Proofs.Conv6
 
 /-!
 # Proofs/Extra.lean — additional proof modules

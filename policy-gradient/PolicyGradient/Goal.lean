@@ -1371,8 +1371,37 @@ value function `V̄`, hence the same advantage, so the limit set sits inside a
 product of simplices — itself connected, so connectedness adds nothing beyond
 the singleton case already handled.
 
-**The missing ingredient, named precisely:** a *rate comparison between the
-decaying coordinates* — control of the **ratios** of logit decrements among
+**Correction 2026-08-22: the residual is a DIRECTION question, not a rate one.**
+`Proofs.tied_adv_sub` gives, for two tied actions,
+`A_t(s,a₀) − A_t(s,b) = γ⟨P(·|s,b) − P(·|s,a₀), δ_t⟩` — the diagonal `δ_t s`
+cancels — and `tied_order_pos_homogeneous` shows this depends on `δ_t` **only
+through `δ_t/‖δ_t‖_∞`**, a sequence in a compact set. So the open question is
+about the *direction* of the value-gap vector, not the relative rates.
+
+Also proved: `(★) gap_bellman`, the value-gap Bellman recursion
+`δ_t = (I − γP^{π_t})⁻¹ c_t` with `c_t s = ∑_{a ∉ Z s} π_t(a|s)·(−Ā(s,a))` an
+explicit sum of the vanishing abandoned masses. This is the companion of `(‡)`:
+`(‡)` expresses an advantage through `δ_t`; `(★)` expresses `δ_t` through the
+policy. Plus `logit_sum_invariant` — `∑_a θ_t(s,a)` is constant in `t`, not
+previously recorded here.
+
+**And a correction to what I claimed last round.** `Conv5.argmax_not_eventually_stable`
+refutes *Conv5's* `hstable`, but does **not** refute the sharper reduction
+`softmax_policy_converges_of_tied_argmax_stable`: that counterexample is a bare
+sequence in `ℝ²`, not the gap vector of any policy trajectory, and `(★)` is an
+extra constraint every genuine `δ_t` satisfies. So the residual does not follow
+from *order* properties of `δ_t` alone — but it may still follow once `δ_t` is
+coupled to the dynamics. I had written the negative result as broader than it is.
+
+**The one route neither closed nor refuted:** use `(★)` plus the max/min sandwich
+to control `δ_t/‖δ_t‖_∞` in terms of `c_t/‖c_t‖_∞`, then control `c_t`'s
+direction from the logit dynamics of the *abandoned* actions — whose gaps are
+already known to be eventually monotone (`Conv2.theta_eventually_monotone_of_adv_ne`,
+since their advantage limits are nonzero). That is the only part of the
+trajectory whose order the repo can already prove stabilises.
+
+**Superseded framing — a rate comparison between the
+decaying coordinates** — control of the **ratios** of logit decrements among
 abandoned actions, not merely their signs. `summable_sq_grad` gives
 `∑‖∇‖² < ∞`, which does not give `∑‖∇‖ < ∞` (`1/t` is the counterexample), and
 the Łojasiewicz upgrade is unavailable because ascent drives `‖θ_t‖ → ∞`,
