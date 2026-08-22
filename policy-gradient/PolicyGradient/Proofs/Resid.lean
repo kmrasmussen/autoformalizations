@@ -1285,6 +1285,35 @@ theorem pi_tendsto_zero_of_theta_atBot (M : FiniteMDP S A)
   · exact Filter.Eventually.of_forall fun t => (F.toPolicy (θ t) s).nonneg b
   · exact Filter.eventually_atTop.mpr ⟨T, hbound⟩
 
+/-! ## Assembly: the goal reduces to AKM's Lemma C.9
+
+Suppose the goal fails at `(s, ap)`: `π̄(ap|s) = 0` and `A^{π̄}(s,ap) > 0`. The
+lemmas above give, with `T` large and `c = θ^{(T)}(s,ap)`:
+
+* `c ≤ θ^{(t)}(s,ap)` for `t ≥ T`  (`not_theta_atBot_of_adv_pos`);
+* `π^{(t)}(ap|s) → 0`  (`tendsto_pi_zero_of_adv_pos` gives `π̄(ap|s)=0`, and
+  `hlim` transports it);
+* hence `max_a θ^{(t)}(s,a) → ∞`  (`tendsto_max_theta_atTop`);
+* hence `min_a θ^{(t)}(s,a) → -∞`  (`tendsto_min_theta_atBot` + `sum_theta_const`).
+
+So some action's coordinate is driven to `-∞` infinitely often. `Resid`'s
+`not_theta_atBot_of_adv_pos` rules out `A^{π̄} > 0` for such an action, and
+`pi_tendsto_zero_of_theta_atBot` shows it is off-support. What remains is
+AKM's Lemma C.9 — that an action with `A^{π̄}(s,·) < 0` has `θ → -∞`, and the
+`B^s_0` bookkeeping that turns "some coordinate diverges" into the final
+contradiction. -/
+
+/-- The trajectory's probabilities converge coordinatewise. -/
+theorem tendsto_pi_coord (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) :
+    Filter.Tendsto (fun t => (F.toPolicy (θ t) s) a) Filter.atTop (nhds ((πbar s) a)) := by
+  have h1 := (tendsto_pi_nhds.mp hlim) s
+  exact (tendsto_pi_nhds.mp h1) a
+
+
 end Resid
 
 end Proofs
