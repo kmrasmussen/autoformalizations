@@ -69,4 +69,23 @@ noncomputable def VsoftStar (M : FiniteMDP S A) (τ : ℝ) (s₀ : S) : ℝ :=
   ⨆ π : Policy S A, VinfSoft M π τ s₀
 
 
+/-! ### Occupancy from a start *distribution*
+
+`dinf` takes a start state. AKM's distribution-mismatch coefficient is a ratio
+against a starting *distribution*, so it is not expressible without this. -/
+
+/-- Discounted occupancy from a start distribution `μ`. -/
+noncomputable def dinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) (s : S) : ℝ :=
+  ∑ s₀, μ s₀ * dinf M π s₀ s
+
+/-- **The distribution-mismatch coefficient**, `‖d^π_μ / μ‖_∞` (AKM).
+
+*Defined*, not chosen. The previous goal took `mismatch` as a free positive real
+and bounded `dinf ≤ mismatch * (1/(1-γ))` — but `1/(1-γ)` already bounds `dinf`
+on its own, so **any** positive multiplier worked and `mismatch = 1` discharged
+it for every MDP and policy. The bound must be against `μ s`, which is what
+forces the coefficient to see where `μ` puts little mass. -/
+noncomputable def mismatchCoeff (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) : ℝ :=
+  ⨆ s : S, dinfDist M π μ s / μ s
+
 end PolicyGradient

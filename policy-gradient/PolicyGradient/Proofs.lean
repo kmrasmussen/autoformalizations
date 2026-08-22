@@ -121,5 +121,30 @@ theorem ascent_trajectory_exists_proof (M : FiniteMDP S A)
       prev + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) prev) t,
     rfl, fun _ => rfl⟩
 
+/-- `visit` is a probability, hence pointwise at most `1`. -/
+theorem visit_le_one (M : FiniteMDP S A) (π : Policy S A) (t : ℕ) (s₀ s : S) :
+    visit M π t s₀ s ≤ 1 := by
+  have hsum := visit_sum_eq_one M π t s₀
+  have hle : visit M π t s₀ s ≤ ∑ s', visit M π t s₀ s' :=
+    Finset.single_le_sum (fun s' _ => visit_nonneg M π t s₀ s') (Finset.mem_univ s)
+  linarith
+
+/-- The unnormalized discounted occupancy measure is bounded by the geometric
+sum `1/(1-γ)`. -/
+theorem dinf_le_one_div (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s₀ s : S) :
+    dinf M π s₀ s ≤ 1 / (1 - M.γ) := by
+  have hgeo : ∑' t : ℕ, M.γ ^ t = (1 - M.γ)⁻¹ := tsum_geometric_of_lt_one hγ₀ hγ₁
+  have hcmp : ∑' t : ℕ, M.γ ^ t * visit M π t s₀ s ≤ ∑' t : ℕ, M.γ ^ t := by
+    refine Summable.tsum_le_tsum (fun t => ?_)
+      (summable_dvisit M π hγ₀ hγ₁ s₀ s) (summable_geometric_of_lt_one hγ₀ hγ₁)
+    calc M.γ ^ t * visit M π t s₀ s
+        ≤ M.γ ^ t * 1 :=
+          mul_le_mul_of_nonneg_left (visit_le_one M π t s₀ s) (pow_nonneg hγ₀ t)
+      _ = M.γ ^ t := mul_one _
+  rw [dinf, one_div]
+  rw [hgeo] at hcmp
+  exact hcmp
+
 end Proofs
 end PolicyGradient

@@ -376,21 +376,43 @@ theorem ascent_trajectory_exists (M : FiniteMDP S A)
       = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t) :=
   Proofs.ascent_trajectory_exists_proof M F μ θ₀
 
-/-- **The distribution-mismatch coefficient is a real quantity.**
+/-! ### The distribution-mismatch coefficient
 
-`g1_lojasiewicz` and `g2_gradient_domination` take `mismatch` as a free positive
-real, which lets a caller pick a convenient value. It should be *defined* from
-the occupancy measures — `‖d^{π*}_μ / μ‖_∞` — and proved positive, exactly as
-`Vstar` is defined rather than chosen.
+**Superseded 2026-08-22.** The previous goal here read
 
-Stating it needs the occupancy-measure ratio, which `dinf` supports. Until this
-is discharged, the two Łojasiewicz goals carry a caller-chosen constant, which
-is the same defect `mei_theorem4` had. -/
-@[infra "Mismatch-defined"]
-theorem mismatch_positive (M : FiniteMDP S A)
-    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : S) :
-    ∃ mismatch : ℝ, 0 < mismatch ∧
-      ∀ s : S, dinf M π μ s ≤ mismatch * (1 / (1 - M.γ)) := sorry
+```lean
+∃ mismatch : ℝ, 0 < mismatch ∧ ∀ s, dinf M π μ s ≤ mismatch * (1 / (1 - M.γ))
+```
+
+and an agent proved it with `mismatch = 1`, for every MDP, every policy and
+every start state. The defect: `1/(1-γ)` **already bounds `dinf` on its own**,
+so the goal bounded `dinf` by a free constant times a quantity that already
+bounds it, and any positive multiplier worked. A textbook degenerate witness —
+the quantity was existentially bound, so the prover picked it.
+
+The repair is to bound against `μ s` instead, which forces the coefficient to
+see where `μ` puts little mass, and to *define* the coefficient rather than
+quantify over it (`mismatchCoeff` in `Target.lean`, mirroring how `Vstar` is
+defined rather than chosen). -/
+
+/-- **The mismatch coefficient bounds the occupancy ratio.**
+
+`d^π_μ(s) ≤ mismatchCoeff · μ(s)` — the statement with content. Unlike the
+superseded version this cannot be discharged by picking a convenient constant:
+`mismatchCoeff` is a definition, and the bound is against `μ s`. -/
+@[infra "Mismatch-bound"]
+theorem mismatch_bound (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S) (s : S) :
+    dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s := sorry
+
+/-- **The mismatch coefficient is positive**, given `μ` has full support.
+
+Needs the `t = 0` term of `dinf`, which is the point mass at the start state. -/
+@[infra "Mismatch-pos"]
+theorem mismatch_pos (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S)
+    (hμ : ∀ s, 0 < μ s) :
+    0 < mismatchCoeff M π μ := sorry
 
 /-! ## G10 — the entropy-regularized track
 
