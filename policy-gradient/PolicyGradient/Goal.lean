@@ -266,9 +266,8 @@ not decay to zero, so the `inf` over time is strictly positive. This is what
 makes the `O(1/T)` rate meaningful rather than asymptotically vacuous. -/
 @[infra "G9"]
 theorem g9_c_positive (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
@@ -557,6 +556,28 @@ for the rate track as well. -/
 The statement the repo is actually for. Note what it mentions and the current
 `smooth_loja_rate` does not: an MDP, a softmax family, `Vinf`, and `V*`.
 
+**FALSE as first frozen, for the third time by the same defect** (refuted
+2026-08-22, `Proofs.mei4_is_false`, axioms clean). `logits` was universally
+quantified with no regularity hypothesis — the identical hole already recorded
+above for `g7_smoothness` (Defect 1) and `g1_lojasiewicz` (Defect 2), and not
+repaired here when those were fixed.
+
+The counterexample needs no analysis at all: take `logits θ s a := 0`, constant
+in `θ`. Legal, since nothing constrains `logits`. The policy is then uniform at
+every `θ`, so the objective is a *constant function*, its gradient is `0`, and
+`hstep` degenerates to `θ(t+1) = θ t` — the trajectory never moves. In a `γ = 0`
+MDP with rewards `1/0` the frozen policy has value `1/2` against `Vstar = 1`, so
+the left side is the constant `1/2` for every `T` while the right side decays
+like `1/T`. Any `T > 32/c²` breaks it, for every `c`.
+
+Note this is **not** repaired by shrinking `c`: `c` is existential and sits in
+the denominator, but the left side does not decay at all. The statement was
+false, not merely weak.
+
+The tabular theorem is **not** refuted — on the `g9` witness MDP, iterating the
+exact recursion gives `c ≈ 4.89` satisfying the frozen inequality. This was a
+statement bug, not a refutation of Mei.
+
 **`c` is existential, and that is forced.** An earlier draft took `c` as a
 universally quantified hypothesis `(c : ℝ) (hc : 0 < c)`. That statement is
 **not provable**: quantifying `c` universally lets the caller send `c → ∞`,
@@ -572,9 +593,8 @@ The paper's `c` is a specific constant determined by the MDP and the trajectory
 here. -/
 @[paper "Mei2020" "Theorem 4"]
 theorem mei_theorem4 (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
@@ -661,6 +681,54 @@ theorem mismatch_pos (M : FiniteMDP S A)
     0 < mismatchCoeff M π μ :=
   Proofs.mismatch_pos_proof M hγ₀ hγ₁ π μ hμ
 
+/-! ## What Theorem 4 is actually blocked on
+
+The refuting agent, having shown the `logits` defect, then characterised what
+stands between the repaired statement and a proof. Stated here as goals rather
+than left in a report.
+
+The crux is that **`ascent_converges` gives only `∃ L ≤ fstar`, never
+`L = fstar`** — the gap `G9` already names. And `c` cannot be recovered by
+compactness: softmax positivity plus finiteness gives `⨅ s π_θ(a*|s) > 0` at each
+*fixed* `t`, but the infimum is over `t : ℕ`, and the trajectory is
+**unbounded** — `‖θ t‖ → ∞` is exactly what ascent does, so the simplex closure
+meets the boundary. Positivity here is irreducibly asymptotic. -/
+
+/-- **AKM Theorem 5.1 — softmax ascent reaches the optimum.**
+
+The missing bridge. Every route to Theorem 4 passes through it, and `G9`'s `c`
+follows from it rather than being assumed: `c > 0 ⟸ π_t(a*|s) ↛ 0 ⟸ V(θ_t) → V*`.
+
+Mei cite AKM for this; AKM prove it asymptotically. It is the one genuinely
+deep ingredient neither paper proves from first principles. -/
+@[infra "AKM-5.1"]
+theorem softmax_ascent_converges (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t)) :
+    Filter.Tendsto (fun t => Vinf M (F.toPolicy (θ t)) μ) Filter.atTop
+      (nhds (Vstar M μ)) := sorry
+
+/-- **The vector-parameter ascent step.**
+
+`domination_rate_abstract` and `ascent_step` are stated for `f : ℝ → ℝ` — a
+scalar derivative — while the goals step by `gradient` in
+`EuclideanSpace ℝ (S × A)`. Mechanical given `g7b_smoothness`, but real work,
+and nothing composes without it. -/
+@[infra "Vector-ascent-step"]
+theorem vec_ascent_step (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : EuclideanSpace ℝ (S × A)) :
+    Vinf M (F.toPolicy θ) μ
+        + ((1 - M.γ) ^ 3 / 16) * ‖gradient (fun w => Vinf M (F.toPolicy w) μ) θ‖ ^ 2
+      ≤ Vinf M (F.toPolicy
+          (θ + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) θ)) μ := sorry
+
 /-! ## G10 — the entropy-regularized track
 
 `geometric_rate` mentions no entropy, no `τ`, no policy and no MDP; its
@@ -675,9 +743,8 @@ Lemma 9 (their Lemma 16) follows from monotone convergence rather than an
 external citation. -/
 @[paper "Mei2020" "Theorem 6"]
 theorem mei_theorem6 (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (τ : ℝ) (hτ : 0 < τ) (μ : S) (η : ℝ) (hη : 0 < η)
     (θ : ℕ → EuclideanSpace ℝ (S × A))
