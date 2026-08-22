@@ -60,7 +60,8 @@ Closing the remaining gap needs the `δ_t`-argmax **order** to be eventually
 constant.  That does **not** follow from the available facts: `δ_t` is only known
 to be componentwise nonnegative, antitone and null, and two antitone null
 sequences can cross infinitely often (interleaved staircases), so nothing in the
-present hypothesis set forbids the maximiser from oscillating forever.  Ruling
+present hypothesis set forbids the maximiser from oscillating forever — this is
+proved, not asserted, in `argmax_not_eventually_stable` below.  Ruling
 that out needs a rate comparison between the coordinates of `δ_t` — the same
 missing ingredient `Conv3`'s header names as "a signed rate comparison of
 `π_t(a|s) A^{(t)}(s,a)` against `π_t(b|s) A^{(t)}(s,b)`", and the same one that
