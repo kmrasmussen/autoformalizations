@@ -203,6 +203,84 @@ theorem policy_converges_of_summable_theta_increments
     hnum.div hden (ne_of_gt hdpos)
   simpa only [hF, softmax_apply] using hdiv
 
+/-! ## The monotone route
+
+The second reduction promised in the header: **eventual sign-stability of the
+advantages implies the frozen goal**, with no summability needed.
+
+If for each `(s,a)` the sign of `A^{(t)}(s,a)` is eventually constant, then
+`theta_decrement` makes `θ_t(s,a)` eventually monotone.  A monotone sequence
+need not converge — but the softmax *policy* coordinate is trapped in `[0,1]`,
+and monotonicity of the logit transfers to it through the softmax ratio only
+after controlling the other logits.  The clean way to run the argument is
+directly on the policy coordinates, which is what `tendsto_of_eventually_monotone`
+does: a bounded, eventually-monotone real sequence converges. -/
+
+/-- A sequence that is eventually monotone (in either direction) and bounded
+converges.  This is the analytic core of the monotone route. -/
+theorem tendsto_of_eventually_monotone_bounded {f : ℕ → ℝ} {T : ℕ} {lo hi : ℝ}
+    (hb : ∀ t, f t ∈ Set.Icc lo hi)
+    (hm : (∀ t, T ≤ t → f t ≤ f (t + 1)) ∨ (∀ t, T ≤ t → f (t + 1) ≤ f t)) :
+    ∃ L : ℝ, Tendsto f atTop (nhds L) := by
+  classical
+  -- work with the shifted sequence `g k = f (T + k)`, which is monotone outright
+  set g : ℕ → ℝ := fun k => f (T + k) with hg
+  have hgb : ∀ k, g k ∈ Set.Icc lo hi := fun k => hb (T + k)
+  have hconv : ∃ L : ℝ, Tendsto g atTop (nhds L) := by
+    rcases hm with hup | hdn
+    · -- monotone increasing, bounded above by `hi`
+      have hmono : Monotone g := by
+        refine monotone_nat_of_le_succ ?_
+        intro k
+        have h := hup (T + k) (Nat.le_add_right T k)
+        show f (T + k) ≤ f (T + (k + 1))
+        rw [← Nat.add_assoc]
+        exact h
+      have hbdd : BddAbove (Set.range g) :=
+        ⟨hi, by rintro x ⟨k, rfl⟩; exact (hgb k).2⟩
+      exact ⟨_, tendsto_atTop_ciSup hmono hbdd⟩
+    · -- monotone decreasing, bounded below by `lo`
+      have hanti : Antitone g := by
+        refine antitone_nat_of_succ_le ?_
+        intro k
+        have h := hdn (T + k) (Nat.le_add_right T k)
+        show f (T + (k + 1)) ≤ f (T + k)
+        rw [← Nat.add_assoc]
+        exact h
+      have hbdd : BddBelow (Set.range g) :=
+        ⟨lo, by rintro x ⟨k, rfl⟩; exact (hgb k).1⟩
+      exact ⟨_, tendsto_atTop_ciInf hanti hbdd⟩
+  obtain ⟨L, hL⟩ := hconv
+  refine ⟨L, ?_⟩
+  -- `f` and its shift have the same limit
+  have : Tendsto (fun k => f (T + k)) atTop (nhds L) := hL
+  exact (Filter.tendsto_add_atTop_iff_nat (f := f) T).mp
+    (by simpa [add_comm] using this)
+
+/-- **The monotone route.**  If every policy coordinate is eventually monotone,
+the frozen goal's conclusion follows.
+
+Combined with `theta_decrement` — whose sign is exactly the sign of
+`advInf M (F.toPolicy (θ t)) s a` — this reduces `softmax_policy_converges` to
+the *eventual sign-stability of the advantages along the trajectory*, which is
+the missing ingredient named in the header. -/
+theorem policy_converges_of_eventually_monotone (π : ℕ → Policy S A)
+    (hm : ∀ s a, ∃ T : ℕ,
+      (∀ t, T ≤ t → (π t s) a ≤ (π (t + 1) s) a) ∨
+      (∀ t, T ≤ t → (π (t + 1) s) a ≤ (π t s) a)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (π t s) a) atTop (nhds (fun s a => (πbar s) a)) := by
+  refine exists_policy_limit_of_coord_tendsto π ?_
+  intro s a
+  obtain ⟨T, hT⟩ := hm s a
+  refine tendsto_of_eventually_monotone_bounded (T := T) (lo := 0) (hi := 1) ?_ hT
+  intro t
+  refine ⟨(π t s).nonneg a, ?_⟩
+  have hle : (π t s) a ≤ ∑ b, (π t s) b :=
+    Finset.single_le_sum (f := fun b => (π t s) b)
+      (fun b _ => (π t s).nonneg b) (Finset.mem_univ a)
+  rwa [(π t s).sum_eq_one] at hle
+
 end Conv
 
 end Proofs
