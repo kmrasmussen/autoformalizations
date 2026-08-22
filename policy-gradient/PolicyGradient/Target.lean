@@ -91,6 +91,21 @@ noncomputable def dinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) (
 
 /-- **The distribution-mismatch coefficient**, `‖d^π_μ / μ‖_∞` (AKM).
 
+VERBATIM, AKM (arXiv:1908.00261) Definition 3.1:
+
+> **Definition 3.1 (Distribution mismatch coefficient).** Given a policy `π` and
+> measures `ρ, μ ∈ Δ(S)`, we refer to `‖d^π_ρ / μ‖_∞` as the distribution
+> mismatch coefficient of `π` relative to `μ`. Here, `d^π_ρ / μ` denotes
+> componentwise division.
+>
+> We often instantiate this coefficient with `μ` as the initial state
+> distribution used in a policy optimization algorithm, `ρ` as the distribution
+> to measure the sub-optimality of our policy [...] and where `π` above is often
+> chosen to be `π⋆ ∈ argmax_{π∈Π} V^π(ρ)`.
+
+Note the paper takes TWO measures, `ρ` and `μ`; this definition collapses them
+to one. That is a simplification, not the paper's definition.
+
 *Defined*, not chosen. The previous goal took `mismatch` as a free positive real
 and bounded `dinf ≤ mismatch * (1/(1-γ))` — but `1/(1-γ)` already bounds `dinf`
 on its own, so **any** positive multiplier worked and `mismatch = 1` discharged

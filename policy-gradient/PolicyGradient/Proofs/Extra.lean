@@ -11,11 +11,11 @@ import PolicyGradient.Proofs.Mei4
 import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.VecStep
 import PolicyGradient.Proofs.AKM51
+import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
-import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Greedy2
 
 /-!

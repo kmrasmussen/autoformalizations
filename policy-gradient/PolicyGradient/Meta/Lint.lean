@@ -439,9 +439,57 @@ def runPaperLint : CoreM Bool := do
           IO.println s!"               via {r}"
   IO.println ""
 
-  -- ── Check 8: summary ──────────────────────────────────────────────────
+  -- ── Check 8: free parameters ──────────────────────────────────────────
+  -- Six of the fifteen statement defects this session were ONE MISTAKE: a
+  -- quantity left for the caller to choose. `mei_theorem4`'s `c` (universal, so
+  -- `c → ∞` drove the bound to 0), `g1`/`g2`'s `mismatch` (in both directions),
+  -- `mei_theorem6`'s `K` and `η`, `g9`'s `astar`, and `logits` FOUR times.
+  --
+  -- I originally left this out of `Formalized` because "constrained by the MDP"
+  -- has no crisp definition. That judgement was wrong: an over-approximation
+  -- with occasional false positives beats six real defects. So this REPORTS
+  -- rather than gates — a flag means "justify this once", not "this is broken".
+  --
+  -- Scope: only scalars (ℝ) and function-valued selectors. Quantifying over a
+  -- state, action or parameter vector is ordinary and correct; an unnarrowed
+  -- version flagged `s₀`, `θ` and `a` on goals that are perfectly fine.
+  IO.println "── CHECK 8: free parameters (report, not gate) ────────────────"
+  IO.println ""
+  let mut freeParams : Nat := 0
+  for c in all do
+    let some ci := env.find? c.decl | continue
+    let free ← MetaM.run' (forallTelescopeReducing ci.type fun xs _ => do
+      let mut mdp : Array FVarId := #[]
+      for x in xs do
+        if ((← inferType x).find? (·.isConstOf mdpConst)).isSome then
+          mdp := mdp.push x.fvarId!
+      let mut bad : Array Name := #[]
+      for x in xs do
+        let ty ← inferType x
+        if (← isProp ty) then continue
+        if mdp.contains x.fvarId! then continue
+        let nm ← x.fvarId!.getUserName
+        if nm.isInternal then continue
+        if !(ty.isConstOf `Real || ty.isForall) then continue
+        let mut constrained := false
+        for h in xs do
+          let hty ← inferType h
+          if !(← isProp hty) then continue
+          if hty.hasAnyFVar (· == x.fvarId!) && hty.hasAnyFVar (fun f => mdp.contains f) then
+            constrained := true
+        if !constrained then bad := bad.push nm
+      return bad)
+    if !free.isEmpty then
+      freeParams := freeParams + 1
+      IO.println s!"  [FREE-PARAM] {c.decl}  ({c.paper} — {c.result})"
+      IO.println s!"               unconstrained by the MDP: {free.toList}"
+  if freeParams == 0 then
+    IO.println "  ✓ no free scalar or selector parameters."
+  IO.println ""
+
+  -- ── Check 9: summary ──────────────────────────────────────────────────
   let grounded := full.size - ungrounded.size
-  IO.println "── CHECK 8: summary ───────────────────────────────────────────"
+  IO.println "── CHECK 9: summary ───────────────────────────────────────────"
   IO.println ""
   IO.println "  ┌─────────────────────────────────────────────┬───────┐"
   IO.println s!"  │ total claims                                │ {leftPad (toString all.size) 5} │"
@@ -458,6 +506,7 @@ def runPaperLint : CoreM Bool := do
   IO.println s!"  │ goals with UNUSED hypotheses (drift risk)   │ {leftPad (toString drifted) 5} │"
   IO.println s!"  │ UNINHABITED quantified types (vacuity risk) │ {leftPad (toString uninhabited) 5} │"
   IO.println s!"  │ goals failing Formalized                    │ {leftPad (toString notFormalized) 5} │"
+  IO.println s!"  │ goals with FREE parameters (justify each)   │ {leftPad (toString freeParams) 5} │"
   IO.println "  └─────────────────────────────────────────────┴───────┘"
   IO.println ""
   IO.println "  The debt number counts assumptions grounded theorems take about"

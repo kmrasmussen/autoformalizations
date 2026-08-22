@@ -138,6 +138,70 @@ are the original overclaiming, still visible.
 
 ---
 
+---
+
+## The finding that outranks the checks: READ THE PAPER
+
+Fifteen statement defects in one session. Sorting them by cause:
+
+| Cause | Count |
+|---|---|
+| Paraphrased the paper instead of transcribing it | ~8 |
+| Misread the objective | 1 |
+| My own repairs overshooting | 2 |
+| Genuine ambiguity in the paper | ~2 |
+
+**Roughly two of fifteen were intrinsic.** The rest were writing statements from
+a mental model of what the papers say. The papers were available the whole time
+— `mei2020.pdf` sat on disk unopened, and `MEI_NOTES.md` in this repo already
+recorded the correct form of `mei_theorem4`'s `c` hypothesis, which I then
+dropped.
+
+What reading them actually revealed, in one pass:
+
+* **AKM Lemma 4.1 says "for the direct policy parameterization"** — the simplex,
+  not softmax. The `‖∇V‖` form was refutable for softmax precisely because the
+  softmax gradient carries an extra `π(a|s)` factor. Three versions of this goal
+  were written before anyone read that clause.
+* **AKM Theorem 5.1 requires `μ(s) > 0` for all `s`**, and Remark 5.1 says
+  explicitly: *"We leave it as an open question of whether or not gradient
+  descent will globally converge if this condition is not met."* Our goal
+  quantified over a single start state — a Dirac — i.e. asked for a theorem the
+  authors declined to claim. Its step size was also wrong: `η ≤ (1−γ)²/5` in the
+  paper, `(1−γ)³/8` in the goal.
+* **Mei Lemma 9 defines `a*(s)` as "the action that the optimal policy selects"**
+  and opens its proof with `Δ*(s) > 0`, a strictly positive optimal value gap —
+  which **excludes `Q*` ties outright**. The tie counterexample that refuted this
+  goal twice does not refute Mei; it refutes the transcription. After the first
+  refutation the patch was `hastar` (Q*-optimality), applied without checking
+  what the paper assumes.
+
+The pattern in each case: the paper is *more specific* than the paraphrase, and
+generalizing a true statement usually makes it false.
+
+### The rule
+
+> **Quote the source in the goal's docstring before freezing it.** Not a summary
+> — the actual sentence, with its qualifying clauses. The clauses are where the
+> content is: "for the direct policy parameterization", "μ strictly positive",
+> "the action that the optimal policy selects".
+
+Every `@[paper]` goal should carry a `VERBATIM` block. Where the Lean statement
+departs from the quote, the docstring says how and why. Five goals now have one;
+the discrepancies they exposed were invisible until the quote sat next to the
+statement.
+
+### Why no checker substitutes for this
+
+The linter decides properties of a statement *relative to itself* — grounded,
+axiom-clean, inhabited. Fidelity to a source is not such a property. `CHECK 4`
+surfaces a symptom (an unused hypothesis) and cannot distinguish "drifted" from
+"more general than the paper"; `CHECK 8` flags free parameters and cannot know
+which the paper constrains. Both are backstops for a habit, and neither replaces
+opening the PDF.
+
+---
+
 ## Still missing
 
 * **Axiom purity is not enforced.** `#print axioms` is run by hand after each
