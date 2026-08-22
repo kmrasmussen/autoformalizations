@@ -243,6 +243,18 @@ composition does not exist: `ascent_converges` yields only `∃ L ≤ fstar` wit
 
 /-- **G9 — the Łojasiewicz coefficient stays bounded away from zero.**
 
+**`hastar` was missing and the statement was FALSE without it** (refuted
+2026-08-22, `Proofs.g9_is_false`, axioms clean). `astar` was an entirely
+unconstrained parameter — nothing said it picked *optimal* actions. Instantiate
+it at the **suboptimal** action of a one-state two-action MDP (`r = (1,-1)`,
+`γ = 1/2`) and gradient ascent drives that probability to zero, so no `c > 0`
+bounds it below for all `t`. Mei's `a*` is the optimal action set; mine was any
+function at all.
+
+The easy repair is also closed off: `m(t) ≥ m(0)` fails in 66/400 random MDPs
+(worst ratio `0.075`), so a monotonicity argument cannot produce the infimum —
+a genuine asymptotic argument is required.
+
 Tagged `@[infra]`, not `@[paper]`: the linter correctly rejected the `@[paper]`
 tag, because the conclusion is about the *policy's* probabilities rather than
 about `V`. It produces the constant that `mei_theorem4` consumes; it is not
@@ -260,7 +272,7 @@ theorem g9_c_positive (M : FiniteMDP S A)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
       = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
-    (astar : S → A) :
+    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s) :
     ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 
 /-! ## G7 — the local-term bound
@@ -376,13 +388,19 @@ once `mismatchCoeff` is fixed. -/
 /-- **G1 — Mei Lemma 8, the non-uniform Łojasiewicz inequality.**
 
 Corrected: tabular `hF`, `mismatchCoeff` in place of a free real, values against
-a start distribution, and `hr` restored. -/
+a start distribution, and `hr` restored.
+
+`hastar` added 2026-08-22 after the same unconstrained-`astar` defect was
+refuted in `g9_c_positive` (`Proofs.g9_is_false`). An arbitrary `astar` need not
+select optimal actions, and the Łojasiewicz coefficient is meaningless — the
+inequality unfounded — if it does not. -/
 @[paper "Mei2020" "Lemma 8"]
 theorem g1_lojasiewicz (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
     (θ : EuclideanSpace ℝ (S × A)) :
     (⨅ s : S, (F.toPolicy θ s) (astar s))
