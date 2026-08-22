@@ -5,6 +5,7 @@ import PolicyGradient.Target
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G7b
+import PolicyGradient.Proofs.Mei4
 
 /-!
 # Proofs/Extra.lean — additional proof modules
