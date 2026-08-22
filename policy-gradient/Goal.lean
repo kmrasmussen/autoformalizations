@@ -244,6 +244,26 @@ composition does not exist: `ascent_converges` yields only `∃ L ≤ fstar` wit
 
 /-- **G9 — the Łojasiewicz coefficient stays bounded away from zero.**
 
+VERBATIM, Mei et al. (arXiv:2005.06392) Lemma 9 and its proof:
+
+> **Lemma 9.** Let Assumption 2 hold. Using Algorithm 1, we have
+> `c := inf_{s∈S, t≥1} π_{θ_t}(a*(s)|s) > 0`.
+>
+> *Proof.* [...] Denote `Δ*(s) = Q*(s,a*(s)) − max_{a≠a*(s)} Q*(s,a) > 0` as the
+> optimal value gap of state `s`, **where `a*(s) is the action that the optimal
+> policy selects under state s`**, and `Δ* = min_s Δ*(s) > 0` as the optimal
+> value gap of the MDP.
+
+**This settles both refutations of this goal.** `a*(s)` is the action a *fixed
+optimal policy* selects — not an arbitrary `Q*`-optimal function. And the proof
+opens by assuming `Δ*(s) > 0`, a **strictly positive optimal value gap**, which
+excludes `Q*` ties outright.
+
+So the tie counterexample does not refute Mei; it refutes my transcription. A
+faithful statement needs the strict-gap assumption, or `astar` tied to a fixed
+optimal policy. I added `hastar` (Q*-optimality) as a patch after the first
+refutation without checking what the paper actually assumes.
+
 **`hastar` was missing and the statement was FALSE without it** (refuted
 2026-08-22, `Proofs.g9_is_false`, axioms clean). `astar` was an entirely
 unconstrained parameter — nothing said it picked *optimal* actions. Instantiate
@@ -266,14 +286,29 @@ not decay to zero, so the `inf` over time is strictly positive. This is what
 makes the `O(1/T)` rate meaningful rather than asymptotically vacuous. -/
 @[infra "G9"]
 theorem g9_c_positive (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
       = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s) :
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    -- Mei's proof opens by assuming a strictly positive optimal value gap
+    -- `Δ*(s) = Q*(s,a*(s)) − max_{a≠a*(s)} Q*(s,a) > 0`, which excludes `Q*`
+    -- ties. Refuted TWICE without it:
+    --   `Proofs.g9_is_false` -- `astar` picking a SUBOPTIMAL action;
+    --   `Proofs.g9_c_positive_frozen_is_false` -- `astar` picking one side of a
+    --     `Q*` TIE. Witness: one state, `γ = 0`, `r = (1,1,0)`, `θ₀ = (0,1,0)`.
+    --     Two tied OPTIMAL actions; ascent abandons one, broken by the
+    --     initialization rather than the rewards. `γ = 0` and `|S| = 1` are
+    --     deliberate, so neither the discount nor the `⨅ s` can be blamed.
+    -- The same witness also refutes the reduction from value convergence
+    -- (`Proofs.g9_of_convergence_is_false`): `V^{π_t} → V*` while
+    -- `π_t(a*) → 0`, because abandoning one of two OPTIMAL actions costs the
+    -- value nothing. So `c > 0` can never be argued from the value — only from
+    -- the policy. `Proofs.g9_of_policy_limit` is the reduction that IS true.
+    (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
     ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 
 /-! ## G7 — the local-term bound
@@ -389,6 +424,24 @@ once `mismatchCoeff` is fixed. -/
 
 /-- **G1 — Mei Lemma 8, the non-uniform Łojasiewicz inequality.**
 
+VERBATIM, Mei et al. (arXiv:2005.06392) Lemma 8:
+
+> **Lemma 8 (Non-uniform Łojasiewicz).** Let `π_θ(·|s) = softmax(θ(s,·))`,
+> `s ∈ S` and **fix an arbitrary optimal policy `π*`**. We have,
+> ```
+> ‖∂V^{π_θ}(μ)/∂θ‖₂ ≥ (1/√S) · ‖d^{π*}_ρ / d^{π_θ}_μ‖_∞^{-1} · min_s π_θ(a*(s)|s) · [V*(ρ) − V^{π_θ}(ρ)]
+> ```
+
+Note `a*(s)` is the action **the fixed optimal policy `π*` selects**, not an
+arbitrary `Q*`-optimal selector. The statement below takes `astar` as a free
+function with `hastar` only requiring `Q*`-optimality, which admits a different
+tied action than `π*` picks — and that is exactly the defect that refuted `g9`
+twice. Tying `astar` to `πstar` would match the paper.
+
+The paper also uses TWO measures (`ρ` for suboptimality, `μ` for the gradient)
+and the reciprocal of `‖d^{π*}_ρ / d^{π_θ}_μ‖_∞` — occupancy over occupancy, not
+occupancy over `μ`. The statement below collapses both.
+
 Corrected: tabular `hF`, `mismatchCoeff` in place of a free real, values against
 a start distribution, and `hr` restored.
 
@@ -401,9 +454,9 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A)) :
     (⨅ s : S, (F.toPolicy θ s) (astar s))
         / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
@@ -411,6 +464,28 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
       ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := sorry
 
 /-- **G2 — AKM Lemma 4.1, gradient domination.**
+
+VERBATIM, AKM (arXiv:1908.00261) Lemma 4.1:
+
+> **Lemma 4.1 (Gradient domination).** *For the direct policy parameterization*
+> (as in (2)), for all state distributions `μ, ρ ∈ Δ(S)`, we have
+> ```
+> V⋆(ρ) − V^π(ρ) ≤ ‖d^{π⋆}_ρ / d^π_μ‖_∞ · max_{π̄} (π̄ − π)ᵀ ∇_π V^π(μ)
+>                ≤ (1/(1−γ)) · ‖d^{π⋆}_ρ / μ‖_∞ · max_{π̄} (π̄ − π)ᵀ ∇_π V^π(μ)
+> ```
+
+**Two discrepancies with the statement below, both mine, now recorded:**
+
+1. The paper says **"for the direct policy parameterization"** — the simplex
+   parameterization, not softmax. That is exactly why the `‖∇V‖` form was
+   refutable for softmax: the softmax gradient carries an extra `π(a|s)` factor.
+   The `hF` hypothesis below is therefore not the paper's setting, and the
+   fidelity check correctly reports it as unused.
+2. The paper's right side is `max_{π̄} (π̄ − π)ᵀ ∇V`, a maximum over policies of
+   a directional derivative. The statement below uses `⨆ s, ∑ a (π⋆ − π)(a)·A(s,a)`
+   — the advantage form, which is what the performance-difference identity gives.
+   These agree by the policy gradient theorem but are not literally the same
+   expression.
 
 Corrected to AKM's *directional* right-hand side. Bounding by `‖∇V‖` is false
 for softmax at any constant (defect 3 above); the advantage form is what the
@@ -474,23 +549,51 @@ So closing G1 needs a genuinely **cross-state** argument. That is stated below
 as its own goal rather than left as a hypothesis inside G1 — the whole point of
 this file is that missing content becomes a visible goal, not an assumption. -/
 
-/-- **The cross-state advantage bound** — what G1 still needs.
+/-! ### The cross-state bound was FALSE too
 
-Aggregated over states against the occupancy measure, the `πstar`-averaged
-advantage is dominated by the advantage at the pinned optimal action. Per-state
-this is **false** when `Q*` ties; the claim is that the aggregate holds anyway,
-which is what 40 000 randomized MDPs support. -/
-@[infra "G1-cross-state"]
-theorem advantage_cross_state (M : FiniteMDP S A)
+I wrote `advantage_cross_state` as the repair for `hgreedy` failing pointwise
+under `Q*` ties, on the evidence that the aggregate held over 40 000 randomized
+MDPs. It is refuted (`Proofs.advantage_cross_state_general_false`, axioms clean).
+
+Exact-rational witness: `S = A = Fin 2`, `γ = 1/2`, `r = ![![0,1],![1,1]]`,
+`Q*(1,·) = (2,2)` a genuine tie, `πstar = δ₁`, `astar = ![1,0]`, `μ` uniform,
+`θ = 0`. The conclusion reads **`2/3 ≤ 1/3`**.
+
+The lesson is specific: **aggregating over states does not repair the tie
+defect.** I had assumed the per-state deficits would cancel, and at state 0 the
+mismatch has the *same sign* as at state 1, so they compound rather than
+compensate. 40 000 random MDPs missed it because generic MDPs have no ties —
+the counterexample needs an exact tie, which random sampling never produces.
+That is a real limitation of numerical screening, and it is why the exact-
+rational search found in minutes what the sweep could not.
+
+What is true, and what G1 actually needs, is stated below. -/
+
+/-- **The aggregate Łojasiewicz bound** — what `g1_lojasiewicz` reduces to.
+
+`Proofs.g1_lojasiewicz_of_aggregate` is the frozen G1 statement plus exactly
+this hypothesis, so proving it closes G1. Unlike the refuted per-state and
+cross-state forms this one is **true** (30 000 randomized MDPs, max violation
+`2.4e-15`) and **tight** (`lhs/rhs` reaches `0.99999`) — which is precisely why
+no weaker factorization survives.
+
+Routes ruled out numerically, with their violations: `ℓ¹` over all coordinates
+(true but needs `√(|S||A|)`, not `√|S|`), the positive-part form (`1.7e-2`), the
+`d^{a*}` route (gap `2.7e10`), and the per-state form (`1.1e-2`). -/
+@[infra "G1-aggregate"]
+theorem g1_aggregate_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A)) :
-    ∑ s, dinfDist M πstar μ s * (∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a)
-      ≤ ∑ s, dinfDist M πstar μ s * advInf M (F.toPolicy θ) s (astar s) := sorry
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ mismatchCoeff M πstar μ
+          * ∑ s, |dinfDist M (F.toPolicy θ) μ s
+              * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))| := sorry
 
 /-! ## G2 proper — AKM Lemma 4.1 with the gradient in it
 
@@ -515,10 +618,45 @@ directional derivative along `π' − π`, which is exactly AKM's quantity. -/
 
 /-- **G2 — AKM Lemma 4.1, gradient domination.**
 
+VERBATIM, AKM (arXiv:1908.00261) Lemma 4.1:
+
+> **Lemma 4.1 (Gradient domination).** *For the direct policy parameterization*
+> (as in (2)), for all state distributions `μ, ρ ∈ Δ(S)`, we have
+> ```
+> V⋆(ρ) − V^π(ρ) ≤ ‖d^{π⋆}_ρ / d^π_μ‖_∞ · max_{π̄} (π̄ − π)ᵀ ∇_π V^π(μ)
+>                ≤ (1/(1−γ)) · ‖d^{π⋆}_ρ / μ‖_∞ · max_{π̄} (π̄ − π)ᵀ ∇_π V^π(μ)
+> ```
+
+**Two discrepancies with the statement below, both mine, now recorded:**
+
+1. The paper says **"for the direct policy parameterization"** — the simplex
+   parameterization, not softmax. That is exactly why the `‖∇V‖` form was
+   refutable for softmax: the softmax gradient carries an extra `π(a|s)` factor.
+   The `hF` hypothesis below is therefore not the paper's setting, and the
+   fidelity check correctly reports it as unused.
+2. The paper's right side is `max_{π̄} (π̄ − π)ᵀ ∇V`, a maximum over policies of
+   a directional derivative. The statement below uses `⨆ s, ∑ a (π⋆ − π)(a)·A(s,a)`
+   — the advantage form, which is what the performance-difference identity gives.
+   These agree by the policy gradient theorem but are not literally the same
+   expression.
+
 Suboptimality is bounded by the mismatch-weighted *directional* gradient. Unlike
 `g2_advantage_bound` this mentions a derivative, and unlike the refuted `‖∇V‖`
 form it is true for softmax: the directional maximum over the simplex retains
-the `π(a|s)` factor that a norm discards. -/
+the `π(a|s)` factor that a norm discards.
+
+**The fidelity check flags `hF` as unused here, and that flag is a false
+positive** — recorded rather than silenced, because the distinction is the whole
+point of the check. When it fired on `g2_advantage_bound` it was right: that
+statement had been substituted for Lemma 4.1 and had no gradient in it. Here the
+statement *is* Lemma 4.1's directional right side; the inequality simply also
+holds for a general policy family, so softmax is not needed to prove it. What
+softmax buys is that the directional form is the right object to carry a
+gradient at all.
+
+The sharper `Proofs.g2b_sharp` drops the `1/(1-γ)` entirely and is stated for a
+general `Policy`; this goal follows from it by weakening. So the frozen constant
+is not tight — kept as frozen, since the statement is the paper's. -/
 @[paper "AKM2021" "Lemma 4.1"]
 theorem g2_gradient_domination (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -530,7 +668,8 @@ theorem g2_gradient_domination (M : FiniteMDP S A)
     VstarDist M μ - VinfDist M (F.toPolicy θ) μ
       ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
           * (⨆ s : S, ∑ a : A,
-              ((πstar s) a - (F.toPolicy θ s) a) * advInf M (F.toPolicy θ) s a) := sorry
+              ((πstar s) a - (F.toPolicy θ s) a) * advInf M (F.toPolicy θ) s a) :=
+  Proofs.g2_gradient_domination_directional_proof M F hF hr hγ₀ hγ₁ μ hμ πstar hstar θ
 
 /-! ## G8 / Mei Theorem 4 — the headline rate
 
@@ -542,6 +681,28 @@ for the rate track as well. -/
 
 The statement the repo is actually for. Note what it mentions and the current
 `smooth_loja_rate` does not: an MDP, a softmax family, `Vinf`, and `V*`.
+
+**FALSE as first frozen, for the third time by the same defect** (refuted
+2026-08-22, `Proofs.mei4_is_false`, axioms clean). `logits` was universally
+quantified with no regularity hypothesis — the identical hole already recorded
+above for `g7_smoothness` (Defect 1) and `g1_lojasiewicz` (Defect 2), and not
+repaired here when those were fixed.
+
+The counterexample needs no analysis at all: take `logits θ s a := 0`, constant
+in `θ`. Legal, since nothing constrains `logits`. The policy is then uniform at
+every `θ`, so the objective is a *constant function*, its gradient is `0`, and
+`hstep` degenerates to `θ(t+1) = θ t` — the trajectory never moves. In a `γ = 0`
+MDP with rewards `1/0` the frozen policy has value `1/2` against `Vstar = 1`, so
+the left side is the constant `1/2` for every `T` while the right side decays
+like `1/T`. Any `T > 32/c²` breaks it, for every `c`.
+
+Note this is **not** repaired by shrinking `c`: `c` is existential and sits in
+the denominator, but the left side does not decay at all. The statement was
+false, not merely weak.
+
+The tabular theorem is **not** refuted — on the `g9` witness MDP, iterating the
+exact recursion gives `c ≈ 4.89` satisfying the frozen inequality. This was a
+statement bug, not a refutation of Mei.
 
 **`c` is existential, and that is forced.** An earlier draft took `c` as a
 universally quantified hypothesis `(c : ℝ) (hc : 0 < c)`. That statement is
@@ -558,9 +719,8 @@ The paper's `c` is a specific constant determined by the MDP and the trajectory
 here. -/
 @[paper "Mei2020" "Theorem 4"]
 theorem mei_theorem4 (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
@@ -647,6 +807,238 @@ theorem mismatch_pos (M : FiniteMDP S A)
     0 < mismatchCoeff M π μ :=
   Proofs.mismatch_pos_proof M hγ₀ hγ₁ π μ hμ
 
+/-! ## What Theorem 4 is actually blocked on
+
+The refuting agent, having shown the `logits` defect, then characterised what
+stands between the repaired statement and a proof. Stated here as goals rather
+than left in a report.
+
+The crux is that **`ascent_converges` gives only `∃ L ≤ fstar`, never
+`L = fstar`** — the gap `G9` already names. And `c` cannot be recovered by
+compactness: softmax positivity plus finiteness gives `⨅ s π_θ(a*|s) > 0` at each
+*fixed* `t`, but the infimum is over `t : ℕ`, and the trajectory is
+**unbounded** — `‖θ t‖ → ∞` is exactly what ascent does, so the simplex closure
+meets the boundary. Positivity here is irreducibly asymptotic. -/
+
+/-- **AKM Theorem 5.1 — softmax ascent reaches the optimum.**
+
+VERBATIM, AKM (arXiv:1908.00261) Theorem 5.1:
+
+> **Theorem 5.1 (Global convergence for softmax parameterization).** Assume we
+> follow the gradient descent update rule as specified in Equation (11) *and
+> that the distribution `μ` is strictly positive i.e. `μ(s) > 0` for all states
+> `s`*. Suppose `η ≤ (1−γ)²/5`, then we have that for all states `s`,
+> `V^(t)(s) → V⋆(s)` as `t → ∞`.
+
+> **Remark 5.1 (Strict positivity of μ and exploration).** Theorem 5.1 assumed
+> that optimization distribution `μ` was strictly positive [...] **We leave it
+> as an open question of whether or not gradient descent will globally converge
+> if this condition is not met.** The concern is that if this condition is not
+> met, then gradient descent may not globally converge due to that `d^{πθ}_μ(s)`
+> effectively scales down the learning rate for the parameters associated with
+> state `s`.
+
+**This refutes the goal below as I stated it.** It quantifies over a single
+start state `μ : S` — a Dirac, the maximally degenerate violation of strict
+positivity — and AKM explicitly leave that case OPEN. So the statement is not
+AKM Theorem 5.1; it is a strictly stronger claim the paper declines to make.
+
+The step size is also wrong: AKM require `η ≤ (1−γ)²/5`, the goal uses
+`(1−γ)³/8`. The latter is `1/L` for the `8/(1−γ)³` smoothness constant, which is
+the right shape but not the paper's number.
+
+Both discrepancies come from paraphrasing rather than reading. Restating this
+faithfully means a start *distribution* with full support, and `η ≤ (1−γ)²/5`.
+
+The missing bridge. Every route to Theorem 4 passes through it, and `G9`'s `c`
+follows from it rather than being assumed: `c > 0 ⟸ π_t(a*|s) ↛ 0 ⟸ V(θ_t) → V*`.
+
+Mei cite AKM for this; AKM prove it asymptotically. It is the one genuinely
+deep ingredient neither paper proves from first principles.
+
+**Investigated 2026-08-22: the statement is true but the proof is out of reach**,
+and the analytic half is done. Proved on the way (`Proofs/AKM51.lean`, all
+axiom-clean): `∑ ‖∇V(θ_t)‖² < ∞`, hence `‖∇V(θ_t)‖ → 0`; monotone convergence to
+*some* `L ≤ Vstar`; and `tendsto_vstar_of_limit_optimal`, which reduces this goal
+to the single hypothesis "every limit of the trajectory's value is at least
+`Vstar`". Numerically the claim holds (gap `6.5e-4` after `2·10⁵` steps, decaying
+like `O(1/t)`), so the goal stays as stated.
+
+Two structural blockers, recorded as goals below:
+
+1. **This goal starts from a single state `μ : S`** — a Dirac. The only route
+   from small gradient to small suboptimality here runs through
+   `g1_lojasiewicz`, which factors through `mismatchCoeff` and so needs
+   `hμ : ∀ s, 0 < μ s`. `Proofs.mismatch_bound_is_false` already refutes that
+   bound without full support, and a Dirac is the maximally degenerate
+   violation. So the Łojasiewicz machinery is inapplicable *by the shape of this
+   statement*, not for want of effort.
+2. **A mutual reduction.** `sum_abs_adv_le_norm` bounds only the product
+   `d^π_μ(s)·π(a*|s)·A^π(s,a*)`, so vanishing gradients permit
+   `π_t(a*|s) → 0` to do the work instead of `A → 0`. Excluding that is exactly
+   `g9_c_positive`, which `Goal.lean` discharges by citing this goal. The two
+   mutually reduce; compactness cannot break the cycle (`‖θ t‖ → ∞`), and
+   monotonicity is ruled out (`m(t) ≥ m(0)` fails in 66/400 random MDPs). -/
+@[infra "AKM-5.1"]
+theorem softmax_ascent_converges (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) :
+    Filter.Tendsto (fun t => Vinf M (F.toPolicy (θ t)) s) Filter.atTop
+      (nhds (Vstar M s)) := sorry
+
+/-- **Off-support advantages are non-positive in the limit** — the residual of AKM 5.1.
+
+An agent reduced `softmax_ascent_converges` to exactly this one statement
+(`Proofs.limitAdvNonpos_of_offsupport` takes it and `tendsto_vstar_of_limitAdvNonpos`
+closes the goal from it), and proved everything else: compactness of `Δ(A)^S`,
+subsequence extraction, and `vinf_eq_vstar_of_adv_nonpos` (advantage `≤ 0`
+everywhere gives `V^π = V*`, with no support hypothesis — so occupancy weights
+never need matching, and the support mismatch I worried about is not the
+obstruction).
+
+**Why the obvious route fails**, and this is the sharp finding: at a
+*deterministic* policy the condition `∀ s a, 0 < π̄(a|s) → A^{π̄}(s,a) = 0` holds
+for **every** MDP unconditionally (`Proofs.greedy_support_vacuous_at_det`) — a
+policy's own advantage averages to zero, so at the single action it plays the
+advantage is automatically zero. Softmax ascent drives `‖θ t‖ → ∞`, so its limit
+policies are generically deterministic, and `greedy_limit_points` therefore
+yields **no information** exactly where it is needed. That goal is proved and
+still does not close this one.
+
+The remaining difficulty is about *actions*, not states: the gradient limit
+constrains `A^{π̄}(s,a)` only where `π̄(a|s) > 0`. For an action ascent has driven
+out, `π_t(a|s) → 0` makes the product vanish for the wrong reason. Closing it
+needs a rate comparison between the decay of `π_t(a|s)` and the advantage — a
+per-coordinate asymptotic estimate on `θ t` itself. That is what AKM actually
+prove, and neither this repo nor Mathlib supplies it.
+
+`Proofs.advInf_zero_of_stationary_finite` corroborates the diagnosis: at a
+*finite* stationary point the strong all-actions condition does follow from
+softmax positivity, so the entire difficulty sits at infinity. -/
+@[infra "AKM-5.1-residual"]
+theorem limit_adv_nonpos_offsupport (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a))) :
+    ∀ s a, (πbar s) a = 0 → advInf M πbar s a ≤ 0 := sorry
+
+/-- **The vector-parameter ascent step.**
+
+`domination_rate_abstract` and `ascent_step` are stated for `f : ℝ → ℝ` — a
+scalar derivative — while the goals step by `gradient` in
+`EuclideanSpace ℝ (S × A)`. Mechanical given `g7b_smoothness`, but real work,
+and nothing composes without it. -/
+@[infra "Vector-ascent-step"]
+theorem vec_ascent_step (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : EuclideanSpace ℝ (S × A)) :
+    Vinf M (F.toPolicy θ) μ
+        + ((1 - M.γ) ^ 3 / 16) * ‖gradient (fun w => Vinf M (F.toPolicy w) μ) θ‖ ^ 2
+      ≤ Vinf M (F.toPolicy
+          (θ + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) θ)) μ :=
+  Proofs.vec_ascent_step_proof M F hF hr hγ₀ hγ₁ μ θ
+
+/-! ### `greedy_limit_points` was FALSE — unreachable states
+
+Refuted (`Proofs.greedy_limit_points_frozen_is_false`, which takes the frozen
+statement *with `Goal.lean`'s own implicit and instance binders* as a hypothesis
+and derives `False`, so what is refuted is provably this statement and not a
+lookalike).
+
+I flagged the occupancy factor as a worry when writing it and stated it anyway
+over **all** `s`. That was the defect. Witness: `γ = 1/2`, start state `0`
+absorbing with zero reward, state `1` unreachable with `r(1,·) = (1,-1)`. Then
+`V^π(0) = 0` for *every* policy, so the objective is the constant function, its
+gradient is `0`, `hstep` collapses to `θ(t+1) = θ(t)`, and the uniform `π̄` is a
+limit. The conclusion fails at the unreachable state.
+
+And option (b) — handling unreachable states some other way — is not merely
+unproved but **impossible**: the ascent dynamics are literally independent of
+the MDP's data off the reachable set. Two MDPs agreeing on the reachable part
+give identical gradients, trajectories and limit policies while differing
+arbitrarily in `advInf` there. No argument about the trajectory can constrain
+what the trajectory cannot see.
+
+This also sharpens the `softmax_ascent_converges` obstruction note above: that
+records the blocker as a per-coordinate asymptotic estimate on `θ t`, which is
+true for the *reachable* part. The unreachable part is a separate and strictly
+fatal defect that no such estimate repairs. -/
+
+/-- **Greedy limit points, at reached states** — the real content of AKM 5.1.
+
+At every state with positive limiting occupancy, every action in `π̄`'s support
+has zero advantage. Given this, `optimal_support_greedy` and `vstar_eq_greedy`
+finish `softmax_ascent_converges`. Stated over policies rather than parameters
+deliberately: the simplex is compact, parameter space is not, and `‖θ t‖ → ∞` is
+exactly what defeats a compactness argument upstairs.
+
+The occupancy hypothesis is what the refutation above forces, and it should be
+enough downstream — `perfDiffInf` weights `advGapInf` by an occupancy that
+vanishes off the reached set, exactly as `dirac_gradient_domination` exploits. -/
+@[infra "Greedy-limit-points"]
+theorem greedy_limit_points (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a))) :
+    ∀ s a, 0 < dinf M πbar μ s → 0 < (πbar s) a → advInf M πbar s a = 0 :=
+  Proofs.greedy_limit_points_proof M F hF hr hγ₀ hγ₁ μ θ hstep πbar hlim
+
+/-- **Dirac-compatible gradient domination.**
+
+`g1_lojasiewicz` needs `hμ : ∀ s, 0 < μ s`, so no single-start-state goal in this
+repo can use the Łojasiewicz route — `mismatch_bound` is refuted without full
+support, and a Dirac is the worst case. The correct substitute is the comparator
+occupancy `dinf M πstar μ`, which is positive exactly on the states `πstar`
+reaches from `μ`. `perfDiffInf` already supplies the identity.
+
+**Proved 2026-08-22, and it is an EQUALITY** — restated as such, since the
+reverse direction is free and the inequality was strictly weaker than what
+holds. It is `perfDiffInf` verbatim at `π' := πstar`, `s₀ := μ`: `pdInf` unfolds
+to `∑ s, dinf M π' s₀ s * advGapInf M π π' s`, and `advGapInf` is definitionally
+the frozen right-hand side. Four lines.
+
+The mechanism is exactly why this sidesteps full support: `μ s` never appears in
+a denominator, so `mismatch_bound` never enters and `dinf M πstar μ` is
+automatically supported precisely where `πstar` reaches. Note the caveat: the
+bound is against the *comparator's* occupancy, so a downstream step needing the
+*learner's* occupancy will reintroduce a mismatch factor there rather than here.
+
+`hF` is unused (the result holds for any policy family) and only `hstar μ` is
+needed rather than `∀ s`. Kept as frozen. -/
+@[infra "Dirac-domination"]
+theorem dirac_gradient_domination (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (μ : S) (θ : EuclideanSpace ℝ (S × A)) :
+    Vstar M μ - Vinf M (F.toPolicy θ) μ
+      = (∑ s, dinf M πstar μ s * ∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a) :=
+  Proofs.dirac_gradient_domination_eq M F hr hγ₀ hγ₁ πstar hstar μ θ
+
 /-! ## G10 — the entropy-regularized track
 
 `geometric_rate` mentions no entropy, no `τ`, no policy and no MDP; its
@@ -654,23 +1046,56 @@ hypothesis `hstep` *is* Mei Theorem 6. Their Lemmas 14 (entropy smoothness),
 15 (entropy Łojasiewicz) and 16 exist to establish that contraction, and none is
 formalized. -/
 
-/-- **Mei Theorem 6 — the entropy-regularized geometric rate.**
+/-! ## Theorem 6 was FALSE three ways — the entropy track needs rebuilding
 
-Unlike Theorem 4 this constant is explicit, because the analogue of their
-Lemma 9 (their Lemma 16) follows from monotone convergence rather than an
-external citation. -/
-@[paper "Mei2020" "Theorem 6"]
-theorem mei_theorem6 (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
-    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
-    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (τ : ℝ) (hτ : 0 < τ) (μ : S) (η : ℝ) (hη : 0 < η)
-    (θ : ℕ → EuclideanSpace ℝ (S × A))
-    (hstep : ∀ t, θ (t + 1)
-      = θ t + η • gradient (fun w => VinfSoft M (F.toPolicy w) τ μ) (θ t))
-    (K : ℝ) (hK₀ : 0 < K) (hK₁ : K < 1) (t : ℕ) :
-    VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ t)) τ μ
-      ≤ (VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ 0)) τ μ) * (1 - K) ^ t := sorry
+Refuted 2026-08-22 by two independent machine-checked counterexamples, plus a
+definitional defect neither of my stated concerns anticipated.
+
+**1 — free `logits`** (`Proofs.mei6_general_false`). The same defect as
+`g7_smoothness`, `g1_lojasiewicz` and `mei_theorem4`: `logits ≡ 0` makes the
+policy uniform at every `θ`, so the objective is constant, the gradient is `0`,
+and the trajectory never moves while the gap stays positive.
+
+**2 — `K` universal and `η` free** (`Proofs.mei6_false_tabular`). The decisive
+one, because it pins Mei's genuine **tabular** parameterization and so cannot be
+dismissed as parameterization abuse. One state, two actions, `γ = 0`,
+`r = (1,0)`, `τ = 1`, `η = 10`: the objective reduces to
+`fsoft d = σ(d)(1−d) + log(e^d+1)`, one step sends the logit gap `0 → 5`
+exactly, and `fsoft 5 < fsoft 0` — the objective *decreases*, so the gap
+*grows*, contradicting the bound for **every** `K ∈ (0,1)` at once. Numerically
+`η = 5` already diverges (ratio 1.004).
+
+**3 — `VinfSoft` is not Mei's objective.** It adds entropy at the **start state
+only**; Mei's `Ṽ` discounts entropy along the whole trajectory (the soft Bellman
+fixed point). The bonus does not propagate, `VsoftStar` has no log-sum-exp form,
+and their Lemmas 14/15/16 are not true over it. **So fixing the quantifiers is
+not enough** — `Target.lean` needs a genuinely new definition first.
+
+Theorem 6 is therefore not restated here yet. Stating it over a definition known
+to be wrong would be worse than leaving it out: the goal would look like
+progress while measuring nothing. The prerequisites are below; Theorem 6 returns
+once `VsoftDisc` exists. -/
+
+/-- **The discounted-entropy soft value** — the definition Theorem 6 needs.
+
+`Ṽ^π(s) = E[∑ₜ γᵗ (r(sₜ,aₜ) + τ·H(π(·|sₜ)))]`, the soft Bellman fixed point,
+as opposed to `VinfSoft`'s start-state-only bonus. Everything in the entropy
+track waits on this. -/
+@[infra "Soft-value"]
+theorem vsoftDisc_exists (M : FiniteMDP S A) (τ : ℝ) (hτ : 0 < τ)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
+    ∃ V : Policy S A → S → ℝ,
+      ∀ π s, V π s = (∑ a, (π s) a * M.r s a) + τ * entropy (π s)
+        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * V π s' :=
+  Proofs.vsoftDisc_exists_proof M τ hτ hr hγ₀ hγ₁
+
+/-- **Entropy is bounded** — needed before `⨆ π, Ṽ` means anything.
+
+`VsoftStar` is a `ciSup`; without `BddAbove` Mathlib returns junk `0` and every
+statement about it is vacuous. Proved as `Proofs.entropy_le_card` during the
+refutation; stated here so the dependency is explicit. -/
+@[infra "Entropy-bounded"]
+theorem entropy_bdd (d : Dist A) : entropy d ≤ (Fintype.card A : ℝ) - 1 :=
+  Proofs.entropy_bdd_proof d
 
 end PolicyGradient

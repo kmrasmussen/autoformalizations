@@ -8,6 +8,7 @@ import PolicyGradient.Proofs.G1b
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
+import PolicyGradient.Proofs.G9b
 import PolicyGradient.Proofs.Mei4
 import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.VecStep
@@ -17,7 +18,6 @@ import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
-import PolicyGradient.Proofs.G9b
 import PolicyGradient.Proofs.Greedy2
 
 /-!

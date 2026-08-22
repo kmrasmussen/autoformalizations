@@ -296,7 +296,18 @@ theorem g9_c_positive (M : FiniteMDP S A)
     (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     -- Mei's proof opens by assuming a strictly positive optimal value gap
     -- `Δ*(s) = Q*(s,a*(s)) − max_{a≠a*(s)} Q*(s,a) > 0`, which excludes `Q*`
-    -- ties. Without it this goal is refuted (`Proofs.g9_is_false`, twice).
+    -- ties. Refuted TWICE without it:
+    --   `Proofs.g9_is_false` -- `astar` picking a SUBOPTIMAL action;
+    --   `Proofs.g9_c_positive_frozen_is_false` -- `astar` picking one side of a
+    --     `Q*` TIE. Witness: one state, `γ = 0`, `r = (1,1,0)`, `θ₀ = (0,1,0)`.
+    --     Two tied OPTIMAL actions; ascent abandons one, broken by the
+    --     initialization rather than the rewards. `γ = 0` and `|S| = 1` are
+    --     deliberate, so neither the discount nor the `⨅ s` can be blamed.
+    -- The same witness also refutes the reduction from value convergence
+    -- (`Proofs.g9_of_convergence_is_false`): `V^{π_t} → V*` while
+    -- `π_t(a*) → 0`, because abandoning one of two OPTIMAL actions costs the
+    -- value nothing. So `c > 0` can never be argued from the value — only from
+    -- the policy. `Proofs.g9_of_policy_limit` is the reduction that IS true.
     (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
     ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 

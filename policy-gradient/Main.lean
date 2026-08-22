@@ -29,9 +29,16 @@ unsafe def lint : IO UInt32 := do
   -- printed hypotheses read like the source (`≤`, `|·|`, `∑`) rather than like
   -- raw application spines. They must be set in the `Core.Context`, since the
   -- pretty-printer reads them from there.
-  let opts : Options := (({} : Options)
+  -- `maxHeartbeats := 0` (unlimited) is required: the fidelity and inhabitation
+  -- checks do instance synthesis and proof-term traversal per goal, which
+  -- exceeds the 200000 default and killed the exe mid-CHECK-4. The `lake env
+  -- lean PaperLint.lean` path was unaffected, so this went unnoticed -- a
+  -- linter that dies partway reports a PREFIX of its checks and exits nonzero,
+  -- which is indistinguishable from a genuine failure if the output is not read.
+  let opts : Options := ((({} : Options)
     |>.setBool `pp.fullNames false)
-    |>.setBool `pp.notation true
+    |>.setBool `pp.notation true)
+    |>.set `maxHeartbeats (0 : Nat)
   let (failed, _) ← Core.CoreM.toIO
     PolicyGradient.Meta.runPaperLint
     { fileName := "<paper_lint>", fileMap := default, options := opts }
