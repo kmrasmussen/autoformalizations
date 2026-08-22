@@ -577,6 +577,63 @@ theorem hasDerivAt_dV_canonical (m : ℕ) (s : S) :
 
 /-- **The value function is `8/(1-γ)³`-smooth — AKM Lemma E.4's exact constant.**
 
+VERBATIM, Mei, Xiao, Szepesvári & Schuurmans (arXiv:2005.06392) Lemma 7, which
+is where the `@[paper "AKM2021" "Lemma E.4"]` tag's citation actually comes from:
+
+> **Lemma 7 (Smoothness).** `V^{π_θ}(ρ)` is `8/(1 − γ)³`-smooth.
+>
+> *Proof.* See Agarwal et al. (2019, Lemma E.4). Our proof is for completeness.
+
+and the standing assumption Mei's constant depends on, stated just above it:
+
+> According to Assumption 1, `r(s, a) ∈ [0, 1]`, `Q(s, a) ∈ [0, 1/(1 − γ)]`, and
+> hence the objective function is still smooth, as was also shown by Agarwal et
+> al. (2019)
+
+⚠ **CITATION MISMATCH — the tag points at a lemma number that does not exist in
+the version on disk.** `/tmp/akm.txt` is arXiv:1908.00261 **v4** (23 Sep 2020),
+whose Appendix E is titled *"Standard Optimization Results"* and contains only
+Theorems E.1–E.3 (Beck; Ghadimi–Lan; Shalev-Shwartz–Ben-David). **There is no
+Lemma E.4 in v4.** The `8/(1−γ)³` softmax result lives in Appendix D, inside the
+proof of **Lemma D.4**, as displayed equation **(53)**:
+
+> ```
+> max_{‖u‖₂=1} d²Ṽ(α)/(dα)²|_{α=0} ≤ C₂/(1−γ)² + 2γC₁²/(1−γ)³
+>                                   ≤ 6/(1−γ)² + 8γ/(1−γ)³ ≤ 8/(1−γ)³
+> ```
+> or equivalently for all starting states `s` and hence for all starting state
+> distributions `μ`,
+> ```
+> ‖∇_θ V^{π_θ}(μ) − ∇_θ V^{π_θ'}(μ)‖₂ ≤ β ‖θ − θ'‖₂          (53)
+> ```
+> where `β = 8/(1−γ)³`.
+
+"Lemma E.4" is Mei's citation of an **earlier arXiv version** of AKM (they cite
+it as "Agarwal et al. (2019)"), which renumbered before v4. The constant and the
+content are unchanged, so this is a **numbering defect in the tag, not a
+statement defect** — but the tag as written cannot be checked against the source
+the repo actually has. Either retag as `"AKM2021" "Lemma D.4 (eq. 53)"`, or keep
+`E.4` and pin the citation to the AKM v1/v2 numbering that Mei used.
+
+**Two further departures of the Lean statement from both sources.**
+
+1. **Smoothness here is a two-sided Taylor bound, not a Lipschitz gradient.**
+   AKM (53) and Mei both state `β`-smoothness as
+   `‖∇f(θ) − ∇f(θ')‖ ≤ β‖θ − θ'‖`. `SmoothAt f f' β` is the *remainder* form
+   `|f(y) − f(x) − f'(x)(y−x)| ≤ (β/2)|y−x|²`. These are equivalent for `C¹`
+   functions up to the standard factor, and `MEI_NOTES.md` records that the
+   remainder form is the one the rate machinery consumes; Mathlib has no
+   ready-made predicate for either.
+2. **Reward normalization differs.** Mei's Assumption 1 is `r(s,a) ∈ [0,1]`;
+   `hr` here is `|r(s,a)| ≤ 1`, i.e. `r ∈ [−1,1]`. That is the *wider* range, so
+   the bound is claimed over a strictly larger class of MDPs than Mei assume.
+   The `8/(1−γ)³` derivation goes through `|Q| ≤ 1/(1−γ)`, which `|r| ≤ 1` also
+   gives, so the generalization is sound — but it is a departure from the quote.
+
+Verdict: **MATCHES** on the constant and the mathematical content;
+**MISMATCHES on the citation label** (`E.4` is not present in AKM v4; the result
+is Lemma D.4 / eq. (53) there).
+
 The final form. Inputs are the paper's standing assumptions **plus an
 undischarged bound on the local-term derivative** (`hdloc`, gap **G7**):
 

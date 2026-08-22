@@ -218,6 +218,60 @@ gap does **not** contract — outside the optimal set a general policy is
 genuinely suboptimal — which is why the masking, not a naive contraction, is
 what works.
 
+⚠ **NO VERBATIM QUOTE EXISTS. Mei et al. state no such lemma.** Reported rather
+than repaired, per the freeze.
+
+The tag claims `@[paper "Mei2020" "Lemma 9 (strictness)"]`. Mei's Lemma 9 is a
+different statement entirely — it is the `c > 0` result, quoted verbatim below
+in full (main text and appendix agree word for word):
+
+VERBATIM, Mei, Xiao, Szepesvári & Schuurmans (arXiv:2005.06392) Lemma 9:
+
+> **Lemma 9.** Let Assumption 2 hold. Using Algorithm 1, we have,
+> ```
+> c := inf_{s∈S, t≥1} π_{θ_t}(a*(s)|s) > 0.
+> ```
+>
+> *Proof.* The proof is an extension of the proof for Lemma 5. Denote
+> `∆*(s) = Q*(s,a*(s)) − max_{a≠a*(s)} Q*(s,a) > 0` as the optimal value gap of
+> state `s`, **where `a*(s)` is the action that the optimal policy selects under
+> state `s`**, and `∆* = min_{s∈S} ∆*(s) > 0` as the optimal value gap of the
+> MDP.
+
+with Assumption 2 as stated:
+
+> **Assumption 2 (Sufficient exploration).** The initial state distribution
+> satisfies `min_s μ(s) > 0`.
+
+**The mismatch, precisely.** Lemma 9's conclusion is about the *policy*:
+the optimal-action probability is bounded away from zero along the trajectory,
+uniformly in `s` and `t`. The Lean statement below concludes something about the
+*value*: `Vinf M (F.toPolicy θ) μ < Vstar M μ`, for a **single arbitrary `θ`**
+with no trajectory, no `Algorithm 1`, no `hstep`, and no Assumption 2. There is
+no `inf`, no `c`, no `t`. These are not the same proposition, and neither
+implies the other in the direction the tag suggests — indeed
+`Proofs.g9_of_convergence_is_false`, already recorded on `g9_c_positive`, shows
+value convergence does **not** give the policy bound.
+
+The repo already tags the actual Lemma 9 correctly, as `g9_c_positive`
+(`@[infra "G9"]`). So `Lemma 9` is cited twice, for two different theorems.
+
+**Nothing in Mei corresponds to the statement below.** Searching the full text
+for a strictness claim of the form "a softmax policy is never exactly optimal"
+returns nothing: the closest passages are the bandit visualization discussion
+("Any globally convergent iteration will enter `R` within finite time … and
+never leaves `R`") and Lemma 5's `inf_{t≥1} π_{θ_t}(a*) > 0`, neither of which
+is this. The statement is a **repo-internal lemma** — real, proved, and needed
+(it licenses the `0 < δ t` the reciprocal recursion consumes) — but it is not a
+transcription of anything in the paper. Softmax full support is used implicitly
+throughout Mei's analysis; it is never isolated as a numbered result.
+
+Verdict: **MISMATCHES.** The proposition is true and proved (see the two
+paragraphs above), but the `@[paper "Mei2020" "Lemma 9 (strictness)"]`
+attribution is wrong on both counts: it is not Lemma 9, and it is not in the
+paper. The honest tag is `@[infra]`. **Statement left untouched** — this is a
+citation defect only.
+
 Under a non-degeneracy condition (some policy is strictly suboptimal, i.e. the
 MDP is not one where every policy is optimal), a softmax policy — which puts
 positive mass on every action — is strictly suboptimal.
@@ -366,6 +420,53 @@ should have had; the smoothness goal keeps `8/(1-γ)³` and is the faithful
 Lemma E.4. -/
 
 /-- **G7a — the gradient norm bound for tabular softmax.**
+
+⚠ **NO SOURCE QUOTE EXISTS FOR THIS TAG. The paper does not contain this
+lemma.** Reported rather than repaired, per the freeze.
+
+The tag claims `@[paper "AKM2021" "Lemma E.4 (gradient)"]`. Two problems, the
+second serious:
+
+**(a) `Lemma E.4` is not in AKM v4.** As recorded on `smoothAt_V_final`,
+`/tmp/akm.txt` is arXiv:1908.00261 **v4**, whose Appendix E is *"Standard
+Optimization Results"* (Theorems E.1–E.3 only). The softmax smoothness content
+lives in Appendix D. "Lemma E.4" is Mei's citation of an earlier AKM numbering.
+
+**(b) AKM state no first-derivative bound of this form, at any number.**
+Appendix D bounds only *second* derivatives. The nearest thing in the paper is
+the intermediate step inside Lemma D.4's proof that produces `C₁ = 2` — and it
+bounds a **different quantity**:
+
+VERBATIM, AKM (arXiv:1908.00261v4), inside the proof of Lemma D.4:
+
+> We also have by differentiating `π_α(a|s)` once w.r.t `α`,
+> ```
+> ∑_{a∈A} |dπ_α(a|s)/dα|_{α=0}  ≤  ∑_{a∈A} |u^⊤ ∇_{θ+αu} π_α(a|s)|_{α=0}
+>                               =  ∑_{a∈A} π_θ(a|s) |u_s^⊤ e_a − u_s^⊤ π(·|s)|
+>                               ≤  max_{a∈A} (|u_s^⊤ e_a| + |u_s^⊤ π(·|s)|)  ≤ 2
+> ```
+
+That `2` bounds the **total variation of the policy's directional derivative**,
+`∑_a |dπ/dα|` — a quantity about `π`, not about `V`. It is fed to Lemma D.2 as
+the constant `C₁`, whose conclusion is the *second*-derivative bound
+`C₂/(1−γ)² + 2γC₁²/(1−γ)³`. Reading `C₁ = 2` off that step and attaching it to
+`‖∇_θ V‖` with a `(1−γ)²` denominator is a **transcription that fuses two
+unrelated quantities**. AKM never write `‖∇_θ V^{π_θ}(s₀)‖ ≤ 2/(1−γ)²`.
+
+**Where the constant actually comes from: this repo, not the paper.** The bound
+is real and is proved here — `Proofs.g7a_gradient_bound_proof`, via the scalar
+`abs_dV_le_softmax` (`Smoothness.lean:304`), whose own docstring says
+`|dV| ≤ 1/(1−γ)²` from `∑_a |dπ| ≤ 1`. With AKM's `∑_a |dπ| ≤ 2` that scales to
+`2/(1−γ)²`. So the *mathematics* is sound and in-repo; what is unsourced is the
+attribution. This is a **derived corollary of AKM's `C₁ = 2` step**, not a lemma
+AKM state.
+
+Verdict: **MISMATCHES.** The statement is (as far as the repo's own proof goes)
+true, but it is **not** AKM Lemma E.4, and no lemma of this form appears in AKM
+at any number. The `@[paper]` tag over-attributes. The honest tag is
+`@[paper_tool "AKM2021" "Lemma D.4 (C₁=2 step), gradient corollary"]` or
+`@[infra]`. **Statement left untouched** — this is a citation defect, and the
+inequality itself is not in question.
 
 `‖∇V‖ ≤ 2/(1-γ)²`, the vector-parameter analogue of `abs_dV_le_softmax`. Note
 `hF` now pins the **tabular** parameterization: the logits *are* the parameter
@@ -860,7 +961,114 @@ a defect either way: existential and unconstrained makes the goal too *weak*
 (the prover picks it); universal makes it too *strong* (the caller picks it).
 The paper's `c` is a specific constant determined by the MDP and the trajectory
 — their Lemma 9 — so it belongs outside the `∀ T`, chosen once, exactly as
-here. -/
+here.
+
+---
+
+VERBATIM, Mei, Xiao, Szepesvári & Schuurmans (arXiv:2005.06392) Theorem 4
+(main text and appendix Eq. (334) agree word for word):
+
+> **Theorem 4.** Let Assumption 2 hold and let `{θ_t}_{t≥1}` be generated using
+> Algorithm 1 with `η = (1 − γ)³/8`, `c` the positive constant from Lemma 9.
+> Then, for all `t ≥ 1`,
+> ```
+>                              16S       ‖ d_μ^{π*} ‖²   ‖ 1 ‖
+> V*(ρ) − V^{π_θt}(ρ)  ≤  ───────────── · ‖ ──────── ‖ · ‖ ─ ‖         (334)
+>                         c²(1−γ)⁶ t      ‖    μ     ‖∞   ‖ μ ‖∞
+> ```
+
+with the two supporting quotes the constant depends on:
+
+> **Assumption 2 (Sufficient exploration).** The initial state distribution
+> satisfies `min_s μ(s) > 0`.
+
+> **Lemma 9.** Let Assumption 2 hold. Using Algorithm 1, we have,
+> `c := inf_{s∈S, t≥1} π_{θ_t}(a*(s)|s) > 0`.
+
+and, for `a*`, from Lemma 9's proof and from the sentence fixing it in §4:
+
+> For stating this and the remaining results, we fix a deterministic optimal
+> policy `π*` and denote by `a*(s)` the action that `π*` selects in state `s`.
+
+**CONFIRMED: the right-hand side now matches, term for term.**
+
+| Mei | Lean | ✓ |
+|---|---|---|
+| `16S` | `16 * Fintype.card S` | ✓ |
+| `c²(1−γ)⁶ t` | `c ^ 2 * (1 - M.γ) ^ 6 * T` | ✓ |
+| `‖d_μ^{π*}/μ‖²_∞` | `mismatchCoeff M πstar μ ^ 2` (squared) | ✓ |
+| `‖1/μ‖_∞` | `Proofs.invMuSup μ = (⨅ s, μ s)⁻¹` | ✓ |
+| `V*(ρ) − V^{π_θt}(ρ)` | `VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ` | ✓ |
+| Assumption 2 | `hμ : ∀ s, 0 < μ s` | ✓ |
+| `η = (1−γ)³/8` | `hstep`'s `((1 - M.γ) ^ 3 / 8) •` | ✓ |
+| `t ≥ 1` | `∀ T : ℕ, 1 ≤ T →` | ✓ |
+| `c` from Lemma 9 | `(c : ℝ) (hc : 0 < c)` + `hcbound` | ✓ |
+| two measures `ρ`, `μ` | `ρ` in the conclusion, `μ` in `hstep`/`mismatchCoeff` | ✓ |
+
+The two corrections made earlier today — squaring `mismatchCoeff` and restoring
+`invMuSup` — are the right ones, and `astar`/`hastar` correctly encode "the
+action that the optimal policy selects".
+
+⚠ **BUT: one factor is still off, and it is a NEW defect — `mismatchCoeff` uses
+an UNNORMALIZED occupancy where both papers normalize.**
+
+VERBATIM, AKM (arXiv:1908.00261v4) Eq. (4), the definition both papers use:
+
+> it is useful to define the discounted state visitation distribution `d^π_{s₀}`
+> of a policy `π` as:
+> ```
+> d^π_{s₀}(s) := (1 − γ) ∑_{t=0}^∞ γ^t Pr^π(s_t = s | s₀),          (4)
+> ```
+> [...] `d^π_ρ(s) = E_{s₀∼ρ}[d^π_{s₀}(s)]`, where `d^π_ρ` is the discounted
+> state visitation distribution under initial distribution `ρ`.
+
+VERBATIM, Mei (arXiv:2005.06392), inside the proof of Theorem 4, Eqs. (335)–(338):
+
+> ```
+> d_μ^{π_θ}(s) = E_{s₀∼μ}[ (1 − γ) ∑_{t=0}^∞ γ^t Pr(s_t = s | s₀, π_θ, P) ]
+>              ≥ E_{s₀∼μ}[ (1 − γ) Pr(s₀ = s | s₀) ]
+>              = (1 − γ) · μ(s)
+> ```
+
+Both carry the leading `(1 − γ)`; `d^π_ρ` is a **probability distribution**,
+summing to `1` over `S`. The repo's is not:
+
+```
+dinf π s₀ s        = ∑' t, γ^t * visit t s₀ s          -- Infinite.lean:109
+dinfDist π μ s     = ∑ s₀, μ s₀ * dinf π s₀ s          -- Target.lean:89
+mismatchCoeff π μ  = ⨆ s, dinfDist π μ s / μ s         -- Target.lean:114
+```
+
+No `(1 − γ)`. So `dinf` sums to `1/(1−γ)`, and
+
+```
+mismatchCoeff (repo)  =  (1/(1−γ)) · ‖d_μ^{π*}/μ‖_∞ (Mei)
+```
+
+Since the coefficient enters **squared**, the Lean right-hand side is
+`1/(1−γ)²` times Mei's — i.e. **larger**. Direction check: a larger right-hand
+side is a **weaker** upper bound, so the statement below is *implied by* the
+paper's and is **not an over-claim**. It is safe but unfaithful, and by a factor
+that grows without bound as `γ → 1` — precisely the regime the `(1−γ)⁶` is
+tracking. Stating the sharp `(1−γ)⁶` rate against an unnormalized coefficient
+silently converts it into a `(1−γ)⁸` rate.
+
+Note this also affects `mismatchCoeff`'s own docstring in `Target.lean`, which
+quotes AKM Definition 3.1 (`‖d^π_ρ/μ‖_∞`) while defining the unnormalized
+version — so the definition does not match the quote already attached to it.
+And it affects every goal consuming `mismatchCoeff`: `g1_lojasiewicz`,
+`g2_advantage_bound`, `mei_theorem4`. In `g2_advantage_bound` the coefficient is
+on the right and unsquared, so the same `1/(1−γ)` slack applies there too.
+
+**Statement left untouched**, per the freeze. The fix is one `(1 − γ) *` in
+`dinf` (or in `mismatchCoeff`), which is a *definition* change with a wide blast
+radius — every proof consuming `mismatchCoeff ≥ 1` would need rechecking, and
+`Proofs.hconst_is_false`'s two-state witness would need recomputing.
+
+Verdict: **MISMATCHES** — the shape, constants, quantifiers, hypotheses and
+both measures are now exactly Mei's (the two earlier corrections landed), but
+`mismatchCoeff` is unnormalized where Mei's `d_μ^{π*}` carries `(1 − γ)`,
+making the bound weaker than the paper's by `1/(1−γ)²`. Safe, not faithful. -/
 @[paper "Mei2020" "Theorem 4"]
 theorem mei_theorem4 (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))

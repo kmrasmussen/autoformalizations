@@ -183,6 +183,63 @@ theorem step_pgSum (m : ℕ) (s₀ : S) :
 
 /-- **Policy gradient theorem** (finite horizon).
 
+VERBATIM, Sutton, McAllester, Singh & Mansour (NIPS 12, 1999) Theorem 1:
+
+> **Theorem 1 (Policy Gradient).** *For any MDP, in either the average-reward or
+> start-state formulations,*
+> ```
+> ∂ρ/∂θ  =  ∑_s d^π(s) ∑_a (∂π(s,a)/∂θ) Q^π(s,a)          (2)
+> ```
+
+with, in the start-state formulation (the one this repo uses), the paper's own
+definitions immediately preceding it:
+
+> In this formulation, we define `d^π(s)` as a discounted weighting of states
+> encountered starting at `s₀` and then following `π`:
+> ```
+> d^π(s) = ∑_{t=0}^∞ γ^t Pr{s_t = s | s₀, π}
+> ```
+> ```
+> ρ(π) = E{ ∑_{t=1}^∞ γ^{t−1} r_t | s₀, π }
+> Q^π(s,a) = E{ ∑_{k=1}^∞ γ^{k−1} r_{t+k} | s_t = s, a_t = a, π }
+> ```
+
+and, on what the theorem is *for*:
+
+> the key aspect of both expressions for the gradient is that their are no terms
+> of the form `∂d^π(s)/∂θ`: the effect of policy changes on the distribution of
+> states does not appear.
+
+("their are" is the paper's own typo, reproduced as printed.)
+
+**How the Lean statement departs from the quote, and why.**
+
+1. **Finite horizon.** Sutton's `d^π` is an infinite sum `∑_{t=0}^∞ γ^t Pr{·}`
+   and his `Q^π` is a single infinite-horizon function. `pgSum` truncates at `m`
+   and — this is the substantive difference — carries a *horizon-indexed* `Q`:
+   the `k`-th visitation term is paired with `localTerm (m-1-k)`, i.e. with `Q`
+   at the number of steps that actually remain. As `m → ∞` with `k` fixed,
+   `m-1-k → ∞` and the index dependence disappears, recovering (2). The
+   finite-horizon form is not a weakening: it is what is true at each `m`, and
+   the naive truncation of (2) — a single fixed `Q_m` under every visitation
+   term — is false.
+2. **`d^π` is unnormalized, and so is `pgSum`.** The paper's `d^π` sums to
+   `1/(1−γ)`, not `1`, and (2) carries no `(1−γ)` factor. `pgSum` matches:
+   `∑_k γ^k ∑_s visit k s₀ s · (…)`, same `γ^k` weighting, no normalization.
+   Later texts writing (2) with a `(1−γ)` use the *normalized* occupancy; this
+   repo follows the 1999 convention.
+3. **Scalar parameter.** `θ : ℝ` here, so `∂π/∂θ` is `PF.dπ` and the conclusion
+   is a `HasDerivAt` rather than a gradient identity. Sutton states (2) for a
+   vector `θ` componentwise, which is the same content one coordinate at a time.
+4. **Average-reward formulation not covered.** Sutton's "in either the
+   average-reward or start-state formulations" is a disjunction; only the
+   start-state branch is formalized. The average-reward branch rests on a
+   stationary distribution "which we assume exists and is independent of `s₀`
+   for all policies" — a hypothesis with no counterpart here.
+
+Verdict: **MATCHES** the paper on the start-state branch, at finite horizon,
+with the unnormalized `d^π` convention.
+
 Note what is *not* on the right-hand side: any derivative of `visit`. The state
 visitation depends on `θ`, yet its derivative cancels. That cancellation is the
 content of the theorem, and here it is a consequence of the induction rather

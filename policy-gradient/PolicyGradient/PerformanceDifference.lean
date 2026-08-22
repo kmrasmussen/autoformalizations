@@ -131,7 +131,76 @@ theorem step_pdSum (π π' : Policy S A) (m : ℕ) (s₀ : S) :
 
 `V_m^π(s₀) - V_m^π'(s₀) = ∑_{k<m} γ^k ∑_s visit^π k s₀ s · advGap_(m-1-k) s`
 
-Kakade & Langford (2002); Agarwal-Kakade-Lee-Mahajan (JMLR 2021) Lemma 3.2.
+VERBATIM, Kakade & Langford (ICML 2002), Lemma 6.1 — the paper never calls it
+"the performance difference lemma"; it introduces it as "The following lemma is
+useful:":
+
+> **Lemma 6.1.** *For any policies* `π̃` *and* `π` *and any starting state
+> distribution* `μ`,
+> ```
+> η_μ(π̃) − η_μ(π)  =  (1/(1−γ)) E_{(a,s) ~ π̃ d_{π̃,μ}} [ A_π(s,a) ]
+> ```
+
+with that paper's own definitions, eq. (2.1) and §2:
+
+> It is convenient to define the **γ-discounted future state distribution** (as
+> in [8]) for a starting state distribution `μ` as
+> ```
+> d_{π,μ}(s) ≡ (1 − γ) ∑_{t=0}^∞ γ^t Pr(s_t = s; π, μ)          (2.1)
+> ```
+> where the `1 − γ` is necessary for normalization.
+
+> `V_π(s) ≡ (1 − γ) E[ ∑_{t=0}^∞ γ^t R(s_t, a_t) | π, s ]`
+>
+> Note that we are using *normalized* values so `V_π(s) ∈ [0, R]`. […]
+> `Q_π(s,a) ≡ (1 − γ) R(s,a) + γ E_{s' ~ P(s'; s,a)}[V_π(s')]`
+> […] we define the **advantage** as `A_π(s,a) ≡ Q_π(s,a) − V_π(s)`
+
+and, in the *unnormalized*-value convention this repo actually uses,
+VERBATIM, AKM (arXiv:1908.00261) Lemma 3.2 = JMLR 22(98) 2021 **Lemma 2**
+(the two are word-for-word identical apart from the number):
+
+> **Lemma 2 (The performance difference lemma (Kakade and Langford, 2002))**
+> *For all policies* `π, π′` *and states* `s₀`,
+> ```
+> V^π(s₀) − V^{π′}(s₀) = (1/(1−γ)) E_{s~d^π_{s₀}} E_{a~π(·|s)} [ A^{π′}(s,a) ]
+> ```
+
+⚠ **The `@[paper]` tag says `"Kakade2002" "Performance Difference Lemma"`, but
+`Lemma 3.2` is the arXiv number and `Lemma 2` the JMLR one — the docstring
+below previously said "JMLR 2021 Lemma 3.2", which is neither.** JMLR renumbered
+flat for publication. Minor, but it is the kind of thing this audit is for.
+
+**How the Lean statement departs from the quotes.**
+
+1. **Orientation — matches AKM, and the two papers differ.** Here `advGap π π' j s
+   = ∑_a (π s) a * adv M π' j s a`: the **unprimed `π`** supplies both the state
+   visitation (`visit M π`) and the action distribution, the **primed `π'`**
+   supplies the advantage. That is exactly AKM's Lemma 2. Kakade–Langford's
+   Lemma 6.1 has the *reverse* naming — there `π̃` (the new policy) carries the
+   occupancy and actions while `π` (the baseline) carries the advantage — so the
+   content agrees but the symbols are swapped. Worth stating explicitly, since
+   getting this backwards is the classic error with this lemma.
+2. **No `1/(1−γ)`, and that is CORRECT here.** Both quotes carry a `1/(1−γ)`
+   *because both normalize* `d` by `(1−γ)` in their definitions — the factor and
+   the normalization cancel. This repo's `pdSum` uses `∑_k γ^k · visit`, the
+   **unnormalized** occupancy, so no `1/(1−γ)` belongs on the right. The
+   statement is right; it is the same identity in the unnormalized convention.
+   (Contrast `mismatchCoeff`, where the missing `(1−γ)` is *not* compensated —
+   see the defect recorded on `mei_theorem4` in `Goal.lean`.)
+3. **Finite horizon, with a horizon-indexed advantage.** Both papers state an
+   infinite-horizon identity. `pdSum` truncates at `m` and pairs the `k`-th
+   visitation term with `advGap (m-1-k)`, i.e. the advantage at the number of
+   steps that actually remain — the same correction `pgSum` carries in
+   `Theorem.lean`. As `m → ∞` with `k` fixed this recovers the quoted form.
+4. **Single start state, not a distribution.** `s₀ : S` rather than `μ ∈ Δ(S)`.
+   AKM's Lemma 2 is also stated at a state `s₀`; Kakade–Langford state it at a
+   distribution `μ`. Averaging over `μ` is immediate from linearity.
+5. **Reward normalization.** Kakade–Langford put `(1−γ)` inside `V` and `Q` too
+   (`V_π(s) ∈ [0,R]`); AKM and this repo do not. This repo follows AKM.
+
+Verdict: **MATCHES** AKM Lemma 2 / arXiv Lemma 3.2 exactly, at finite horizon,
+in the unnormalized convention, with the orientation the papers require.
 
 The advantage is that of `π'`, but averaged under `π`'s state visitation --
 that asymmetry is the whole content of the lemma. -/
