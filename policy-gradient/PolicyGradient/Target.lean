@@ -92,4 +92,24 @@ forces the coefficient to see where `μ` puts little mass. -/
 noncomputable def mismatchCoeff (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) : ℝ :=
   ⨆ s : S, dinfDist M π μ s / μ s
 
+/-! ### Values against a start distribution
+
+`mismatchCoeff` is a ratio against a start *distribution*, so the goals that use
+it must measure value against one too. -/
+
+/-- Expected value under a start distribution. -/
+noncomputable def VinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) : ℝ :=
+  ∑ s, μ s * Vinf M π s
+
+/-- Expected optimal value under a start distribution. -/
+noncomputable def VstarDist (M : FiniteMDP S A) (μ : Dist S) : ℝ :=
+  ∑ s, μ s * Vstar M s
+
+/-- The infinite-horizon advantage `A^π(s,a) = Q^π(s,a) - V^π(s)`.
+
+`PerformanceDifference.adv` is finite-horizon and indexed by a horizon; AKM's
+Lemma 4.1 needs this one. -/
+noncomputable def advInf (M : FiniteMDP S A) (π : Policy S A) (s : S) (a : A) : ℝ :=
+  M.r s a + M.γ * (∑ s', (M.P s a) s' * Vinf M π s') - Vinf M π s
+
 end PolicyGradient

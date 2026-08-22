@@ -334,49 +334,76 @@ theorem vec_c2_family (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A) :
     DifferentiableAt ℝ (fun t => F.dπ t s a) θ := sorry
 
-/-! ## G1 — Mei Lemma 8, the non-uniform Łojasiewicz inequality
+/-! ## G1 and G2 were both FALSE — three defects
 
-The paper's central technical contribution. **No theorem in this repo lower-
-bounds a gradient.** `loja_pointwise` is a one-line consequence of `⨅ ≤ ·` with
-no gradient in it at all. -/
+Refuted 2026-08-22 with machine-checked counterexamples (`Proofs.g1_general_false`,
+`g1_general_false_logits`, `g2_general_false`; each takes the frozen statement
+verbatim and derives `False`, axioms clean).
 
-/-- **G1 — Mei Lemma 8.**
+**Defect 1 — free universal `mismatch`, both goals.** `(mismatch : ℝ)
+(hmis : 0 < mismatch)` was an ordinary universally quantified hypothesis with
+nothing tying it to the MDP, so the *caller* picked it. In G2 it multiplied the
+right side, so `mismatch → 0⁺` asserted `Vstar - Vinf ≤ 0` for every softmax
+policy. In G1 it *divided* the left side, so the same limit sent the left side
+to `+∞`. Identical to the `mei_theorem4` defect, in both directions.
 
-The gradient norm is bounded below by the suboptimality, scaled by the smallest
-optimal-action probability. This is the inequality that makes gradient ascent
-converge, and the reason the rate's constant can be exponentially small: when
-`π(a*|s)` is tiny the gradient is tiny even though the suboptimality is large. -/
+**Defect 2 — unconstrained `logits`, G1.** As in `g7_smoothness`, but the
+adversarial direction is `c → 0` rather than `c → ∞`: the gradient sits on the
+right, so shrinking the logit scale flattens it while leaving the policy at
+`θ = 0` untouched. With `mismatch` pinned to `1` and `c = 1/2`, LHS `= 1/4`
+against RHS `≤ 1/8`.
+
+**Defect 3 — G2's conclusion is the wrong inequality even after fixing 1 and 2.**
+This one I did not anticipate. Substituting `mismatchCoeff` for the free real
+still leaves it false: a 3000-MDP sweep found `Vstar - Vinf` exceeding
+`(mismatchCoeff/(1-γ))·‖∇V‖` by up to **74×**, with the overshoot tracking
+`1/min_s π(a*|s)`. AKM Lemma 4.1's right side is `max_{π'} ⟨∇V, π'-π⟩` over a
+bounded set, for the **direct/simplex** parameterization. The softmax gradient
+carries an extra `π(a|s)` factor, so `‖∇V‖` alone cannot dominate suboptimality
+— which is exactly the exponentially small quantity Mei's Lemma 8 makes
+explicit. Inserting `√(|S||A|)` does not rescue it either.
+
+The corrected G2 therefore keeps AKM's directional right-hand side, expressed
+through `advInf`. The same sweep found **zero** violations of the corrected G1
+across 4000 MDPs.
+
+Note `hr` is restored rather than derived. `g3` could drop it because both sides
+of a strict inequality rescale together; here the two sides scale differently
+once `mismatchCoeff` is fixed. -/
+
+/-- **G1 — Mei Lemma 8, the non-uniform Łojasiewicz inequality.**
+
+Corrected: tabular `hF`, `mismatchCoeff` in place of a free real, values against
+a start distribution, and `hr` restored. -/
 @[paper "Mei2020" "Lemma 8"]
 theorem g1_lojasiewicz (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
-    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (μ : S) (θ : EuclideanSpace ℝ (S × A))
-    (mismatch : ℝ) (hmis : 0 < mismatch) :
-    (⨅ s : S, (F.toPolicy θ s) (astar s)) / (Real.sqrt (Fintype.card S) * mismatch)
-        * (Vstar M μ - Vinf M (F.toPolicy θ) μ)
-      ≤ ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖ := sorry
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (astar : S → A) (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : EuclideanSpace ℝ (S × A)) :
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := sorry
 
-/-! ## G2 — AKM Lemma 4.1, gradient domination
+/-- **G2 — AKM Lemma 4.1, gradient domination.**
 
-`GradientDomination.lean` contains no gradient-domination inequality: it proves
-the "advantage ≤ 0 ⟹ optimal" direction only. -/
-
-/-- **G2 — AKM Lemma 4.1.**
-
-Suboptimality is bounded by a distribution-mismatch-weighted gradient norm. This
-is what turns "the gradient is small" into "the policy is near-optimal". -/
+Corrected to AKM's *directional* right-hand side. Bounding by `‖∇V‖` is false
+for softmax at any constant (defect 3 above); the advantage form is what the
+paper actually proves. -/
 @[paper "AKM2021" "Lemma 4.1"]
 theorem g2_gradient_domination (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
-    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (μ : S) (θ : EuclideanSpace ℝ (S × A))
-    (mismatch : ℝ) (hmis : 0 < mismatch) :
-    Vstar M μ - Vinf M (F.toPolicy θ) μ
-      ≤ (mismatch / (1 - M.γ)) * ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) μ) θ‖ := sorry
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : EuclideanSpace ℝ (S × A)) :
+    VstarDist M μ - VinfDist M (F.toPolicy θ) μ
+      ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
+          * (⨆ s : S, ⨆ a : A, |advInf M (F.toPolicy θ) s a|) := sorry
 
 /-! ## G8 / Mei Theorem 4 — the headline rate
 
