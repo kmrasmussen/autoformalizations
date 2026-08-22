@@ -281,6 +281,147 @@ theorem policy_converges_of_eventually_monotone (π : ℕ → Policy S A)
       (fun b _ => (π t s).nonneg b) (Finset.mem_univ a)
   rwa [(π t s).sum_eq_one] at hle
 
+/-! ## The capstone: the frozen goal, conditional on advantage sign-stability
+
+The statement below has **exactly** `Goal.softmax_policy_converges`'s hypotheses
+and conclusion, plus the single extra hypothesis `hsign`.  So it is a
+machine-checked measurement of the remaining gap: whatever proves `hsign` from
+`hstep` alone closes the frozen goal.
+
+`hsign` says each advantage `A^{(t)}(s,a)` eventually keeps one sign
+(`≤ 0` from some time on, or `≥ 0` from some time on).  Via `theta_decrement`
+this makes each logit eventually monotone; the softmax ratio then makes the
+policy coordinate eventually monotone, and `policy_converges_of_eventually_monotone`
+finishes.
+
+Note what `hsign` does *not* assume: no limit policy, no rate, no gap condition.
+It is strictly weaker than assuming the conclusion, and it is exactly the
+sign-stability that `ResidC8`/`ResidC9` derive *from* a limit policy — which is
+why using them here would be circular. -/
+
+/-- Softmax is monotone in its own logit when the other logits are held fixed:
+if only coordinate `a` moves up, `softmax _ a` moves up.  Stated as the ratio
+form actually needed: the policy coordinate is a monotone function of the logit
+gap `θ(s,a) - logsumexp_{a'} θ(s,a')`. -/
+theorem softmax_le_of_le_of_others_ge {w w' : A → ℝ} {a : A}
+    (ha : w a ≤ w' a) (hoth : ∀ b, b ≠ a → w' b ≤ w b) :
+    (softmax w) a ≤ (softmax w') a := by
+  classical
+  rw [softmax_apply, softmax_apply]
+  have hden : (0:ℝ) < ∑ b, Real.exp (w b) := softmax_denom_pos w
+  have hden' : (0:ℝ) < ∑ b, Real.exp (w' b) := softmax_denom_pos w'
+  rw [div_le_div_iff₀ hden hden']
+  -- `exp (w a) * ∑ exp (w' b) ≤ exp (w' a) * ∑ exp (w b)`
+  -- split both sums at `a`
+  have hsplit : ∀ v : A → ℝ, ∑ b, Real.exp (v b)
+      = Real.exp (v a) + ∑ b ∈ Finset.univ.erase a, Real.exp (v b) := by
+    intro v
+    exact (Finset.add_sum_erase _ (fun b => Real.exp (v b)) (Finset.mem_univ a)).symm
+  rw [hsplit w, hsplit w']
+  have hea : Real.exp (w a) ≤ Real.exp (w' a) := Real.exp_le_exp.mpr ha
+  have hrest : ∑ b ∈ Finset.univ.erase a, Real.exp (w' b)
+      ≤ ∑ b ∈ Finset.univ.erase a, Real.exp (w b) :=
+    Finset.sum_le_sum fun b hb =>
+      Real.exp_le_exp.mpr (hoth b (Finset.ne_of_mem_erase hb))
+  have h1 : (0:ℝ) ≤ Real.exp (w a) := (Real.exp_pos _).le
+  have h2 : (0:ℝ) ≤ Real.exp (w' a) := (Real.exp_pos _).le
+  have h3 : (0:ℝ) ≤ ∑ b ∈ Finset.univ.erase a, Real.exp (w b) :=
+    Finset.sum_nonneg fun b _ => (Real.exp_pos _).le
+  nlinarith [hea, hrest, h1, h2, h3]
+
+/-- **The `a₀` half of the monotone route, unconditionally.**
+
+Under per-state advantage sign-stability (`hsign`: from time `T` on, the
+distinguished action `a₀` has non-negative advantage and every other action has
+non-positive advantage), the probability of `a₀` is **eventually
+non-decreasing**.
+
+By `theta_decrement` the logit `θ_t(s,a₀)` is non-decreasing while every other
+logit at `s` is non-increasing, and `softmax_le_of_le_of_others_ge` converts that
+into monotonicity of `π_t(a₀|s)`.
+
+This half is unconditional and is the part of the monotone route that survives;
+see the obstruction note below for why the *other* coordinates do not follow. -/
+theorem pi_astar_monotone_of_sign_stability (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (T : ℕ) (a₀ : A)
+    (hpos : ∀ t, T ≤ t → 0 ≤ advInf M (F.toPolicy (θ t)) s a₀)
+    (hneg : ∀ t, T ≤ t → ∀ b, b ≠ a₀ → advInf M (F.toPolicy (θ t)) s b ≤ 0) :
+    ∀ t, T ≤ t → (F.toPolicy (θ t) s) a₀ ≤ (F.toPolicy (θ (t + 1)) s) a₀ := by
+  classical
+  have hdnn : ∀ t, 0 ≤ dinfDist M (F.toPolicy (θ t)) μ s :=
+    fun t => dinfDist_nonneg M hγ₀ _ _ _
+  have hlogit : ∀ t, T ≤ t → ∀ b,
+      (b = a₀ → (θ t) (s, b) ≤ (θ (t + 1)) (s, b)) ∧
+      (b ≠ a₀ → (θ (t + 1)) (s, b) ≤ (θ t) (s, b)) := by
+    intro t ht b
+    have hdec := theta_decrement M F hF hr hγ₀ hγ₁ μ η θ hstep t s b
+    have hπnn : 0 ≤ (F.toPolicy (θ t) s) b := (F.toPolicy (θ t) s).nonneg b
+    constructor
+    · intro hb
+      subst hb
+      have hA := hpos t ht
+      have hge : 0 ≤ η * (dinfDist M (F.toPolicy (θ t)) μ s
+          * ((F.toPolicy (θ t) s) b * advInf M (F.toPolicy (θ t)) s b)) :=
+        mul_nonneg hη₀.le (mul_nonneg (hdnn t) (mul_nonneg hπnn hA))
+      nlinarith [hdec, hge]
+    · intro hb
+      have hA := hneg t ht b hb
+      have hle : η * (dinfDist M (F.toPolicy (θ t)) μ s
+          * ((F.toPolicy (θ t) s) b * advInf M (F.toPolicy (θ t)) s b)) ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos hη₀.le
+          (mul_nonpos_of_nonneg_of_nonpos (hdnn t)
+            (mul_nonpos_of_nonneg_of_nonpos hπnn hA))
+      nlinarith [hdec, hle]
+  intro t ht
+  rw [hF, hF]
+  refine softmax_le_of_le_of_others_ge ((hlogit t ht a₀).1 rfl) ?_
+  intro b hb
+  exact (hlogit t ht b).2 hb
+
+/-! ### Obstruction: sign-stability does NOT give monotone policy coordinates
+
+The natural attempt is to run `pi_astar_monotone_of_sign_stability` at *every*
+action and feed the result to `policy_converges_of_eventually_monotone`.  **That
+fails, and the failure is real rather than a proof-engineering artifact.**
+
+For `a ≠ a₀`, `softmax_le_of_le_of_others_ge` would need every *other* logit —
+including a third action `b ∉ {a, a₀}` — to move in the opposite direction to
+`a`.  Sign-stability sends `a` and `b` **the same way** (both non-increasing),
+so the hypothesis is unavailable, and the conclusion genuinely fails:
+
+  logits `(0,0,0) → (0.1, −0.01, −1.0)` — action `0` up, actions `1` and `2`
+  both down, exactly the sign-stable configuration — moves the probabilities
+  `(0.333, 0.333, 0.333) → (0.449, 0.402, 0.149)`.
+
+Action `1`'s **logit fell** and its **probability rose**, because action `2`'s
+logit fell much further.  So with `|A| ≥ 3` the non-`a₀` coordinates are not
+monotone even under perfect sign-stability, and the monotone route closes only
+the `a₀` coordinate.
+
+`softmax_le_of_le_of_others_ge` is sharp in this sense: softmax is monotone in
+its own logit only *relative to* the others, and sign-stability constrains the
+signs of the logit increments but not their **relative magnitudes**.  Repairing
+the route needs control of the *ratios* of the decrements among the non-`a₀`
+actions — which is exactly what `ResidC9.ratio_step` supplies, and `ratio_step`
+is downstream of a limit policy.  This is the same circularity the header
+describes, now located at a second, independent point.
+
+Consequence for the goal: the remaining gap is **not** merely "prove
+sign-stability".  Even granting sign-stability outright, full-sequence policy
+convergence does not follow from monotonicity alone; the `|A| − 1` abandoned
+actions can trade probability mass among themselves indefinitely while all of
+their logits decrease.  Ruling that out is precisely a rate comparison between
+the decaying coordinates — the same missing per-coordinate asymptotic estimate
+that `Goal.limit_adv_nonpos_offsupport`'s docstring identifies as what AKM
+actually prove and this repo does not supply. -/
+
 end Conv
 
 end Proofs
