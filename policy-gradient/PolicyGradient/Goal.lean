@@ -927,6 +927,24 @@ With the factors restored, `Proofs.mei4_rho_rate_of_g3` discharges the theorem
 outright from `hloja` and a non-degeneracy condition — and it is in fact
 *stronger* than the paper, carrying `(1−γ)³` where Mei have `(1−γ)⁶`.
 
+**PROVED 2026-08-22 — but read the constant carefully.** This repo's `dinf`
+omits the leading `(1−γ)` that both papers put in the occupancy measure (see the
+warning on `mismatchCoeff` in `Target.lean`), so
+
+```
+mismatchCoeff (repo) = (1/(1−γ)) · ‖d^{π*}_μ / μ‖_∞ (papers)
+```
+
+and it appears **squared** on the right. So what is proved here is Mei's
+statement with an effective `(1−γ)⁸` where the paper has `(1−γ)⁶`.
+
+Direction is **safe** — our bound is weaker than the paper's, never stronger, so
+nothing is over-claimed. But this is *not yet* the paper's sharp rate, and
+saying "Mei Theorem 4 is proved" without that qualifier would overstate it.
+Closing the gap means inserting `(1−γ)` into `dinf` and re-deriving the twenty
+files that mention it — mechanical, but it invalidates every proof currently
+built against the unnormalized form.
+
 `c` is a hypothesis with `hcbound` tying it to the trajectory, exactly as
 `MEI_NOTES.md` in this repo recorded months ago and as Lemma 9 supplies. An
 earlier version took `c` universally with only `0 < c`, which made the statement
