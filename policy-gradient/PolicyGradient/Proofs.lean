@@ -667,5 +667,385 @@ theorem mismatch_bound_is_false
 end Counterexample
 
 
+/-! ## G3 — a softmax policy is never exactly optimal
+
+The statement (`Goal.g3_strict_suboptimality`) carries **no bounded-reward
+hypothesis**, while every piece of Bellman machinery above needs `|r| ≤ 1`. That
+gap is real, not cosmetic: `Vstar` is a `ciSup`, and without *some* uniform bound
+on `Vinf` it is Mathlib's junk value. It is closed rather than assumed, in
+`section Rescale` below: `S` and `A` are `Fintype`, so `|r|` attains a finite
+maximum, and dividing the rewards by `max 1 (that maximum)` produces an MDP with
+the same `P` and `γ` whose rewards satisfy `|r| ≤ 1`. Values are *linear* in the
+reward function, so `Vinf` and `Vstar` both scale by the same positive constant
+and the strict inequality transfers back verbatim.
+
+### The argument
+
+Contrapositive. Write `π₀ := F.toPolicy θ` and suppose `Vinf M π₀ μ = Vstar M μ`
+(the negation of the goal, tightened by `vstar_upper_proof`). Let
+
+  `gapOpt s := Vstar M s - Vinf M π₀ s ≥ 0`,   `T := {s | gapOpt s = 0}`.
+
+* **`T` is greedy everywhere.** For `s ∈ T`, softmax puts positive mass on every
+  action (`softmax_pos`), so `optimal_support_greedy_proof` gives
+  `Q*(s,a) = V*(s)` for *every* `a` — not just the ones a general optimal policy
+  happens to play. This is the only place the softmax hypothesis is used, and it
+  is the whole content of the lemma.
+* **`T` is closed under transitions** (`gapOpt_succ_zero`). Averaging the
+  previous point over `π₀` and subtracting `π₀`'s own Bellman equation leaves
+  `0 = γ ∑ₐ π₀(a|s) ∑_{s'} P(s'|s,a) · gapOpt s'`, a sum of nonnegative terms.
+  So each vanishes: for `s ∈ T`, every `s'` is either in `T` or has
+  `γ · P(s'|s,a) = 0`.
+* **Every policy is optimal on `T`** (`gapAny_eq_zero_on`). For arbitrary `π` and
+  `s ∈ T`, the greedy identity turns `Vstar` into a `π`-average, giving
+  `h s = γ ∑ₐ π(a|s) ∑_{s'} P(s'|s,a) · h s'` with `h := Vstar - Vinf π`.
+  Masking `h` to `T` (`k s := if gapOpt s = 0 then h s else 0`) is legitimate
+  exactly by closure, and the masked recursion contracts: `max k ≤ γ · max k`
+  with `max k ≥ 0` and `γ < 1`, so `k ≡ 0`, and in particular `h μ = 0`.
+
+That contradicts `hnondeg`, which supplies a `π` with `Vinf M π μ < Vstar M μ`.
+
+Note the contraction is over the *masked* gap, not the raw one. The raw gap need
+not contract — outside `T` a general `π` is genuinely suboptimal — and it is the
+closure of `T` that makes the mask invisible to the recursion.
+-/
+
+section G3
+
+variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A]
+variable [Nonempty S] [Nonempty A]
+
+/-! ### Rescaling away the missing `|r| ≤ 1` -/
+
+/-- The MDP with rewards divided by `c`, same kernel and same discount. -/
+noncomputable def scaleMDP (M : FiniteMDP S A) (c : ℝ) : FiniteMDP S A where
+  P := M.P
+  r := fun s a => M.r s a / c
+  γ := M.γ
+
+@[simp] theorem scaleMDP_P (M : FiniteMDP S A) (c : ℝ) : (scaleMDP M c).P = M.P := rfl
+@[simp] theorem scaleMDP_r (M : FiniteMDP S A) (c : ℝ) (s : S) (a : A) :
+    (scaleMDP M c).r s a = M.r s a / c := rfl
+@[simp] theorem scaleMDP_γ (M : FiniteMDP S A) (c : ℝ) : (scaleMDP M c).γ = M.γ := rfl
+
+/-- `step` only sees `P` and `π`, so rescaling rewards leaves it alone. -/
+theorem step_scaleMDP (M : FiniteMDP S A) (c : ℝ) (π : Policy S A) :
+    step (scaleMDP M c) π = step M π := rfl
+
+/-- Likewise for the visitation distribution. -/
+theorem visit_scaleMDP (M : FiniteMDP S A) (c : ℝ) (π : Policy S A) (t : ℕ) :
+    visit (scaleMDP M c) π t = visit M π t := by
+  induction t with
+  | zero => rfl
+  | succ t ih => funext s₀ s; simp only [visit_succ, step_scaleMDP, ih]
+
+/-- The per-step reward is linear in the reward function. -/
+theorem stepReward_scaleMDP (M : FiniteMDP S A) (c : ℝ) (π : Policy S A) (t : ℕ) (s₀ : S) :
+    stepReward (scaleMDP M c) π t s₀ = stepReward M π t s₀ / c := by
+  unfold stepReward
+  rw [visit_scaleMDP]
+  simp only [scaleMDP_γ, scaleMDP_r, div_eq_mul_inv]
+  have hin : ∀ s : S, ∑ a, (π s) a * (M.r s a * c⁻¹)
+      = (∑ a, (π s) a * M.r s a) * c⁻¹ := by
+    intro s
+    rw [Finset.sum_mul]
+    exact Finset.sum_congr rfl fun a _ => by ring
+  rw [Finset.sum_congr rfl (fun s _ => by rw [hin s, ← mul_assoc])]
+  rw [← Finset.sum_mul]
+  ring
+
+/-- **Values scale with the rewards.** `V^π_{M/c} = V^π_M / c`. -/
+theorem Vinf_scaleMDP (M : FiniteMDP S A) (c : ℝ) (π : Policy S A) (s₀ : S) :
+    Vinf (scaleMDP M c) π s₀ = Vinf M π s₀ / c := by
+  unfold Vinf
+  rw [← tsum_div_const]
+  exact tsum_congr fun t => stepReward_scaleMDP M c π t s₀
+
+/-- **The optimal value scales too**, for `c > 0`: a positive scaling is
+monotone, so it commutes with the supremum. Stated via `Vinf_scaleMDP` plus
+`Real.iSup_div`, which needs the family bounded above — supplied by
+`bddAbove_range_Vinf` on the *rescaled* MDP. -/
+theorem Vstar_scaleMDP (M : FiniteMDP S A) {c : ℝ} (hc : 0 < c) (s₀ : S) :
+    Vstar (scaleMDP M c) s₀ = Vstar M s₀ / c := by
+  unfold Vstar
+  rw [div_eq_inv_mul, Real.mul_iSup_of_nonneg (le_of_lt (inv_pos.mpr hc))]
+  refine iSup_congr fun π => ?_
+  rw [Vinf_scaleMDP M c π s₀, div_eq_inv_mul]
+
+/-! ### The core argument, under `|r| ≤ 1` -/
+
+/-- The suboptimality of `π` at `s`. Nonnegative by `vstar_upper_proof`. -/
+noncomputable def valGap (M : FiniteMDP S A) (π : Policy S A) (s : S) : ℝ :=
+  Vstar M s - Vinf M π s
+
+theorem valGap_nonneg (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s : S) : 0 ≤ valGap M π s :=
+  sub_nonneg.mpr (vstar_upper_proof M hr hγ₀ hγ₁ π s)
+
+/-- **Every action is greedy where a full-support policy is optimal.**
+
+`optimal_support_greedy_proof` applied with `hsupp` from `hfull`; the point is
+that it now covers *all* of `A`, not just a support. -/
+theorem full_support_all_greedy (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a)
+    (s : S) (hs : valGap M π s = 0) (a : A) :
+    QstarP M s a = Vstar M s :=
+  optimal_support_greedy_proof M hr hγ₀ hγ₁ π s
+    (by unfold valGap at hs; linarith) a (hfull s a)
+
+/-- **The optimal set is closed under transitions.**
+
+Where a full-support policy is already optimal, every successor reachable with
+positive probability (and non-vanishing discount) is optimal too.
+
+From `full_support_all_greedy`, `Vstar M s = ∑ₐ π(a|s) · Q*(s,a)`; `π`'s own
+Bellman equation gives `Vinf M π s = ∑ₐ π(a|s) · Qinf(π,s,a)`. Subtracting,
+`0 = γ ∑ₐ π(a|s) ∑_{s'} P(s'|s,a) · valGap s'`, all of whose terms are
+nonnegative, so every one of them vanishes. -/
+theorem valGap_succ_zero (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a)
+    (s : S) (hs : valGap M π s = 0) (a : A) (s' : S) :
+    M.γ * ((M.P s a) s' * valGap M π s') = 0 := by
+  -- the doubly-indexed nonnegative family whose total is zero
+  set w : A → S → ℝ :=
+    fun b t => (π s) b * (M.γ * ((M.P s b) t * valGap M π t)) with hw
+  have hwnn : ∀ b t, 0 ≤ w b t := fun b t =>
+    mul_nonneg ((π s).nonneg b)
+      (mul_nonneg hγ₀ (mul_nonneg ((M.P s b).nonneg t)
+        (valGap_nonneg M hr hγ₀ hγ₁ π t)))
+  -- `Vstar M s` is the `π`-average of `Q*`, since every action is greedy at `s`
+  have hVstar : Vstar M s = ∑ b, (π s) b * QstarP M s b := by
+    rw [Finset.sum_congr rfl
+      (fun b _ => by rw [full_support_all_greedy M hr hγ₀ hγ₁ π hfull s hs b])]
+    rw [← Finset.sum_mul, (π s).sum_eq_one, one_mul]
+  -- `Vinf M π s` is the `π`-average of `Qinf`
+  have hVinf : Vinf M π s = ∑ b, (π s) b * Qinf M π s b :=
+    Vinf_eq_rbar_add M π 1 zero_le_one hr hγ₀ hγ₁ s
+  -- the difference of the two averages is exactly `∑_b ∑_t w b t`
+  have hdiff : ∀ b, (π s) b * QstarP M s b - (π s) b * Qinf M π s b
+      = ∑ t, w b t := by
+    intro b
+    have : ∑ t, w b t
+        = (π s) b * (M.γ * (∑ t, (M.P s b) t * Vstar M t
+            - ∑ t, (M.P s b) t * Vinf M π t)) := by
+      rw [hw, ← Finset.mul_sum, ← Finset.mul_sum, ← Finset.sum_sub_distrib]
+      refine congrArg _ (congrArg _ (Finset.sum_congr rfl fun t _ => ?_))
+      unfold valGap; ring
+    rw [this]
+    unfold QstarP Qinf
+    ring
+  have htot : ∑ b, ∑ t, w b t = 0 := by
+    rw [← Finset.sum_congr rfl (fun b _ => hdiff b)]
+    rw [Finset.sum_sub_distrib, ← hVstar, ← hVinf]
+    unfold valGap at hs
+    linarith
+  -- a nonnegative family summing to zero vanishes termwise
+  have hzero : w a s' = 0 := by
+    have hle : w a s' ≤ ∑ b, ∑ t, w b t := by
+      refine le_trans ?_ (Finset.single_le_sum
+        (f := fun b => ∑ t, w b t)
+        (fun b _ => Finset.sum_nonneg fun t _ => hwnn b t) (Finset.mem_univ a))
+      exact Finset.single_le_sum (fun t _ => hwnn a t) (Finset.mem_univ s')
+    rw [htot] at hle
+    exact le_antisymm hle (hwnn a s')
+  rcases mul_eq_zero.mp hzero with h | h
+  · exact absurd h (ne_of_gt (hfull s a))
+  · exact h
+
+/-- **The masked gap of an arbitrary policy.** `valGap M π'` restricted to the
+states where the full-support policy `π` is optimal, and zeroed elsewhere. -/
+noncomputable def maskGap (M : FiniteMDP S A) (π π' : Policy S A) (s : S) : ℝ :=
+  if valGap M π s = 0 then valGap M π' s else 0
+
+theorem maskGap_nonneg (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π π' : Policy S A) (s : S) : 0 ≤ maskGap M π π' s := by
+  unfold maskGap
+  split
+  · exact valGap_nonneg M hr hγ₀ hγ₁ π' s
+  · exact le_refl 0
+
+/-- **The mask is invisible to the one-step average.**
+
+For `s` in the optimal set, `γ · P(s'|s,a) · valGap π' s'` and
+`γ · P(s'|s,a) · maskGap s'` agree termwise: either `s'` is itself in the
+optimal set, where the mask is the identity, or `valGap_succ_zero` makes
+`γ · P(s'|s,a) · valGap π s' = 0` with `valGap π s' > 0`, forcing
+`γ · P(s'|s,a) = 0` and both sides to vanish. -/
+theorem gamma_P_valGap_eq_mask (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a)
+    (s : S) (hs : valGap M π s = 0) (π' : Policy S A) (a : A) (s' : S) :
+    M.γ * ((M.P s a) s' * valGap M π' s')
+      = M.γ * ((M.P s a) s' * maskGap M π π' s') := by
+  unfold maskGap
+  by_cases h : valGap M π s' = 0
+  · rw [if_pos h]
+  · rw [if_neg h, mul_zero, mul_zero]
+    have hz := valGap_succ_zero M hr hγ₀ hγ₁ π hfull s hs a s'
+    have hpos : 0 < valGap M π s' :=
+      lt_of_le_of_ne (valGap_nonneg M hr hγ₀ hγ₁ π s') (Ne.symm h)
+    have : M.γ * (M.P s a) s' = 0 := by
+      rcases mul_eq_zero.mp (by rw [← mul_assoc] at hz; exact hz) with h1 | h1
+      · exact h1
+      · exact absurd h1 (ne_of_gt hpos)
+    rw [← mul_assoc, this, zero_mul]
+
+/-- **The masked recursion.** For `s` in the optimal set, the masked gap of any
+`π'` is `γ` times a `π'`-average of masked gaps at successors.
+
+`Vstar M s = ∑ₐ π'(a|s) · Q*(s,a)` (every action is greedy at `s`) and
+`Vinf M π' s = ∑ₐ π'(a|s) · Qinf(π',s,a)`; subtracting and applying
+`gamma_P_valGap_eq_mask` termwise replaces the raw successor gaps by masked
+ones. -/
+theorem maskGap_step (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a)
+    (s : S) (hs : valGap M π s = 0) (π' : Policy S A) :
+    maskGap M π π' s
+      = ∑ b, (π' s) b * (M.γ * ∑ t, (M.P s b) t * maskGap M π π' t) := by
+  rw [maskGap, if_pos hs]
+  have hVstar : Vstar M s = ∑ b, (π' s) b * QstarP M s b := by
+    rw [Finset.sum_congr rfl
+      (fun b _ => by rw [full_support_all_greedy M hr hγ₀ hγ₁ π hfull s hs b])]
+    rw [← Finset.sum_mul, (π' s).sum_eq_one, one_mul]
+  have hVinf : Vinf M π' s = ∑ b, (π' s) b * Qinf M π' s b :=
+    Vinf_eq_rbar_add M π' 1 zero_le_one hr hγ₀ hγ₁ s
+  have hterm : ∀ b, (π' s) b * QstarP M s b - (π' s) b * Qinf M π' s b
+      = (π' s) b * (M.γ * ∑ t, (M.P s b) t * maskGap M π π' t) := by
+    intro b
+    have hsum : M.γ * ∑ t, (M.P s b) t * maskGap M π π' t
+        = M.γ * (∑ t, (M.P s b) t * Vstar M t - ∑ t, (M.P s b) t * Vinf M π' t) := by
+      rw [Finset.mul_sum, ← Finset.sum_sub_distrib, Finset.mul_sum]
+      refine Finset.sum_congr rfl fun t _ => ?_
+      rw [← gamma_P_valGap_eq_mask M hr hγ₀ hγ₁ π hfull s hs π' b t]
+      unfold valGap; ring
+    rw [hsum]
+    unfold QstarP Qinf
+    ring
+  rw [← Finset.sum_congr rfl (fun b _ => hterm b), Finset.sum_sub_distrib,
+    ← hVstar, ← hVinf]
+  rfl
+
+/-- **Every policy is optimal wherever a full-support policy is.**
+
+The masked gap satisfies `k s ≤ γ · maxₛ k` at every state — by `maskGap_step`
+inside the optimal set, and trivially (`k s = 0`) outside it. Evaluating at the
+argmax gives `D ≤ γ D` with `0 ≤ D` and `γ < 1`, so `D = 0`. -/
+theorem valGap_eq_zero_of_full_support (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a)
+    (s : S) (hs : valGap M π s = 0) (π' : Policy S A) :
+    valGap M π' s = 0 := by
+  obtain ⟨sm, hsm⟩ := Finite.exists_max (maskGap M π π')
+  set D := maskGap M π π' sm with hD
+  have hD0 : 0 ≤ D := maskGap_nonneg M hr hγ₀ hγ₁ π π' sm
+  -- every state satisfies `k ≤ γ D`
+  have hkey : ∀ u : S, maskGap M π π' u ≤ M.γ * D := by
+    intro u
+    by_cases hu : valGap M π u = 0
+    · rw [maskGap_step M hr hγ₀ hγ₁ π hfull u hu π']
+      have hin : ∀ b : A, (π' u) b * (M.γ * ∑ t, (M.P u b) t * maskGap M π π' t)
+          ≤ (π' u) b * (M.γ * D) := by
+        intro b
+        refine mul_le_mul_of_nonneg_left ?_ ((π' u).nonneg b)
+        refine mul_le_mul_of_nonneg_left ?_ hγ₀
+        calc ∑ t, (M.P u b) t * maskGap M π π' t
+            ≤ ∑ t, (M.P u b) t * D :=
+              Finset.sum_le_sum fun t _ =>
+                mul_le_mul_of_nonneg_left (hsm t) ((M.P u b).nonneg t)
+          _ = D := by rw [← Finset.sum_mul, (M.P u b).sum_eq_one, one_mul]
+      calc ∑ b, (π' u) b * (M.γ * ∑ t, (M.P u b) t * maskGap M π π' t)
+          ≤ ∑ b, (π' u) b * (M.γ * D) := Finset.sum_le_sum fun b _ => hin b
+        _ = M.γ * D := by rw [← Finset.sum_mul, (π' u).sum_eq_one, one_mul]
+    · rw [maskGap, if_neg hu]
+      exact mul_nonneg hγ₀ hD0
+  have hDle : D ≤ M.γ * D := hkey sm
+  have hDzero : D = 0 := le_antisymm (by nlinarith) hD0
+  have : maskGap M π π' s = 0 :=
+    le_antisymm (by rw [← hDzero]; exact hsm s)
+      (maskGap_nonneg M hr hγ₀ hγ₁ π π' s)
+  rwa [maskGap, if_pos hs] at this
+
+/-- **G3 under bounded rewards.** If a full-support policy attains the optimum
+at `μ`, so does every policy — contradicting `hnondeg`. -/
+theorem strict_suboptimality_of_full_support (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (hfull : ∀ s a, 0 < (π s) a) (μ : S)
+    (hnondeg : ∃ π' : Policy S A, Vinf M π' μ < Vstar M μ) :
+    Vinf M π μ < Vstar M μ := by
+  rcases lt_or_eq_of_le (vstar_upper_proof M hr hγ₀ hγ₁ π μ) with h | h
+  · exact h
+  · exfalso
+    obtain ⟨π', hπ'⟩ := hnondeg
+    have hs : valGap M π μ = 0 := by unfold valGap; linarith
+    have := valGap_eq_zero_of_full_support M hr hγ₀ hγ₁ π hfull μ hs π'
+    unfold valGap at this
+    linarith
+
+/-! ### Assembling `g3`: removing the bounded-reward hypothesis -/
+
+/-- A uniform reward bound, at least `1`, for any MDP on finite `S` and `A`. -/
+noncomputable def rewardBound (M : FiniteMDP S A) : ℝ :=
+  max 1 (|M.r (Finite.exists_max (fun p : S × A => |M.r p.1 p.2|)).choose.1
+             (Finite.exists_max (fun p : S × A => |M.r p.1 p.2|)).choose.2|)
+
+theorem one_le_rewardBound (M : FiniteMDP S A) : 1 ≤ rewardBound M := le_max_left _ _
+
+theorem rewardBound_pos (M : FiniteMDP S A) : 0 < rewardBound M :=
+  lt_of_lt_of_le zero_lt_one (one_le_rewardBound M)
+
+theorem abs_r_le_rewardBound (M : FiniteMDP S A) (s : S) (a : A) :
+    |M.r s a| ≤ rewardBound M :=
+  le_trans ((Finite.exists_max (fun p : S × A => |M.r p.1 p.2|)).choose_spec (s, a))
+    (le_max_right _ _)
+
+/-- The rescaled MDP really does have rewards bounded by `1`. -/
+theorem scaled_r_bounded (M : FiniteMDP S A) (s : S) (a : A) :
+    |(scaleMDP M (rewardBound M)).r s a| ≤ 1 := by
+  rw [scaleMDP_r, abs_div, abs_of_pos (rewardBound_pos M)]
+  exact div_le_one_of_le₀ (abs_r_le_rewardBound M s a) (le_of_lt (rewardBound_pos M))
+
+/-- **G3, in the shape `Goal.g3_strict_suboptimality` asks for.**
+
+The softmax hypothesis enters only through `hfull`: `hF` plus `softmax_pos`
+gives `0 < (F.toPolicy θ s) a` for *every* action. Everything else is
+`strict_suboptimality_of_full_support`, transported across the reward rescaling
+that supplies the `|r| ≤ 1` the goal statement omits. -/
+theorem g3_strict_suboptimality_proof (M : FiniteMDP S A)
+    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (μ : S) (θ : EuclideanSpace ℝ (S × A))
+    (hnondeg : ∃ π : Policy S A, Vinf M π μ < Vstar M μ) :
+    Vinf M (F.toPolicy θ) μ < Vstar M μ := by
+  set c := rewardBound M with hc
+  have hcpos : 0 < c := rewardBound_pos M
+  set M' := scaleMDP M c with hM'
+  have hr' : ∀ s a, |M'.r s a| ≤ 1 := scaled_r_bounded M
+  have hγ₀' : 0 ≤ M'.γ := hγ₀
+  have hγ₁' : M'.γ < 1 := hγ₁
+  -- softmax has full support, which is the whole use of `hF`
+  have hfull : ∀ s a, 0 < (F.toPolicy θ s) a := by
+    intro s a
+    rw [hF θ s a]
+    exact softmax_pos (logits θ s) a
+  -- transport `hnondeg` to the rescaled MDP
+  have hnondeg' : ∃ π : Policy S A, Vinf M' π μ < Vstar M' μ := by
+    obtain ⟨π, hπ⟩ := hnondeg
+    refine ⟨π, ?_⟩
+    rw [hM', Vinf_scaleMDP M c π μ, Vstar_scaleMDP M hcpos μ]
+    gcongr
+  have h := strict_suboptimality_of_full_support M' hr' hγ₀' hγ₁'
+    (F.toPolicy θ) hfull μ hnondeg'
+  rw [hM', Vinf_scaleMDP M c (F.toPolicy θ) μ, Vstar_scaleMDP M hcpos μ] at h
+  have := mul_lt_mul_of_pos_right h hcpos
+  rwa [div_mul_cancel₀ _ (ne_of_gt hcpos), div_mul_cancel₀ _ (ne_of_gt hcpos)] at this
+
+end G3
+
 end Proofs
 end PolicyGradient
