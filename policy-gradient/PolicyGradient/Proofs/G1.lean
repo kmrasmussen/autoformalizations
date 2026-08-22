@@ -844,6 +844,40 @@ theorem sum_abs_adv_le_norm (M : FiniteMDP S A)
     _ = ‖L‖ * Real.sqrt (Fintype.card S) := by rw [hv, norm_testVec astar σ hσ]
     _ = Real.sqrt (Fintype.card S) * ‖L‖ := by ring
 
+/-! ### Suboptimality as an occupancy-weighted advantage
+
+The performance difference lemma, specialised to the start distribution and an
+optimal comparator, is what the Łojasiewicz inequality must connect to the
+gradient. -/
+
+/-- **Suboptimality equals the occupancy-weighted advantage of the optimal
+policy.** -/
+theorem VstarDist_sub_VinfDist_eq (M : FiniteMDP S A) (π πstar : Policy S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (hstar : ∀ s, Vinf M πstar s = Vstar M s) (μ : Dist S) :
+    VstarDist M μ - VinfDist M π μ
+      = ∑ s, dinfDist M πstar μ s * advGapInf M π πstar s := by
+  have hpd : ∀ s₀, Vstar M s₀ - Vinf M π s₀
+      = ∑ s, dinf M πstar s₀ s * advGapInf M π πstar s := by
+    intro s₀
+    rw [← hstar s₀]
+    exact perfDiffInf M π πstar hr hγ₀ hγ₁ s₀
+  unfold VstarDist VinfDist dinfDist
+  rw [← Finset.sum_sub_distrib]
+  rw [Finset.sum_congr rfl (fun s₀ _ => by
+    rw [← mul_sub, hpd s₀] :
+    ∀ s₀ ∈ (univ : Finset S), μ s₀ * Vstar M s₀ - μ s₀ * Vinf M π s₀
+      = μ s₀ * ∑ s, dinf M πstar s₀ s * advGapInf M π πstar s)]
+  calc ∑ s₀, μ s₀ * ∑ s, dinf M πstar s₀ s * advGapInf M π πstar s
+      = ∑ s₀, ∑ s, μ s₀ * (dinf M πstar s₀ s * advGapInf M π πstar s) := by
+        exact Finset.sum_congr rfl fun s₀ _ => Finset.mul_sum _ _ _
+    _ = ∑ s, ∑ s₀, μ s₀ * (dinf M πstar s₀ s * advGapInf M π πstar s) :=
+        Finset.sum_comm
+    _ = ∑ s, (∑ s₀, μ s₀ * dinf M πstar s₀ s) * advGapInf M π πstar s := by
+        refine Finset.sum_congr rfl fun s _ => ?_
+        rw [Finset.sum_mul]
+        exact Finset.sum_congr rfl fun s₀ _ => by ring
+
 end G1
 
 end Proofs
