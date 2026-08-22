@@ -1047,6 +1047,57 @@ theorem tendsto_max_theta_atTop (M : FiniteMDP S A)
   have := Filter.tendsto_atBot.mp hneg (c - b)
   exact this.mono fun t ht => by linarith
 
+/-! ### AKM Lemma C.10 (`lemma:stable`): the ordering `π(a|s) ≤ π(ap|s)` persists
+
+If at time `t` we have `π^{(t)}(a|s) ≤ π^{(t)}(ap|s)` and moreover
+`A^{(t)}(s,a) ≤ A^{(t)}(s,ap)`, then the gradient coordinate at `a` is at most
+that at `ap`, hence `θ^{(t+1)}(s,a) - θ^{(t)}(s,a) ≤ θ^{(t+1)}(s,ap) - θ^{(t)}(s,ap)`.
+Since softmax is monotone in the coordinate difference, the ordering of
+probabilities is preserved. -/
+
+/-- The `θ`-difference `θ(s,a) - θ(s,b)` determines the probability ordering. -/
+theorem pi_le_iff_theta_le (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a b : A) :
+    (F.toPolicy θ s) a ≤ (F.toPolicy θ s) b ↔ (θ) (s, a) ≤ (θ) (s, b) := by
+  rw [hF, hF, softmax_apply, softmax_apply]
+  have hden : (0:ℝ) < ∑ a', Real.exp ((θ) (s, a')) :=
+    softmax_denom_pos (fun a' => (θ) (s, a'))
+  rw [div_le_div_iff_of_pos_right hden, Real.exp_le_exp]
+
+/-- **AKM Lemma C.10, one step.** -/
+theorem stable_step (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a ap : A)
+    (hpi : (F.toPolicy θ s) a ≤ (F.toPolicy θ s) ap)
+    (hadv : advInf M (F.toPolicy θ) s a ≤ advInf M (F.toPolicy θ) s ap)
+    (hadvp : 0 ≤ advInf M (F.toPolicy θ) s ap) :
+    (F.toPolicy (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) s) a
+      ≤ (F.toPolicy (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) s) ap := by
+  rw [pi_le_iff_theta_le F hF]
+  have hθ : (θ) (s, a) ≤ (θ) (s, ap) := (pi_le_iff_theta_le F hF θ s a ap).mp hpi
+  have hga := gradient_VinfDist_apply M F hF hr hγ₀ hγ₁ μ θ s a
+  have hgp := gradient_VinfDist_apply M F hF hr hγ₀ hγ₁ μ θ s ap
+  have hdnn : 0 ≤ dinfDist M (F.toPolicy θ) μ s := dinfDist_nonneg M hγ₀ _ _ _
+  have hpinn : 0 ≤ (F.toPolicy θ s) a := (F.toPolicy θ s).nonneg a
+  -- `π(a|s) A(s,a) ≤ π(ap|s) A(s,ap)`
+  have hkey : (F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a
+      ≤ (F.toPolicy θ s) ap * advInf M (F.toPolicy θ) s ap := by
+    rcases le_or_gt (advInf M (F.toPolicy θ) s a) 0 with hneg | hpos
+    · -- LHS ≤ 0 ≤ RHS
+      exact le_trans (mul_nonpos_of_nonneg_of_nonpos hpinn hneg)
+        (mul_nonneg ((F.toPolicy θ s).nonneg ap) hadvp)
+    · exact mul_le_mul hpi hadv (le_of_lt hpos) ((F.toPolicy θ s).nonneg ap)
+  have hgle : (gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, a)
+      ≤ (gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, ap) := by
+    rw [hga, hgp]
+    exact mul_le_mul_of_nonneg_left hkey hdnn
+  simp only [PiLp.add_apply, PiLp.smul_apply, smul_eq_mul]
+  nlinarith [hθ, hgle, hη₀]
+
 end Resid
 
 end Proofs
