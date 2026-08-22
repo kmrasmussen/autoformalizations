@@ -319,6 +319,85 @@ theorem softmax_policy_converges_gamma_zero (M : FiniteMDP S A)
   refine gap_monotone_of_adv_dominates M F hF hr hγ₀ hγ₁ μ η hη₀ θ hstep s a₀ b t
     (le_of_eq (htie b hb a₀ ha₀ t)) (hnn b hb t) hle
 
+/-! ## The general `γ`: the exact shape of what is missing
+
+For general `γ` the tie split does **not** close, and the computation below says
+precisely why.  Let `Vbar s := lim_t V^{(t)}(s)` (`exists_Vinf_tendsto`) and put
+
+    δ_t s := Vbar s - V^{(t)}(s)  ≥ 0,   decreasing to 0
+
+(nonnegative and decreasing because `V^{(t)}(s)` increases to its limit,
+`exists_Vinf_limit`).  For an action `a` with vanishing limiting advantage,
+`Abar s a = r(s,a) + γ ∑_{s'} P(s'|s,a) Vbar s' - Vbar s = 0`, so subtracting
+
+    A^{(t)}(s,a) = δ_t s - γ ∑_{s'} P(s'|s,a) · δ_t s'.     (‡)
+
+`adv_eq_value_gap_of_zero_limit` below is exactly `(‡)`.
+
+Three consequences, all sharp:
+
+* **`γ = 0` collapses `(‡)` to `A^{(t)}(s,a) = δ_t s`** — the *same* number for
+  every `a ∈ Z s`, and `≥ 0`.  That is the exact tie with nonnegative advantage,
+  which is why `softmax_policy_converges_gamma_zero` goes through with no
+  hypothesis on `M` at all.
+* **For `γ > 0` the sign of `A^{(t)}(s,a)` is genuinely free**: `(‡)` is
+  `δ_t s - γ ⟨P_a, δ_t⟩`, and nothing forces `δ_t s ≥ γ ⟨P_a, δ_t⟩`.  Only at a
+  state maximising `δ_t` is `A^{(t)}(s,a) ≥ (1-γ) δ_t s ≥ 0` — and the maximiser
+  moves with `t`, so it supplies no *eventual* sign.  This matches `Conv2`'s
+  numerics (`γ = 0.6`: `A^{(t)}` negative for thousands of consecutive steps at
+  tied states), and it is why `gap_monotone_of_adv_dominates` — whose only real
+  hypothesis is `0 ≤ A^{(t)}(s,b) ≤ A^{(t)}(s,a)` — cannot be discharged.
+* **The bounded-variation route hits the same wall.**  From `(‡)`,
+  `|A^{(t)}(s,a)| ≤ (1 + γ) ‖δ_t‖_∞` for every `a ∈ Z s`, so the logit gap
+  between two tied actions moves by at most `C ‖δ_t‖_∞` per step, and
+  `∑_t ‖π_{t+1} - π_t‖` is controlled as soon as `∑_t ‖δ_t‖_∞ < ∞`.  But softmax
+  policy gradient converges at rate `Θ(1/t)` — in the two-action model of
+  `Conv2`'s header, `π_t(loser) ≍ 1/(2ηt)` and hence `δ_t ≍ 1/t` — so
+  `∑_t ‖δ_t‖_∞` **diverges**, by exactly the same logarithm that defeats
+  `∑_t ‖θ_{t+1} - θ_t‖`.  The policy-space total variation nevertheless
+  saturates numerically, so the divergence is an artefact of dropping the
+  cancellation `p_a A_a - p_b A_b` in favour of `|A_a| + |A_b|`.  Recovering it
+  is a **rate comparison between two tied coordinates** — the same missing
+  ingredient `Conv2` §4 names, and the same one `ResidC9.ratio_step` supplies
+  only after assuming a limit policy.
+
+So the obstruction has not moved, but it is now quantitative: what is needed is
+either `∑_t ‖Vbar - V^{(t)}‖_∞ < ∞` (false, `Θ(1/t)`) or a signed cancellation
+in `π_t(a|s) A^{(t)}(s,a) - π_t(b|s) A^{(t)}(s,b)` for `a, b` both in `Z s`. -/
+
+/-- **`(‡)`** — for an action whose limiting advantage vanishes, the advantage
+along the trajectory *is* the value gap, discounted:
+`A^{(t)}(s,a) = δ_t s - γ ∑_{s'} P(s'|s,a) δ_t s'`, where `δ_t = Vbar - V^{(t)}`. -/
+theorem adv_eq_value_gap_of_zero_limit (M : FiniteMDP S A)
+    (π : ℕ → Policy S A) (Vbar : S → ℝ) (s : S) (a : A)
+    (hVbar : Vbar s = M.r s a + M.γ * (∑ s', (M.P s a) s' * Vbar s')) (t : ℕ) :
+    advInf M (π t) s a
+      = (Vbar s - Vinf M (π t) s)
+        - M.γ * (∑ s', (M.P s a) s' * (Vbar s' - Vinf M (π t) s')) := by
+  have hsplit : ∑ s', (M.P s a) s' * (Vbar s' - Vinf M (π t) s')
+      = (∑ s', (M.P s a) s' * Vbar s') - ∑ s', (M.P s a) s' * Vinf M (π t) s' := by
+    rw [← Finset.sum_sub_distrib]
+    exact Finset.sum_congr rfl (fun s' _ => by ring)
+  rw [hsplit, advInf, hVbar]
+  ring
+
+/-- The Bellman identity `hVbar` of `(‡)` holds exactly when the limiting
+advantage of `a` at `s` vanishes. -/
+theorem vbar_bellman_of_adv_limit_zero (M : FiniteMDP S A)
+    (π : ℕ → Policy S A) (Vbar : S → ℝ) (s : S) (a : A)
+    (hV : ∀ s', Tendsto (fun t => Vinf M (π t) s') atTop (nhds (Vbar s')))
+    (hA : Tendsto (fun t => advInf M (π t) s a) atTop (nhds 0)) :
+    Vbar s = M.r s a + M.γ * (∑ s', (M.P s a) s' * Vbar s') := by
+  have hlim : Tendsto (fun t => advInf M (π t) s a) atTop
+      (nhds (M.r s a + M.γ * (∑ s', (M.P s a) s' * Vbar s') - Vbar s)) := by
+    have hsum : Tendsto (fun t => ∑ s', (M.P s a) s' * Vinf M (π t) s') atTop
+        (nhds (∑ s', (M.P s a) s' * Vbar s')) :=
+      tendsto_finsetSum _ (fun s' _ => (hV s').const_mul _)
+    have := ((hsum.const_mul M.γ).const_add (M.r s a)).sub (hV s)
+    simpa only [advInf] using this
+  have := tendsto_nhds_unique hA hlim
+  linarith
+
 end Conv3
 
 end Proofs
