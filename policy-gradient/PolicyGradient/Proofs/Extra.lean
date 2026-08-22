@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
 import PolicyGradient.Proofs.G1
+import PolicyGradient.Proofs.G1Agg
 import PolicyGradient.Proofs.G1b
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
@@ -15,7 +16,6 @@ import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
-import PolicyGradient.Proofs.G1Agg
 import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
 

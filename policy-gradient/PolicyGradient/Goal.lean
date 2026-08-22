@@ -292,7 +292,12 @@ theorem g9_c_positive (M : FiniteMDP S A)
     (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
       = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s) :
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    -- Mei's proof opens by assuming a strictly positive optimal value gap
+    -- `Δ*(s) = Q*(s,a*(s)) − max_{a≠a*(s)} Q*(s,a) > 0`, which excludes `Q*`
+    -- ties. Without it this goal is refuted (`Proofs.g9_is_false`, twice).
+    (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
     ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 
 /-! ## G7 — the local-term bound
@@ -438,9 +443,9 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A)) :
     (⨅ s : S, (F.toPolicy θ s) (astar s))
         / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
@@ -569,9 +574,9 @@ theorem g1_aggregate_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A)) :
     (⨅ s : S, (F.toPolicy θ s) (astar s))
         * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
