@@ -1040,7 +1040,8 @@ theorem limit_adv_nonpos_offsupport (M : FiniteMDP S A)
     (πbar : Policy S A)
     (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
       (nhds (fun s a => (πbar s) a))) :
-    ∀ s a, (πbar s) a = 0 → advInf M πbar s a ≤ 0 := sorry
+    ∀ s a, (πbar s) a = 0 → advInf M πbar s a ≤ 0 :=
+  Proofs.limit_adv_nonpos_offsupport_proof M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep πbar hlim
 
 /-- **The vector-parameter ascent step.**
 

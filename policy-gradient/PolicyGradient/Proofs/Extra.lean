@@ -2,6 +2,10 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
+import PolicyGradient.Proofs.AKM51
+import PolicyGradient.Proofs.AKM51b
+import PolicyGradient.Proofs.DgLip
+import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G1Agg
 import PolicyGradient.Proofs.G1b
@@ -11,17 +15,18 @@ import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
 import PolicyGradient.Proofs.G9b
 import PolicyGradient.Proofs.G9c
-import PolicyGradient.Proofs.Mei4
-import PolicyGradient.Proofs.Mei6
-import PolicyGradient.Proofs.VecStep
-import PolicyGradient.Proofs.AKM51
-import PolicyGradient.Proofs.AKM51b
-import PolicyGradient.Proofs.Dirac
-import PolicyGradient.Proofs.Inhabited
-import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
+import PolicyGradient.Proofs.Inhabited
+import PolicyGradient.Proofs.Mei4
+import PolicyGradient.Proofs.Mei6
+import PolicyGradient.Proofs.Resid
+import PolicyGradient.Proofs.ResidAsm
+import PolicyGradient.Proofs.ResidC8
+import PolicyGradient.Proofs.ResidC9
 import PolicyGradient.Proofs.ResidFinal
+import PolicyGradient.Proofs.Soft
+import PolicyGradient.Proofs.VecStep
 
 /-!
 # Proofs/Extra.lean — additional proof modules
