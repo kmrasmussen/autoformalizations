@@ -85,6 +85,37 @@ theorem exists_action_unbounded_below
     (Filter.eventually_ge_atTop Nmax)).exists
   exact absurd ht₁ (not_le.mpr (hbelow t ht₂))
 
+/-! ### The unbounded-below action is off-support with non-positive advantage
+
+Let `b` be the action from `exists_action_unbounded_below`. Then:
+
+* `A^{π̄}(s,b) ≤ 0` — otherwise `not_theta_atBot_of_adv_pos` bounds `θ^{(t)}(s,b)`
+  below for all large `t`, and the pigeonhole conclusion contradicts that;
+* `π̄(b|s) = 0` — since `θ^{(t)}(s,b)` dips arbitrarily low while some coordinate
+  stays bounded below, `π^{(t)}(b|s)` dips arbitrarily close to `0`, and the limit
+  `π̄(b|s)` must then be `0`. -/
+
+theorem adv_nonpos_of_unbounded_below (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (b : A)
+    (hub : ∀ C : ℝ, ∀ N : ℕ, ∃ t, N ≤ t ∧ (θ t) (s, b) ≤ C) :
+    advInf M πbar s b ≤ 0 := by
+  by_contra hcon
+  push_neg at hcon
+  obtain ⟨c, T, hc⟩ := not_theta_atBot_of_adv_pos M F hF hr hγ₀ hγ₁ μ hμ η hη₀ θ hstep
+    πbar hlim s b hcon
+  obtain ⟨t, ht, hle⟩ := hub (c - 1) T
+  exact absurd (hc t ht) (not_le.mpr (by linarith))
+
 end ResidAsm
 
 end Proofs
