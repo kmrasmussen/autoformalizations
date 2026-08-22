@@ -50,9 +50,17 @@ that a human reads.
   carrying hypotheses needs a consistency witness (a concrete MDP satisfying
   them) before it counts.
 * Infrastructure steps are goals too. "Build the vector-parameter policy family"
-  is `Nonempty (VecPolicy ...)`, discharged only by constructing the object —
-  existence claims cannot be weakened by adding hypotheses, because the payload
-  *is* the object.
+  is a construction goal, discharged only by producing the object.
+* **Pin every witness.** An existence goal is not automatically safe. `∃ x, P x`
+  with a weak `P` is satisfiable by a *degenerate* witness — a bare
+  `Nonempty (VecPolicy ...)` is discharged in four lines by a constant policy
+  family with derivative `0`, and `∃ V, V - b ≤ c` is discharged by
+  `⟨b + c, by linarith⟩`. Every construction goal needs a conjunct identifying
+  *which* object, and no target quantity may be existentially chosen by the
+  prover. Define the optimum (`Vstar`, `VsoftStar`); never let it be picked.
+* The three routes to a hollow proof are: weakening the conclusion, adding a
+  hypothesis, and choosing a degenerate witness. All are the same failure —
+  **the prover controlling both the target and what satisfies it.**
 -/
 
 open Finset
@@ -93,33 +101,26 @@ structure VecPolicy (S A : Type*) [Fintype A] (E : Type*)
   /-- `dπ` really is the derivative. -/
   hasFDeriv : ∀ θ s a, HasFDerivAt (fun t => (toPolicy t s) a) (dπ θ s a) θ
 
-/-- **G5 — the vector-parameter policy family exists.**
+/-- **G5 + G6 — the softmax family is a differentiable vector-parameter policy.**
 
-Discharged only by *constructing* a `VecPolicy` over `EuclideanSpace ℝ (S × A)`.
-An existence goal cannot be weakened by adding hypotheses: the payload is the
-object itself. -/
-@[infra "G5"]
-theorem g5_vector_parameter :
-    Nonempty (VecPolicy S A (EuclideanSpace ℝ (S × A))) := sorry
+Stated as one goal deliberately. As a bare `Nonempty (VecPolicy ...)` this was
+**satisfiable by a degenerate witness**: a constant policy family ignoring `θ`,
+with derivative `0`, is a perfectly valid `VecPolicy`, so the `sorry` could be
+discharged in four lines while building nothing useful.
 
-/-! ## G6 — the softmax instance
+The `hsoft` conjunct pins the witness: `F` must *be* the softmax family, so the
+only route is the actual differentiability proof. Nothing weaker discharges it.
 
-`softmaxPolicy` returns a bare `ℝ → Policy S A`; no differentiability proof was
-ever written, so softmax — the subject of both papers — is never differentiated.
-`sum_abs_score_le_one` is proved but has no Lean-level link to any policy
-family. -/
+This is the general trap for construction goals — see the discipline note above.
 
-/-- **G6 — the softmax family is a differentiable policy family.**
-
-Constructs the softmax `VecPolicy` from a differentiable logit map, and pins its
-derivative to `softmaxScore`. The second conjunct is what connects
-`sum_abs_score_le_one` to a real object. -/
-@[infra "G6"]
-theorem g6_softmax_instance
+Discharging this closes both G5 (vector parameter) and G6 (softmax instance),
+and unblocks G7 and G1. -/
+@[infra "G5+G6"]
+theorem g5_g6_softmax_family
     (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (hlog : ∀ s a, Differentiable ℝ (fun θ => logits θ s a)) :
     ∃ F : VecPolicy S A (EuclideanSpace ℝ (S × A)),
-      (∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a) := sorry
+      ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a := sorry
 
 /-! ## G7 — the local-term bound
 
@@ -226,6 +227,15 @@ noncomputable def entropy (d : Dist A) : ℝ := -∑ a, d a * Real.log (d a)
 noncomputable def VinfSoft (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ) (s₀ : S) : ℝ :=
   Vinf M π s₀ + τ * entropy (π s₀)
 
+/-- The optimal entropy-regularized value: the supremum over policies.
+
+Defined rather than existentially quantified. Stating Theorem 6 as
+`∃ Vsoftstar, Vsoftstar - Ṽ ≤ C(1-K)^t` would be **dischargeable in one line**
+by `⟨b + c, by linarith⟩` — pick a small enough number and the inequality is
+free. The target must name the real optimum. -/
+noncomputable def VsoftStar (M : FiniteMDP S A) (τ : ℝ) (s₀ : S) : ℝ :=
+  ⨆ π : Policy S A, VinfSoft M π τ s₀
+
 /-- **Mei Theorem 6 — the entropy-regularized geometric rate.**
 
 Unlike Theorem 4 this constant is explicit, because the analogue of their
@@ -237,9 +247,12 @@ theorem mei_theorem6 (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (τ : ℝ) (hτ : 0 < τ) (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
-    (C K : ℝ) (hK₀ : 0 < K) (hK₁ : K < 1) (t : ℕ) :
-    ∃ Vsoftstar : ℝ,
-      Vsoftstar - VinfSoft M (F.toPolicy (θ t)) τ μ ≤ C * (1 - K) ^ t := sorry
+    (τ : ℝ) (hτ : 0 < τ) (μ : S) (η : ℝ) (hη : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfSoft M (F.toPolicy w) τ μ) (θ t))
+    (K : ℝ) (hK₀ : 0 < K) (hK₁ : K < 1) (t : ℕ) :
+    VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ t)) τ μ
+      ≤ (VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ 0)) τ μ) * (1 - K) ^ t := sorry
 
 end PolicyGradient
