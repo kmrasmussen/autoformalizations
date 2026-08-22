@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Meta.Paper
+import PolicyGradient.Meta.Formalized
 
 /-!
 # The paper-claim linter
@@ -48,7 +49,7 @@ Totals, plus the count of MDP-level hypotheses across grounded claims. That
 number is the repo's honest debt; it should only go down.
 -/
 
-open Lean Meta Elab
+open Lean Meta Elab PolicyGradient.Meta
 
 namespace PolicyGradient.Meta
 
@@ -337,9 +338,28 @@ def runPaperLint : CoreM Bool := do
       IO.println "                goal quantifying over this type may be vacuous."
   IO.println ""
 
-  -- ── Check 6: summary ──────────────────────────────────────────────────
+  -- ── Check 6: the Formalized predicate ─────────────────────────────────
+  -- Aggregate, not recompute. CHECKS 1-5 already decided every field; this
+  -- reports them together so a goal's status is one verdict rather than five
+  -- scattered lines. An earlier version re-ran `checkGrounding` and
+  -- `forallTelescopeReducing` per claim here and segfaulted the linter --
+  -- recorded because a check that crashes is indistinguishable from one that
+  -- passes if its exit code is read carelessly.
+  IO.println "── CHECK 6: Formalized ────────────────────────────────────────"
+  IO.println ""
+  IO.println s!"  fields decided above: grounded ({ungrounded.size} failing),"
+  IO.println s!"  axiom-clean (see per-goal census), inhabited ({uninhabited} types failing),"
+  IO.println s!"  proved ({openGoals} open -- the frontier, not a defect)."
+  IO.println ""
+  IO.println "  `Formalized` in Meta/Formalized.lean is the specification these"
+  IO.println "  computations implement. Adding a field there re-judges every goal;"
+  IO.println "  that is the point -- the free-`logits` defect was documented beside"
+  IO.println "  two goals and still reached a third."
+  IO.println ""
+
+  -- ── Check 7: summary ──────────────────────────────────────────────────
   let grounded := full.size - ungrounded.size
-  IO.println "── CHECK 6: summary ───────────────────────────────────────────"
+  IO.println "── CHECK 7: summary ───────────────────────────────────────────"
   IO.println ""
   IO.println "  ┌─────────────────────────────────────────────┬───────┐"
   IO.println s!"  │ total claims                                │ {leftPad (toString all.size) 5} │"

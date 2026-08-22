@@ -55,11 +55,18 @@ structure VecPolicy (S A : Type*) [Fintype A] (E : Type*)
 /-- The Shannon entropy of a distribution. -/
 noncomputable def entropy (d : Dist A) : ℝ := -∑ a, d a * Real.log (d a)
 
-/-- The entropy-regularized value `Ṽ = V + τ·H`. -/
+/-- **Start-state-only** entropy regularization: `V + τ·H(π(·|s₀))`.
+
+**This is not Mei's objective**, and `mei_theorem6` stated over it was false for
+that reason among others. Mei's `Ṽ` discounts entropy along the *whole
+trajectory* (the soft Bellman fixed point). With entropy added only at the start
+state the bonus does not propagate, `VsoftStar` has no log-sum-exp closed form,
+and their Lemmas 14/15/16 are not true as stated. Kept only because the
+refutations reference it. -/
 noncomputable def VinfSoft (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ) (s₀ : S) : ℝ :=
   Vinf M π s₀ + τ * entropy (π s₀)
 
-/-- The optimal entropy-regularized value: the supremum over policies.
+/-- The optimal start-state-only regularized value. See `VinfSoft`'s warning.
 
 Defined rather than existentially quantified. Stating Theorem 6 as
 `∃ Vsoftstar, Vsoftstar - Ṽ ≤ C(1-K)^t` would be **dischargeable in one line**

@@ -736,22 +736,54 @@ hypothesis `hstep` *is* Mei Theorem 6. Their Lemmas 14 (entropy smoothness),
 15 (entropy Łojasiewicz) and 16 exist to establish that contraction, and none is
 formalized. -/
 
-/-- **Mei Theorem 6 — the entropy-regularized geometric rate.**
+/-! ## Theorem 6 was FALSE three ways — the entropy track needs rebuilding
 
-Unlike Theorem 4 this constant is explicit, because the analogue of their
-Lemma 9 (their Lemma 16) follows from monotone convergence rather than an
-external citation. -/
-@[paper "Mei2020" "Theorem 6"]
-theorem mei_theorem6 (M : FiniteMDP S A)
-    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
-    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (τ : ℝ) (hτ : 0 < τ) (μ : S) (η : ℝ) (hη : 0 < η)
-    (θ : ℕ → EuclideanSpace ℝ (S × A))
-    (hstep : ∀ t, θ (t + 1)
-      = θ t + η • gradient (fun w => VinfSoft M (F.toPolicy w) τ μ) (θ t))
-    (K : ℝ) (hK₀ : 0 < K) (hK₁ : K < 1) (t : ℕ) :
-    VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ t)) τ μ
-      ≤ (VsoftStar M τ μ - VinfSoft M (F.toPolicy (θ 0)) τ μ) * (1 - K) ^ t := sorry
+Refuted 2026-08-22 by two independent machine-checked counterexamples, plus a
+definitional defect neither of my stated concerns anticipated.
+
+**1 — free `logits`** (`Proofs.mei6_general_false`). The same defect as
+`g7_smoothness`, `g1_lojasiewicz` and `mei_theorem4`: `logits ≡ 0` makes the
+policy uniform at every `θ`, so the objective is constant, the gradient is `0`,
+and the trajectory never moves while the gap stays positive.
+
+**2 — `K` universal and `η` free** (`Proofs.mei6_false_tabular`). The decisive
+one, because it pins Mei's genuine **tabular** parameterization and so cannot be
+dismissed as parameterization abuse. One state, two actions, `γ = 0`,
+`r = (1,0)`, `τ = 1`, `η = 10`: the objective reduces to
+`fsoft d = σ(d)(1−d) + log(e^d+1)`, one step sends the logit gap `0 → 5`
+exactly, and `fsoft 5 < fsoft 0` — the objective *decreases*, so the gap
+*grows*, contradicting the bound for **every** `K ∈ (0,1)` at once. Numerically
+`η = 5` already diverges (ratio 1.004).
+
+**3 — `VinfSoft` is not Mei's objective.** It adds entropy at the **start state
+only**; Mei's `Ṽ` discounts entropy along the whole trajectory (the soft Bellman
+fixed point). The bonus does not propagate, `VsoftStar` has no log-sum-exp form,
+and their Lemmas 14/15/16 are not true over it. **So fixing the quantifiers is
+not enough** — `Target.lean` needs a genuinely new definition first.
+
+Theorem 6 is therefore not restated here yet. Stating it over a definition known
+to be wrong would be worse than leaving it out: the goal would look like
+progress while measuring nothing. The prerequisites are below; Theorem 6 returns
+once `VsoftDisc` exists. -/
+
+/-- **The discounted-entropy soft value** — the definition Theorem 6 needs.
+
+`Ṽ^π(s) = E[∑ₜ γᵗ (r(sₜ,aₜ) + τ·H(π(·|sₜ)))]`, the soft Bellman fixed point,
+as opposed to `VinfSoft`'s start-state-only bonus. Everything in the entropy
+track waits on this. -/
+@[infra "Soft-value"]
+theorem vsoftDisc_exists (M : FiniteMDP S A) (τ : ℝ) (hτ : 0 < τ)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
+    ∃ V : Policy S A → S → ℝ,
+      ∀ π s, V π s = (∑ a, (π s) a * M.r s a) + τ * entropy (π s)
+        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * V π s' := sorry
+
+/-- **Entropy is bounded** — needed before `⨆ π, Ṽ` means anything.
+
+`VsoftStar` is a `ciSup`; without `BddAbove` Mathlib returns junk `0` and every
+statement about it is vacuous. Proved as `Proofs.entropy_le_card` during the
+refutation; stated here so the dependency is explicit. -/
+@[infra "Entropy-bounded"]
+theorem entropy_bdd (d : Dist A) : entropy d ≤ (Fintype.card A : ℝ) - 1 := sorry
 
 end PolicyGradient

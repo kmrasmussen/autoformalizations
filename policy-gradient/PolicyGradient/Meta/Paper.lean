@@ -44,6 +44,12 @@ structure PaperClaim where
   isFull : Bool
   /-- `true` for `@[infra]`: an object-construction goal, exempt from grounding. -/
   isInfra : Bool := false
+  /-- Constants the paper result is *about*, which its conclusion must mention.
+
+  A statement tagged AKM Lemma 4.1 whose conclusion contains no derivative is
+  not that lemma, however true it may be — this is what caught
+  `g2_advantage_bound`. Declared as `@[paper "AKM2021" "Lemma 4.1" subject fderiv]`. -/
+  subject : Array Name := #[]
   deriving Inhabited
 
 initialize paperExt :
@@ -59,7 +65,7 @@ initialize registerBuiltinAttribute {
   add := fun decl stx _ => do
     let paper := stx[1].isStrLit?.getD ""
     let result := stx[2].isStrLit?.getD ""
-    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, true, false⟩)
+    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, true, false, #[]⟩)
 }
 
 initialize registerBuiltinAttribute {
@@ -67,7 +73,7 @@ initialize registerBuiltinAttribute {
   descr := "an infrastructure goal: an object that must be constructed"
   add := fun decl stx _ => do
     let result := stx[1].isStrLit?.getD ""
-    modifyEnv (paperExt.addEntry · ⟨decl, "Infrastructure", result, false, true⟩)
+    modifyEnv (paperExt.addEntry · ⟨decl, "Infrastructure", result, false, true, #[]⟩)
 }
 
 initialize registerBuiltinAttribute {
@@ -76,5 +82,5 @@ initialize registerBuiltinAttribute {
   add := fun decl stx _ => do
     let paper := stx[1].isStrLit?.getD ""
     let result := stx[2].isStrLit?.getD ""
-    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, false, false⟩)
+    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, false, false, #[]⟩)
 }
