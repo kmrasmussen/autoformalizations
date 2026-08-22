@@ -110,8 +110,7 @@ theorem hasFDeriv_W (M : FiniteMDP S A) (n : ℕ) (θ : E S A) (s : S) :
     have hprod := (hasFDeriv_p (S := S) (A := A) s a θ).mul htail
     refine hprod.congr_fderiv ?_
     ext v
-    simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
-      ContinuousLinearMap.smulRight_apply, smul_eq_mul]
+    simp only [add_apply, smul_apply, smul_eq_mul]
     ring
 
 
@@ -415,7 +414,7 @@ theorem sum_smul_dp_eq_dg (s : S) (q : A → ℝ) (t : E S A) :
     have h := (hasFDeriv_p (S := S) (A := A) s a t).mul_const (q a)
     refine h.congr_fderiv ?_
     ext v
-    simp [mul_comm]
+    simp
   exact h1.unique (hasFDeriv_g s q t)
 
 
@@ -835,6 +834,170 @@ theorem norm_DW_succ_sub (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ)
         = 2 * ((n : ℝ) + 1 + 1) * M.γ ^ (n + 1) := by rw [pow_succ]; ring
     push_cast
     linarith [hb, hgoal.le, hgoal.ge]
+
+
+/-! ### The limiting gradient map
+
+The increments `DW (k+1) - DW k` are dominated by the summable `2(k+1)γᵏ`
+*uniformly in `θ` and `s`*, so the telescoping series converges, and its tail is
+controlled by a sequence of reals that does not see `θ` at all — which is
+exactly uniform convergence. -/
+
+/-- The `k`-th horizon increment of the gradient. -/
+noncomputable def dinc (M : FiniteMDP S A) (k : ℕ) (θ : E S A) (s : S) : E S A →L[ℝ] ℝ :=
+  DW M (k + 1) θ s - DW M k θ s
+
+/-- The dominating summable sequence. -/
+noncomputable def domSeq (M : FiniteMDP S A) (k : ℕ) : ℝ := 2 * (k + 1) * M.γ ^ k
+
+theorem domSeq_nonneg (hγ₀ : 0 ≤ M.γ) (k : ℕ) : 0 ≤ domSeq M k := by
+  unfold domSeq
+  have : (0:ℝ) ≤ M.γ ^ k := pow_nonneg hγ₀ k
+  positivity
+
+theorem summable_domSeq (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) : Summable (domSeq M) := by
+  have hnorm : ‖M.γ‖ < 1 := by rw [Real.norm_eq_abs, abs_of_nonneg hγ₀]; exact hγ₁
+  have h1 : Summable (fun k : ℕ => (k : ℝ) * M.γ ^ k) := by
+    simpa using (summable_pow_mul_geometric_of_norm_lt_one (R := ℝ) 1 hnorm)
+  have h2 : Summable (fun k : ℕ => M.γ ^ k) := summable_geometric_of_lt_one hγ₀ hγ₁
+  have : Summable (fun k : ℕ => 2 * ((k : ℝ) * M.γ ^ k) + 2 * M.γ ^ k) :=
+    ((h1.mul_left 2).add (h2.mul_left 2))
+  refine this.congr (fun k => ?_)
+  unfold domSeq; ring
+
+theorem norm_dinc_le (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ)
+    (k : ℕ) (θ : E S A) (s : S) : ‖dinc M k θ s‖ ≤ domSeq M k :=
+  norm_DW_succ_sub M hr hγ₀ k θ s
+
+theorem summable_dinc (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : E S A) (s : S) : Summable (fun k => dinc M k θ s) :=
+  Summable.of_norm_bounded (summable_domSeq M hγ₀ hγ₁) (fun k => norm_dinc_le M hr hγ₀ k θ s)
+
+/-- The gradient of the infinite-horizon value: the telescoped limit of the
+finite-horizon gradients. -/
+noncomputable def Ginf (M : FiniteMDP S A) (θ : E S A) (s : S) : E S A →L[ℝ] ℝ :=
+  ∑' k, dinc M k θ s
+
+theorem DW_eq_partial (n : ℕ) (θ : E S A) (s : S) :
+    DW M n θ s = ∑ k ∈ Finset.range n, dinc M k θ s := by
+  induction n with
+  | zero => simp [DW_zero]
+  | succ n ih =>
+    rw [Finset.sum_range_succ, ← ih]
+    unfold dinc
+    abel
+
+/-- **Uniform tail bound.** The distance from `DW n` to `Ginf` is bounded by a
+number depending only on `n` — not on `θ` or `s`. -/
+theorem norm_Ginf_sub_DW_le (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (n : ℕ) (θ : E S A) (s : S) :
+    ‖Ginf M θ s - DW M n θ s‖ ≤ ∑' k, domSeq M (k + n) := by
+  have hsum := summable_dinc M hr hγ₀ hγ₁ θ s
+  have hshift : Summable (fun k => dinc M (k + n) θ s) := hsum.comp_injective (add_left_injective n)
+  have hsplit : (∑ k ∈ Finset.range n, dinc M k θ s) + ∑' k, dinc M (k + n) θ s
+      = ∑' k, dinc M k θ s := hsum.sum_add_tsum_nat_add n
+  have hdom : Summable (domSeq M) := summable_domSeq M hγ₀ hγ₁
+  have hdomshift : Summable (fun k => domSeq M (k + n)) :=
+    hdom.comp_injective (add_left_injective n)
+  have heq : Ginf M θ s - DW M n θ s = ∑' k, dinc M (k + n) θ s := by
+    rw [Ginf, DW_eq_partial, ← hsplit]; abel
+  rw [heq]
+  have hnb : Summable (fun k => ‖dinc M (k + n) θ s‖) :=
+    Summable.of_nonneg_of_le (fun k => norm_nonneg _)
+      (fun k => norm_dinc_le M hr hγ₀ (k + n) θ s) hdomshift
+  calc ‖∑' k, dinc M (k + n) θ s‖ ≤ ∑' k, ‖dinc M (k + n) θ s‖ := norm_tsum_le_tsum_norm hnb
+    _ ≤ ∑' k, domSeq M (k + n) :=
+        hnb.tsum_le_tsum (fun k => norm_dinc_le M hr hγ₀ (k + n) θ s) hdomshift
+
+
+/-- The tail of the dominating series vanishes. -/
+theorem tendsto_domTail (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
+    Filter.Tendsto (fun n => ∑' k, domSeq M (k + n)) Filter.atTop (nhds 0) :=
+  tendsto_sum_nat_add (domSeq M)
+
+/-- **The finite-horizon gradients converge uniformly.** -/
+theorem tendstoUniformly_DW (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (s : S) :
+    TendstoUniformly (fun n (θ : E S A) => DW M n θ s) (fun θ => Ginf M θ s) Filter.atTop := by
+  rw [Metric.tendstoUniformly_iff]
+  intro ε hε
+  have htail := tendsto_domTail M hγ₀ hγ₁
+  have := (Metric.tendsto_atTop.mp htail) ε hε
+  obtain ⟨N, hN⟩ := this
+  refine Filter.eventually_atTop.mpr ⟨N, fun n hn θ => ?_⟩
+  have h1 : |∑' k, domSeq M (k + n)| < ε := by
+    have := hN n hn
+    simpa [Real.dist_eq] using this
+  have h2 : dist (Ginf M θ s) (DW M n θ s) ≤ ∑' k, domSeq M (k + n) := by
+    rw [dist_eq_norm]
+    exact norm_Ginf_sub_DW_le M hr hγ₀ hγ₁ n θ s
+  calc dist (Ginf M θ s) (DW M n θ s) ≤ ∑' k, domSeq M (k + n) := h2
+    _ ≤ |∑' k, domSeq M (k + n)| := le_abs_self _
+    _ < ε := h1
+
+/-! ### `Vinf` is differentiable with derivative `Ginf` -/
+
+theorem hasFDeriv_Vinf (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : E S A) (s₀ : S) :
+    HasFDerivAt (fun t : E S A => Vinf M (F.toPolicy t) s₀) (Ginf M θ s₀) θ := by
+  refine hasFDerivAt_of_tendstoUniformly
+    (f := fun n (t : E S A) => W M n t s₀)
+    (f' := fun n (t : E S A) => DW M n t s₀)
+    (g := fun t : E S A => Vinf M (F.toPolicy t) s₀)
+    (g' := fun t : E S A => Ginf M t s₀)
+    (tendstoUniformly_DW M hr hγ₀ hγ₁ s₀)
+    (fun n x => hasFDeriv_W M n x s₀) (fun x => ?_) θ
+  have hW : (fun n => W M n x s₀) = fun n => V M (F.toPolicy x) n s₀ := by
+    funext n; exact W_eq_V M F hF n x s₀
+  rw [hW]
+  exact tendsto_V_Vinf M (F.toPolicy x) 1 zero_le_one hr hγ₀ hγ₁ s₀
+
+/-- **The gradient map of `Vinf` is `8/(1-γ)³`-Lipschitz.** -/
+theorem Ginf_lipschitz (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ₁ θ₂ : E S A) (s : S) :
+    ‖Ginf M θ₁ s - Ginf M θ₂ s‖ ≤ 8 / (1 - M.γ) ^ 3 * ‖θ₁ - θ₂‖ := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hlim₁ : Filter.Tendsto (fun n => DW M n θ₁ s) Filter.atTop (nhds (Ginf M θ₁ s)) := by
+    have := (tendstoUniformly_DW M hr hγ₀ hγ₁ s).tendsto_at (x := θ₁)
+    simpa using this
+  have hlim₂ : Filter.Tendsto (fun n => DW M n θ₂ s) Filter.atTop (nhds (Ginf M θ₂ s)) := by
+    have := (tendstoUniformly_DW M hr hγ₀ hγ₁ s).tendsto_at (x := θ₂)
+    simpa using this
+  have hcont : Filter.Tendsto (fun n => ‖DW M n θ₁ s - DW M n θ₂ s‖) Filter.atTop
+      (nhds ‖Ginf M θ₁ s - Ginf M θ₂ s‖) := (hlim₁.sub hlim₂).norm
+  refine le_of_tendsto hcont ?_
+  exact Filter.Eventually.of_forall (fun n => DW_lipschitz M hr hγ₀ hγ₁ n θ₁ θ₂ s)
+
+
+/-! ### G7b -/
+
+/-- **AKM Lemma E.4.** `‖∇²_θ V^{π_θ}(s₀)‖ ≤ 8/(1-γ)³` for the tabular softmax
+family with rewards in `[-1,1]`.
+
+No second derivative is constructed. `hasFDeriv_Vinf` identifies the gradient
+map as `Ginf`, `Ginf_lipschitz` shows that map is globally `8/(1-γ)³`-Lipschitz,
+and `norm_fderiv_le_of_lip'` turns a global Lipschitz estimate into a bound on
+`fderiv` — vacuously true wherever the second derivative fails to exist, since
+Mathlib's `fderiv` is then `0`. -/
+theorem g7b_smoothness_proof (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    ‖fderiv ℝ (fun t => fderiv ℝ (fun u => Vinf M (F.toPolicy u) s₀) t) θ‖
+      ≤ 8 / (1 - M.γ) ^ 3 := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hfd : ∀ t : E S A,
+      fderiv ℝ (fun u : E S A => Vinf M (F.toPolicy u) s₀) t = Ginf M t s₀ :=
+    fun t => (hasFDeriv_Vinf M F hF hr hγ₀ hγ₁ t s₀).fderiv
+  have hfun : (fun t : E S A => fderiv ℝ (fun u : E S A => Vinf M (F.toPolicy u) s₀) t)
+      = fun t : E S A => Ginf M t s₀ := funext hfd
+  rw [hfun]
+  refine norm_fderiv_le_of_lip' ℝ (by positivity) ?_
+  refine Filter.Eventually.of_forall (fun x => ?_)
+  exact Ginf_lipschitz M hr hγ₀ hγ₁ x θ s₀
 
 end G7b
 
