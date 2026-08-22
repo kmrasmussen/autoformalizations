@@ -7,6 +7,7 @@ import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
 import PolicyGradient.Proofs.Mei4
+import PolicyGradient.Proofs.Mei6
 
 /-!
 # Proofs/Extra.lean — additional proof modules
