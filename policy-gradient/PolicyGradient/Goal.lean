@@ -200,8 +200,22 @@ all actions are equally good) and is exactly strong enough. Stress-tested over
 ~40,000 random 3-state MDPs with zero violations, and the load-bearing step
 directly over 619 cases, also zero.
 
-Blocked on `vstar_bellman` and `optimal_support_greedy` above, not on any defect
-in this statement.
+**Proved 2026-08-22, at greater generality than expected.** The statement omits
+`hr : |r| ≤ 1`, which every piece of Bellman machinery needs — `Vstar` is a
+`ciSup`, junk-valued without a uniform bound on `Vinf`. Rather than ask for the
+hypothesis, the agent proved it without: `S` and `A` are `Fintype`, so `|r|`
+attains a maximum, and rescaling rewards by `max 1 (that maximum)` gives an MDP
+with the same `P` and `γ` satisfying `|r| ≤ 1`. Values are homogeneous in the
+reward function, so the strict inequality transfers back. The extra generality
+is free, so `hr` stays off.
+
+The proof also avoids reachability entirely. Softmax positivity makes
+`optimal_support_greedy` apply to *every* action, so the optimal set is closed
+under transitions; masking an arbitrary policy's gap to that set makes the mask
+invisible to the one-step average, giving `D ≤ γD` and hence `D = 0`. The raw
+gap does **not** contract — outside the optimal set a general policy is
+genuinely suboptimal — which is why the masking, not a naive contraction, is
+what works.
 
 Under a non-degeneracy condition (some policy is strictly suboptimal, i.e. the
 MDP is not one where every policy is optimal), a softmax policy — which puts
@@ -214,7 +228,8 @@ theorem g3_strict_suboptimality (M : FiniteMDP S A)
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
     (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (μ : S) (θ : EuclideanSpace ℝ (S × A))
     (hnondeg : ∃ π : Policy S A, Vinf M π μ < Vstar M μ) :
-    Vinf M (F.toPolicy θ) μ < Vstar M μ := sorry
+    Vinf M (F.toPolicy θ) μ < Vstar M μ :=
+  Proofs.g3_strict_suboptimality_proof M logits F hF hγ₀ hγ₁ μ θ hnondeg
 
 /-! ## G9 — the constant `c` is positive
 
