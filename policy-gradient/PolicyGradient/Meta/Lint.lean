@@ -409,9 +409,39 @@ def runPaperLint : CoreM Bool := do
   IO.println "  computations implement. Adding a field there re-judges every goal."
   IO.println ""
 
-  -- ── Check 7: summary ──────────────────────────────────────────────────
+  -- ── Check 7: what is actionable ───────────────────────────────────────
+  -- Which OPEN goals can be attempted now, and which wait on another goal?
+  -- Derived from the environment rather than tracked by hand: a lemma named
+  -- `<goal>_of_<something>` is a recorded REDUCTION, so the goal is one step
+  -- from closing. Goals with no reduction and no proved machinery are the
+  -- frontier proper.
+  --
+  -- This exists because the orchestrator got it wrong by hand: six goals were
+  -- open with one agent running, and a goal that had just been restated with
+  -- its machinery already proved sat idle.
+  IO.println "── CHECK 7: actionable vs blocked ─────────────────────────────"
+  IO.println ""
+  let allConsts := env.constants.toList
+  for c in all do
+    let axs ← collectAxioms c.decl
+    if axs.any (fun a => a == ``sorryAx) then
+      let base := c.decl.componentsRev.head!.toString
+      let mut reductions : Array Name := #[]
+      for (dn, _) in allConsts do
+        if dn.isInternal then continue
+        if dn.toString.startsWith ("PolicyGradient.Proofs." ++ base ++ "_of_") then
+          reductions := reductions.push dn
+      if reductions.isEmpty then
+        IO.println s!"  [FRONTIER]   {c.decl}  ({c.paper} — {c.result})"
+      else
+        IO.println s!"  [REDUCIBLE]  {c.decl}"
+        for r in reductions do
+          IO.println s!"               via {r}"
+  IO.println ""
+
+  -- ── Check 8: summary ──────────────────────────────────────────────────
   let grounded := full.size - ungrounded.size
-  IO.println "── CHECK 7: summary ───────────────────────────────────────────"
+  IO.println "── CHECK 8: summary ───────────────────────────────────────────"
   IO.println ""
   IO.println "  ┌─────────────────────────────────────────────┬───────┐"
   IO.println s!"  │ total claims                                │ {leftPad (toString all.size) 5} │"
