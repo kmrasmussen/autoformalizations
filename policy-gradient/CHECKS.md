@@ -179,6 +179,36 @@ What reading them actually revealed, in one pass:
 The pattern in each case: the paper is *more specific* than the paraphrase, and
 generalizing a true statement usually makes it false.
 
+### A second pattern: patching a hypothesis when the SHAPE is wrong
+
+`g1_aggregate_bound` was refuted three times, and each time the repair was a
+narrower hypothesis on `astar`:
+
+1. unconstrained → refuted (`astar` could pick a *suboptimal* action)
+2. `hastar : Qstar M s (astar s) = Vstar M s` → refuted (`Q*` **ties**: it could
+   pick the side ascent abandons)
+3. `hastar : 0 < πstar (astar s) s` → refuted again, and the reason is exact:
+   **that puts `astar` IN the support, not at the TOP of it.** Since `hstar`
+   makes `πstar` optimal everywhere, `optimal_support_greedy` forces
+   `Q*(s,a) = V*(s)` for *every* `a ∈ supp πstar` — so the support is a set of
+   tied actions and membership says nothing about which has the larger `A^π`.
+   On the witness the gap was 30×, with `πstar` putting `5/6` of its mass on the
+   action `astar` did not pick.
+
+Three patches, each a narrower version of the same wrong idea. What broke the
+loop was noticing something about the *machinery* rather than the statement:
+`sum_abs_adv_le_norm` never uses `hastar` at all. It needs only that ONE action
+is picked per state — that is what makes the test vector's norm `√|S|`. So the
+goal follows from the aggregate bound at **any** selector, and the fix was to
+state it at the selector that works (`argmax_a π(a|s)·A^π(s,a)`, tight to
+`0.9999999999` over 75 000 tie-seeded MDPs) rather than to constrain `astar`
+again.
+
+> **When a hypothesis has been patched twice and still fails, the defect is
+> probably in the shape of the statement, not in the hypothesis.** Ask what the
+> supporting lemmas actually require — often less than the statement assumes,
+> and the weaker requirement points at the right form.
+
 ### The rule
 
 > **Quote the source in the goal's docstring before freezing it.** Not a summary

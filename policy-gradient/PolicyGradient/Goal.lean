@@ -289,9 +289,17 @@ theorem g9_c_positive (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    -- Assumption 2 (Sufficient exploration): `min_s μ(s) > 0`. Mei's Lemma 9
+    -- says "Let Assumption 2 hold", and Claim III invokes it by name. The
+    -- earlier single-start-state form did not refute the goal
+    -- (`Proofs.policy_unchanged_of_dinf_zero`: a zero-occupancy state has
+    -- frozen logits, so its `astar` probability stays at its positive initial
+    -- value, which an existential `c` tolerates) — but it removed Claim III's
+    -- input there, so it was not the paper's statement.
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
-      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
     (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     -- Mei's proof opens by assuming a strictly positive optimal value gap
