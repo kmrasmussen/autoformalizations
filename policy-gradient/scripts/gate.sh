@@ -27,21 +27,28 @@ git rev-parse --verify "$BRANCH" >/dev/null 2>&1 || die "no such branch: $BRANCH
 # ── classify ────────────────────────────────────────────────────────────────
 changed=$(git diff --name-only "$BASE...$BRANCH")
 [[ -n "$changed" ]] || die "branch $BRANCH changes nothing"
-touches_goal=$(grep -c 'PolicyGradient/Goal\.lean$'   <<<"$changed" || true)
+# Goal.lean AND Target.lean are both spec. A definition is vocabulary every
+# statement is phrased in: weakening `mismatchCoeff` changes what
+# `mismatch_bound` MEANS, with no sorry appearing anywhere.
+touches_spec=$(grep -cE 'PolicyGradient/(Goal|Target)\.lean$' <<<"$changed" || true)
 touches_proof=$(grep -c 'PolicyGradient/Proofs\.lean$' <<<"$changed" || true)
 
 echo "── changed ──"; sed 's/^/  /' <<<"$changed"; echo
 
-if   (( touches_goal && touches_proof )); then
+if   (( touches_spec && touches_proof )); then
   cat >&2 <<'MSG'
-✗ REJECT: this branch edits both Goal.lean and Proofs.lean.
+✗ REJECT: this branch edits both the spec (Goal.lean / Target.lean) and Proofs.lean.
 
 A change may not both alter the specification and claim to satisfy it. That is
 the failure this repo exists to prevent -- see GAPS.md. Split it: one SPEC
-change to the statement (reviewed on its own), one SOLVE change proving it.
+change (reviewed on its own), one SOLVE change proving it.
+
+Target.lean counts as spec: `Vstar`, `Qstar`, `mismatchCoeff` are the
+vocabulary every frozen statement is phrased in. Redefining one changes what
+the goals mean without any sorry appearing.
 MSG
   exit 1
-elif (( touches_goal )); then KIND=SPEC
+elif (( touches_spec )); then KIND=SPEC
 else                          KIND=SOLVE
 fi
 echo "── classified: $KIND ──"; echo
@@ -98,13 +105,25 @@ echo "── $KIND rules ──"
 
 if [[ $KIND == SOLVE ]]; then
   # Goal.lean must be byte-identical: enforced by diff, not by trust.
-  if git diff --quiet "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean; then
-    r ok "Goal.lean untouched"
+  if git diff --quiet "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean \
+                                      policy-gradient/PolicyGradient/Target.lean; then
+    r ok "spec untouched (Goal.lean, Target.lean)"
   else
-    r no "Goal.lean modified by a SOLVE change"
+    r no "spec modified by a SOLVE change"
   fi
-  [[ "$a_open" -lt "$b_open" ]] && r ok "OPEN decreased ($b_open → $a_open)" \
-                                || r no "OPEN did not decrease ($b_open → $a_open) -- nothing was closed"
+  # An agent may not edit Goal.lean, so OPEN cannot drop inside its branch.
+  # What we require instead: at least one new lemma in Proofs.lean. The typed
+  # wiring is the real check and happens at merge -- a wrong-typed lemma makes
+  # Goal.lean fail to compile there.
+  newlemmas=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Proofs.lean \
+              | grep -cE '^\+\s*(theorem|lemma) ' || true)
+  if [[ "$a_open" -lt "$b_open" ]]; then
+    r ok "OPEN decreased ($b_open → $a_open)"
+  elif (( newlemmas > 0 )); then
+    r ok "supplies $newlemmas new lemma(s) for wiring (OPEN unchanged: agents cannot wire)"
+  else
+    r no "no new lemmas and OPEN unchanged -- this branch closes nothing"
+  fi
   # The original failure mode: swapping a visible sorry for invisible hypotheses.
   [[ "$a_debt" -le "$b_debt" ]] && r ok "debt did not grow ($b_debt → $a_debt)" \
                                 || r no "debt GREW ($b_debt → $a_debt) -- a sorry was traded for hypotheses"
@@ -114,6 +133,8 @@ else
   echo "  ⚠ SPEC changes need a stated justification and human approval."
   added=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean | grep -c '^+@\[' || true)
   removed=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean | grep -c '^-@\[' || true)
+  defs=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Target.lean | grep -cE '^[+-]\s*(noncomputable )?def |^[+-]\s*structure ' || true)
+  (( defs > 0 )) && echo "  ⚠ DEFINITIONS changed in Target.lean ($defs lines) -- this silently changes what every goal MEANS. Review with care."
   echo "  ⚠ goals added: $added   goals removed: $removed"
   (( removed > 0 )) && echo "  ⚠ REMOVAL detected -- always requires explicit sign-off."
 fi
