@@ -134,6 +134,73 @@ theorem gradient_Jmu_lipschitz (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
     ← map_sub, LinearIsometryEquiv.norm_map]
   exact GJ_lipschitz M hr hγ₀ hγ₁ μ θ₁ θ₂
 
+/-! ### The `ρ → μ` change of measure
+
+`mei_theorem4` measures suboptimality at `ρ` but takes the gradient (and hence
+gets the rate) at `μ`.  Transferring costs a factor `‖1/μ‖_∞`: since
+`ρ s ≤ 1 ≤ (1/⨅ μ) · μ s`, and the pointwise suboptimality is nonnegative,
+
+    V*(ρ) - V^π(ρ)  ≤  ‖1/μ‖_∞ · (V*(μ) - V^π(μ)).
+
+This factor is *not present in the frozen statement* — see the module docstring.
+-/
+
+/-- `‖1/μ‖_∞`, the reciprocal of the smallest start probability. -/
+noncomputable def invMuSup (μ : Dist S) : ℝ := (⨅ s : S, μ s)⁻¹
+
+omit [DecidableEq S] in
+/-- Under Assumption 2 the smallest start probability is attained and positive. -/
+theorem iInf_mu_pos (μ : Dist S) (hμ : ∀ s, 0 < μ s) : 0 < ⨅ s : S, μ s := by
+  classical
+  obtain ⟨s₀, -, hmin⟩ := Finset.exists_min_image (univ : Finset S)
+    (fun s => μ s) ⟨Classical.arbitrary S, mem_univ _⟩
+  have heq : (⨅ s : S, μ s) = μ s₀ := by
+    refine le_antisymm (ciInf_le ⟨0, ?_⟩ s₀) (le_ciInf fun s => hmin s (mem_univ s))
+    rintro y ⟨s, rfl⟩
+    exact μ.nonneg _
+  rw [heq]
+  exact hμ s₀
+
+theorem invMuSup_pos (μ : Dist S) (hμ : ∀ s, 0 < μ s) : 0 < invMuSup μ :=
+  inv_pos.mpr (iInf_mu_pos μ hμ)
+
+/-- `1 ≤ ‖1/μ‖_∞ · μ s` for every `s`: the defining property of `‖1/μ‖_∞`. -/
+theorem one_le_invMuSup_mul (μ : Dist S) (hμ : ∀ s, 0 < μ s) (s : S) :
+    1 ≤ invMuSup μ * μ s := by
+  have h0 : 0 < ⨅ s : S, μ s := iInf_mu_pos μ hμ
+  have hle : (⨅ s : S, μ s) ≤ μ s := ciInf_le ⟨0, by rintro y ⟨x, rfl⟩; exact μ.nonneg _⟩ s
+  rw [invMuSup, inv_mul_eq_div, le_div_iff₀ h0, one_mul]
+  exact hle
+
+/-- **The `ρ → μ` transfer.**  Nonnegative pointwise suboptimality is inflated by
+at most `‖1/μ‖_∞` when the start measure is changed from `μ` to any `ρ`. -/
+theorem VstarDist_sub_le_invMu (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (μ ρ : Dist S) (hμ : ∀ s, 0 < μ s) :
+    VstarDist M ρ - VinfDist M π ρ
+      ≤ invMuSup μ * (VstarDist M μ - VinfDist M π μ) := by
+  classical
+  have hΔ : ∀ s, 0 ≤ Vstar M s - Vinf M π s := fun s => by
+    have := vstar_upper_proof M hr hγ₀ hγ₁ π s; linarith
+  have hiv : 0 < invMuSup μ := invMuSup_pos μ hμ
+  have hL : VstarDist M ρ - VinfDist M π ρ
+      = ∑ s, ρ s * (Vstar M s - Vinf M π s) := by
+    unfold VstarDist VinfDist
+    rw [← Finset.sum_sub_distrib]
+    exact Finset.sum_congr rfl fun s _ => by ring
+  have hR : invMuSup μ * (VstarDist M μ - VinfDist M π μ)
+      = ∑ s, (invMuSup μ * μ s) * (Vstar M s - Vinf M π s) := by
+    unfold VstarDist VinfDist
+    rw [← Finset.sum_sub_distrib, Finset.mul_sum]
+    exact Finset.sum_congr rfl fun s _ => by ring
+  rw [hL, hR]
+  refine Finset.sum_le_sum fun s _ => ?_
+  refine mul_le_mul_of_nonneg_right ?_ (hΔ s)
+  refine le_trans ?_ (one_le_invMuSup_mul μ hμ s)
+  have h1 : ρ s ≤ ∑ x, ρ x := Finset.single_le_sum (fun x _ => ρ.nonneg x) (mem_univ s)
+  rw [ρ.sum_eq_one] at h1
+  exact h1
+
 /-! ## The composition
 
 `vec_smooth_loja_rate_proof` instantiated at `f = Jmu`, `β = 8/(1-γ)³`.  Note
