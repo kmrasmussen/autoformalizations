@@ -51,6 +51,40 @@ theorem min_theta_atBot_of_counterexample (M : FiniteMDP S A)
   exact tendsto_min_theta_atBot θ s
     (fun t => sum_theta_const M F hF hr hγ₀ hγ₁ μ η θ hstep s t) hmax
 
+/-! ### Pigeonhole: some fixed action has `liminf θ^{(t)}(s,b) = -∞`
+
+`min_a θ^{(t)}(s,a) → -∞` says the minimum over a **finite** set diverges. By
+pigeonhole some fixed `b` attains the minimum infinitely often, so
+`θ^{(t)}(s,b)` is unbounded below along a subsequence. -/
+
+theorem exists_action_unbounded_below
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (s : S)
+    (hmin : Filter.Tendsto (fun t => (Finset.univ : Finset A).inf' Finset.univ_nonempty
+        (fun b => (θ t) (s, b))) Filter.atTop Filter.atBot) :
+    ∃ b : A, ∀ C : ℝ, ∀ N : ℕ, ∃ t, N ≤ t ∧ (θ t) (s, b) ≤ C := by
+  classical
+  by_contra hcon
+  push_neg at hcon
+  -- for each `b` there is a bound `C b` and time `N b` beyond which `θ(s,b) > C b`
+  choose C N hCN using hcon
+  -- take the max bound and the max time
+  set Cmax : ℝ := (Finset.univ : Finset A).sup' Finset.univ_nonempty C with hCmax
+  set Nmax : ℕ := (Finset.univ : Finset A).sup' Finset.univ_nonempty N with hNmax
+  -- beyond `Nmax`, every coordinate exceeds its own bound, hence the min exceeds `min_b C b`
+  set Cmin : ℝ := (Finset.univ : Finset A).inf' Finset.univ_nonempty C with hCmin
+  have hbelow : ∀ t, Nmax ≤ t → Cmin <
+      (Finset.univ : Finset A).inf' Finset.univ_nonempty (fun b => (θ t) (s, b)) := by
+    intro t ht
+    rw [Finset.lt_inf'_iff]
+    intro b _
+    have hNb : N b ≤ t := le_trans (Finset.le_sup' N (Finset.mem_univ b)) ht
+    have := hCN b t hNb
+    exact lt_of_le_of_lt (Finset.inf'_le C (Finset.mem_univ b)) this
+  -- but the min tends to `-∞`
+  obtain ⟨t, ht₁, ht₂⟩ := ((Filter.tendsto_atBot.mp hmin Cmin).and
+    (Filter.eventually_ge_atTop Nmax)).exists
+  exact absurd ht₁ (not_le.mpr (hbelow t ht₂))
+
 end ResidAsm
 
 end Proofs
