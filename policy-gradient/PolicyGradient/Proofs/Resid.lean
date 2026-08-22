@@ -841,6 +841,63 @@ theorem theta_increasing_of_adv_pos (M : FiniteMDP S A)
   rw [hgrad]
   nlinarith [hprod, hη₀]
 
+/-! ### The softmax ratio — AKM's rate comparison
+
+`π_θ(a|s)/π_θ(b|s) = exp(θ(s,a) - θ(s,b))`. This is the identity that converts
+statements about `θ`-coordinates into statements about probabilities, and is how
+AKM compare the *decay rate* of `π^{(t)}(a₊|s)` with that of other actions. -/
+
+theorem softmax_ratio (w : A → ℝ) (a b : A) :
+    (softmax w) a = Real.exp (w a - w b) * (softmax w) b := by
+  rw [softmax_apply, softmax_apply, Real.exp_sub]
+  have hden : (0:ℝ) < ∑ a', Real.exp (w a') := softmax_denom_pos w
+  field_simp
+
+/-- If `θ(s,a) ≥ θ(s,b)` then `π_θ(a|s) ≥ π_θ(b|s)`. -/
+theorem softmax_mono (w : A → ℝ) (a b : A) (h : w b ≤ w a) :
+    (softmax w) b ≤ (softmax w) a := by
+  rw [softmax_apply, softmax_apply]
+  have hden : (0:ℝ) < ∑ a', Real.exp (w a') := softmax_denom_pos w
+  gcongr
+
+/-! ### AKM Lemma C.6: the gradient coordinates at a state sum to zero
+
+`∑_a ∂V/∂θ(s,a) = d^{π}_μ(s) ∑_a π(a|s) A^π(s,a) = 0` by `sum_pi_advInf_self`.
+Hence `∑_a θ^{(t)}(s,a)` is **constant** along the trajectory — AKM's
+conservation law, which forces `min_a θ^{(t)}(s,a) → -∞` once
+`max_a θ^{(t)}(s,a) → ∞`. -/
+
+theorem sum_grad_coords_zero (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (θ : EuclideanSpace ℝ (S × A)) (s : S) :
+    ∑ a, (gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, a) = 0 := by
+  have hco : ∀ a, (gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, a)
+      = dinfDist M (F.toPolicy θ) μ s
+        * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a) :=
+    fun a => gradient_VinfDist_apply M F hF hr hγ₀ hγ₁ μ θ s a
+  rw [Finset.sum_congr rfl (fun a _ => hco a), ← Finset.mul_sum,
+    sum_pi_advInf_self M hr hγ₀ hγ₁ (F.toPolicy θ) s, mul_zero]
+
+/-- **AKM's conservation law.** `∑_a θ^{(t)}(s,a)` never changes. -/
+theorem sum_theta_const (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (t : ℕ) :
+    ∑ a, (θ (t + 1)) (s, a) = ∑ a, (θ t) (s, a) := by
+  rw [hstep t]
+  have hexp : ∀ a, (θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t)) (s, a)
+      = (θ t) (s, a) + η * (gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t)) (s, a) := by
+    intro a; simp [PiLp.add_apply, PiLp.smul_apply, smul_eq_mul]
+  rw [Finset.sum_congr rfl (fun a _ => hexp a), Finset.sum_add_distrib, ← Finset.mul_sum,
+    sum_grad_coords_zero M F hF hr hγ₀ hγ₁ μ (θ t) s, mul_zero, add_zero]
+
 end Resid
 
 end Proofs
