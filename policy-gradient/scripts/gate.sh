@@ -68,16 +68,24 @@ build_and_census() {  # -> "OPEN DEBT UNGROUNDED", or exits nonzero
 }
 
 echo "── baseline ($BASE) ──"
-read -r b_open b_debt b_ungr < <(build_and_census) || die "baseline build failed; see /tmp/gate-build.log"
+base_out=$(build_and_census); base_rc=$?
+[[ $base_rc -eq 0 && "$base_out" != *BUILD_FAILED* ]] \
+  || { tail -25 /tmp/gate-build.log; die "baseline build failed"; }
+read -r b_open b_debt b_ungr <<<"$base_out"
 echo "  OPEN=$b_open  debt=$b_debt  ungrounded=$b_ungr"; echo
 
 cd "$GATE" && git merge --no-edit -q "$BRANCH" 2>/dev/null || die "merge conflict with $BASE"
 
 echo "── candidate ($BRANCH) ──"
-read -r a_open a_debt a_ungr < <(build_and_census) || {
-  echo; echo "── build log (tail) ──"; tail -25 /tmp/gate-build.log
-  die "candidate build FAILED"
-}
+cand_out=$(build_and_census); cand_rc=$?
+if [[ $cand_rc -ne 0 || "$cand_out" == *BUILD_FAILED* ]]; then
+  echo "  ✗ BUILD FAILED"; echo
+  echo "── build log (tail) ──"; grep -E "^error|error:" /tmp/gate-build.log | head -12
+  echo; echo "✗ GATE FAILED ($KIND): candidate does not compile"
+  rm -rf "$GATE/policy-gradient/.lake/build/ir"
+  exit 1
+fi
+read -r a_open a_debt a_ungr <<<"$cand_out"
 echo "  OPEN=$a_open  debt=$a_debt  ungrounded=$a_ungr"; echo
 
 # ── rules ───────────────────────────────────────────────────────────────────
