@@ -326,6 +326,66 @@ theorem dinf_diff_le (M : FiniteMDP S A) (π π' : Policy S A)
       ≤ M.γ * (K / (1 - M.γ) + C) := mul_le_mul_of_nonneg_left this hγ₀
     _ = M.γ * K / (1 - M.γ) + M.γ * C := by ring
 
+/-! ### The softmax policy is Lipschitz in `θ`
+
+Each probability is a `g` with an indicator `q`, so `g_lipschitz` with `B = 1`
+gives `|π_θ'(a|s) - π_θ(a|s)| ≤ 2‖θ'-θ‖`; summing over actions gives the `ℓ¹`
+bound, and pushing through `P` gives the kernel bound `dinf_diff_le` wants. -/
+
+/-- A single softmax probability is `2`-Lipschitz in `θ`. -/
+theorem softmax_prob_lipschitz (s : S) (a : A) (θ θ' : E S A) :
+    |softmax (fun a' => θ' (s, a')) a - softmax (fun a' => θ (s, a')) a|
+      ≤ 2 * ‖θ' - θ‖ := by
+  have hq : ∀ b : A, |(if b = a then (1:ℝ) else 0)| ≤ 1 := by
+    intro b; by_cases h : b = a <;> simp [h]
+  have h := g_lipschitz (S:=S) (A:=A) s (fun b => if b = a then (1:ℝ) else 0) 1 hq θ' θ
+  have hg : ∀ t : E S A, g (S:=S) (A:=A) s (fun b => if b = a then (1:ℝ) else 0) t
+      = softmax (fun a' => t (s, a')) a := by
+    intro t
+    unfold g
+    rw [Finset.sum_congr rfl (fun b _ => by by_cases hb : b = a <;> simp [hb] :
+      ∀ b ∈ (univ : Finset A),
+        (softmax (fun a' => t (s,a'))) b * (if b = a then (1:ℝ) else 0)
+          = if b = a then (softmax (fun a' => t (s,a'))) a else 0)]
+    rw [Finset.sum_ite_eq' univ a (fun _ => (softmax (fun a' => t (s,a'))) a)]
+    simp
+  rw [hg, hg] at h
+  linarith
+
+/-- The induced transition kernel is `2|A|`-Lipschitz in `ℓ¹`. -/
+theorem step_diff_le (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ θ' : E S A) (s₀ : S) :
+    ∑ s', |step M (F.toPolicy θ') s₀ s' - step M (F.toPolicy θ) s₀ s'|
+      ≤ 2 * (Fintype.card A) * ‖θ' - θ‖ := by
+  have hbound : ∀ s', |step M (F.toPolicy θ') s₀ s' - step M (F.toPolicy θ) s₀ s'|
+      ≤ ∑ a, |(F.toPolicy θ' s₀) a - (F.toPolicy θ s₀) a| * (M.P s₀ a) s' := by
+    intro s'
+    unfold step
+    rw [← Finset.sum_sub_distrib]
+    calc |∑ a, ((F.toPolicy θ' s₀) a * (M.P s₀ a) s' - (F.toPolicy θ s₀) a * (M.P s₀ a) s')|
+        ≤ ∑ a, |(F.toPolicy θ' s₀) a * (M.P s₀ a) s' - (F.toPolicy θ s₀) a * (M.P s₀ a) s'| :=
+          Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ a, |(F.toPolicy θ' s₀) a - (F.toPolicy θ s₀) a| * (M.P s₀ a) s' := by
+          refine Finset.sum_congr rfl fun a _ => ?_
+          rw [← sub_mul, abs_mul, abs_of_nonneg ((M.P s₀ a).nonneg s')]
+  calc ∑ s', |step M (F.toPolicy θ') s₀ s' - step M (F.toPolicy θ) s₀ s'|
+      ≤ ∑ s', ∑ a, |(F.toPolicy θ' s₀) a - (F.toPolicy θ s₀) a| * (M.P s₀ a) s' :=
+        Finset.sum_le_sum fun s' _ => hbound s'
+    _ = ∑ a, ∑ s', |(F.toPolicy θ' s₀) a - (F.toPolicy θ s₀) a| * (M.P s₀ a) s' :=
+        Finset.sum_comm
+    _ = ∑ a, |(F.toPolicy θ' s₀) a - (F.toPolicy θ s₀) a| := by
+        refine Finset.sum_congr rfl fun a _ => ?_
+        rw [← Finset.mul_sum, (M.P s₀ a).sum_eq_one, mul_one]
+    _ ≤ ∑ _a : A, 2 * ‖θ' - θ‖ := by
+        refine Finset.sum_le_sum fun a _ => ?_
+        rw [hF θ' s₀ a, hF θ s₀ a]
+        exact softmax_prob_lipschitz s₀ a θ θ'
+    _ = 2 * (Fintype.card A) * ‖θ' - θ‖ := by
+        rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+        ring
+
 end G1
 
 end Proofs
