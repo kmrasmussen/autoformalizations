@@ -82,6 +82,12 @@ Beyond the frozen statement's own hypotheses:
 
 `c` and `hcbound` come from `g9_c_positive` and are already frozen-statement
 hypotheses, so that open input costs nothing extra.
+
+`mei_theorem4_of_loja'` discharges `hlt` via `hlt_of_g3`, trading it for a
+non-degeneracy condition on one state.  `mei4_rho_rate_of_g3` drops `hconst`
+entirely, at the price of stating the repaired constants — that is the
+unconditional theorem this route proves, and it needs only `hloja` and
+non-degeneracy.
 -/
 open Finset
 
@@ -440,6 +446,39 @@ theorem loja_of_g1 (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
   rw [div_le_div_iff_of_pos_right hden]
   exact hci
 
+/-! ### Discharging `hlt` from `g3_strict_suboptimality`
+
+`g3_strict_suboptimality_proof` is stated at a single start *state*.  The rate
+spine needs strictness of the `μ`-*average*.  Because `Vinf ≤ Vstar` pointwise
+(`vstar_upper_proof`) and `μ` has full support, one strictly-suboptimal state
+suffices. -/
+
+/-- Strictness of the `μ`-average from strictness at a single state. -/
+theorem VinfDist_lt_VstarDist_of_single (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (s₀ : S) (hs₀ : Vinf M π s₀ < Vstar M s₀) :
+    VinfDist M π μ < VstarDist M μ := by
+  classical
+  unfold VinfDist VstarDist
+  refine Finset.sum_lt_sum (fun s _ => ?_) ⟨s₀, mem_univ s₀, ?_⟩
+  · exact mul_le_mul_of_nonneg_left (vstar_upper_proof M hr hγ₀ hγ₁ π s) (μ.nonneg s)
+  · exact mul_lt_mul_of_pos_left hs₀ (hμ s₀)
+
+/-- **`hlt` from `g3_strict_suboptimality_proof`.**
+
+For a tabular softmax family, strictness of the `μ`-averaged suboptimality holds
+at every `θ` as soon as *some* state admits *some* strictly suboptimal policy. -/
+theorem hlt_of_g3 (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (s₀ : S) (hnondeg : ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀)
+    (θ : E S A) :
+    VinfDist M (F.toPolicy θ) μ < VstarDist M μ :=
+  VinfDist_lt_VstarDist_of_single M hr hγ₀ hγ₁ (F.toPolicy θ) μ hμ s₀
+    (g3_strict_suboptimality_proof M (fun w s a' => w (s, a')) F hF hγ₀ hγ₁ s₀ θ hnondeg)
+
 /-! ## `Goal.mei_theorem4`, as far as the ingredients reach
 
 The frozen statement is delivered with exactly three extra hypotheses beyond
@@ -526,6 +565,86 @@ theorem mei_theorem4_of_loja (M : FiniteMDP S A)
       ≤ 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) * 1 :=
         mul_le_mul_of_nonneg_left hconst hcoef
     _ = 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) := mul_one _
+
+/-! ## The strongest forms
+
+`hlt` is discharged by `hlt_of_g3`, leaving `hloja` (the one genuinely open
+input) as the only analytic hypothesis. -/
+
+set_option linter.unusedVariables false in
+/-- **`Goal.mei_theorem4` with `hlt` discharged.**
+
+The remaining hypotheses are exactly:
+* `hloja`  — `g1_lojasiewicz`'s conclusion along the trajectory (OPEN);
+* `hnondeg` — some state admits some strictly suboptimal policy (a
+  non-degeneracy condition, the input `g3_strict_suboptimality` needs);
+* `hconst` — the constant gap, which is FALSE in general (`hconst_is_false`).
+
+`c` and `hcbound` are already hypotheses of the frozen statement and are what
+`g9_c_positive` supplies. -/
+theorem mei_theorem4_of_loja' (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    (hloja : ∀ t, (⨅ s : S, (F.toPolicy (θ t) s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖)
+    (s₀ : S) (hnondeg : ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀)
+    (hconst : invMuSup μ * mismatchCoeff M πstar μ * (1 - M.γ) ^ 3 ≤ 1) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ :=
+  mei_theorem4_of_loja M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc astar hastar
+    hcbound hloja
+    (fun t => hlt_of_g3 M F hF hr hγ₀ hγ₁ μ hμ s₀ hnondeg (θ t)) hconst
+
+set_option linter.unusedVariables false in
+/-- **The unconditional composition: `hloja` and non-degeneracy only.**
+
+This is the theorem the ingredients actually prove — the frozen conclusion with
+its constants repaired (`mismatchCoeff` squared, times `‖1/μ‖_∞`), and with
+`(1-γ)³` in place of the paper's `(1-γ)⁶`.  No constant-gap hypothesis. -/
+theorem mei4_rho_rate_of_g3 (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    (hloja : ∀ t, (⨅ s : S, (F.toPolicy (θ t) s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖)
+    (s₀ : S) (hnondeg : ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ invMuSup μ * (16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 3 * T)
+            * mismatchCoeff M πstar μ ^ 2) := by
+  intro T hT
+  have hlt : ∀ t, VinfDist M (F.toPolicy (θ t)) μ < VstarDist M μ :=
+    fun t => hlt_of_g3 M F hF hr hγ₀ hγ₁ μ hμ s₀ hnondeg (θ t)
+  have hloja' : ∀ t, c / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+      * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖ :=
+    fun t => loja_of_g1 M F hγ₀ hγ₁ μ hμ πstar astar (θ t) c (hcbound t) (hlt t).le (hloja t)
+  exact mei4_rho_rate M F hF hr hγ₀ hγ₁ μ hμ ρ πstar θ hstep c hc hloja' hlt T hT
 
 end Mei4C
 
