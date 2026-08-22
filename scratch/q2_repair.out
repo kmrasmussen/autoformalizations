@@ -1,0 +1,4 @@
+Candidate A (m(t) >= m(0) always): VIOLATED in 66/400 runs
+   worst ratio min_t m(t)/m(0) = 7.525420e-02
+   worst: seed=142 S=4 A=3 m0=1.6404e-01 mmin=1.2345e-02 at t=30000
+Candidate B (inf_t m(t) > 0): min over all runs of min_t m(t) was >0; no run reached 0.
