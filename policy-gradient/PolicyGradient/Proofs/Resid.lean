@@ -377,6 +377,136 @@ theorem Vinf_step_monotone (M : FiniteMDP S A)
     exact sum_pi_next_adv_nonneg M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ s
   linarith [hpd, hnn]
 
+/-! ## AKM Lemma C.2 and the limiting sets
+
+Along the trajectory `θ`, `hlim` gives `π^{(t)} → π̄` in policy space, so by
+continuity of `advInf` (`tendsto_advInf_of_tendsto_policy`) we get
+`A^{(t)}(s,a) → A^{π̄}(s,a)`. Hence AKM's `A^{(∞)}` **is** `advInf M π̄`, and
+their sets are
+
+* `I^s_+ = {a | A^{π̄}(s,a) > 0}`, `I^s_0 = {a | A^{π̄}(s,a) = 0}`,
+  `I^s_- = {a | A^{π̄}(s,a) < 0}`.
+
+The goal `∀ s a, π̄(a|s) = 0 → A^{π̄}(s,a) ≤ 0` says exactly: **no action in
+`I^s_+` is off-support.** AKM prove the stronger `I^s_+ = ∅`. -/
+
+/-- The trajectory's advantages converge to `π̄`'s. -/
+theorem tendsto_adv_traj (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) :
+    Filter.Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) Filter.atTop
+      (nhds (advInf M πbar s a)) :=
+  tendsto_advInf_of_tendsto_policy M hr hγ₀ hγ₁ (fun t => F.toPolicy (θ t)) πbar hlim s a
+
+/-- **AKM Lemma C.2.** The value at each state converges (monotone + bounded). -/
+theorem exists_Vinf_limit (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s₀ : S) :
+    Monotone (fun t => Vinf M (F.toPolicy (θ t)) s₀) := by
+  refine monotone_nat_of_le_succ fun t => ?_
+  have h := Vinf_step_monotone M F hF hr hγ₀ hγ₁ μ η hη₀ hη (θ t) s₀
+  rw [← hstep t] at h
+  exact h
+
+/-! ## AKM Lemma C.4: the gradient vanishes, hence `π^{(t)}(a|s) → 0` off `I^s_0`
+
+`VinfDist` has an `8/(1-γ)³`-Lipschitz derivative map (`GinfDist_lipschitz`), so
+a step of size `η ≤ (1-γ)²/5` gains at least `η(1 - ηL/2)‖∇‖²`. Here
+`ηL/2 ≤ ((1-γ)²/5)(4/(1-γ)³) = 4/(5(1-γ))`, which **exceeds 1** for `γ > 1/5` —
+so the naive gain is not positive, and the value-ascent route on `VinfDist`
+with this `L` does not by itself give square-summable gradients.
+
+Instead we use the per-state monotonicity already proved: `VinfDist` is monotone
+along the trajectory (average of monotone `Vinf`) and bounded, hence convergent.
+That gives convergence of the objective but **not** `∇ → 0` without a gain
+inequality. -/
+
+/-- `VinfDist` is monotone along the trajectory. -/
+theorem VinfDist_monotone_traj (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t)) :
+    Monotone (fun t => VinfDist M (F.toPolicy (θ t)) μ) := by
+  refine monotone_nat_of_le_succ fun t => ?_
+  unfold VinfDist
+  refine Finset.sum_le_sum fun s₀ _ => ?_
+  refine mul_le_mul_of_nonneg_left ?_ (μ.nonneg s₀)
+  exact exists_Vinf_limit M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep s₀ (Nat.le_succ t)
+
+/-! ### A *quantified* per-state gain
+
+`ascent_of_step_le` discarded the gain. Keeping it gives, at each state `s`,
+
+`F_s(θ^{(t+1)}) ≥ c(1 - cL/2)‖∇F_s(θ^{(t)})‖²`  with `c = η d^{(t)}_μ(s)`,
+
+and `cL ≤ 8/5` makes `1 - cL/2 ≥ 1/5`. Since `‖∇F_s(θ)‖² = ∑_a (π(a|s)A(s,a))²`,
+this lower-bounds the per-state advantage-weighted mass. Combined with the
+performance-difference lemma and `μ(s) > 0`, the telescoped sum of these gains is
+finite, forcing `π^{(t)}(a|s) A^{(t)}(s,a) → 0` for every `s, a`. -/
+
+/-- `ascent_of_step_le` with the gain retained. -/
+theorem ascent_gain {E' : Type*} [NormedAddCommGroup E'] [InnerProductSpace ℝ E']
+    {f : E' → ℝ} {G : E' → E' →L[ℝ] ℝ} {L : ℝ} (hL : 0 ≤ L)
+    (hd : ∀ x, HasFDerivAt f (G x) x)
+    (hlip : ∀ x y, ‖G x - G y‖ ≤ L * ‖x - y‖)
+    (x v : E') (c : ℝ)
+    (hGv : G x v = ‖v‖ ^ 2) :
+    f x + c * (1 - c * L / 2) * ‖v‖ ^ 2 ≤ f (x + c • v) := by
+  have key := sharp_descent hL hd hlip x (c • v)
+  have h1 : G x (c • v) = c * ‖v‖ ^ 2 := by
+    rw [ContinuousLinearMap.map_smul, hGv]; simp [smul_eq_mul]
+  have h2 : ‖c • v‖ ^ 2 = c ^ 2 * ‖v‖ ^ 2 := by
+    rw [norm_smul, Real.norm_eq_abs, mul_pow, sq_abs]
+  rw [h1, h2] at key
+  have harith : c * ‖v‖ ^ 2 - L / 2 * (c ^ 2 * ‖v‖ ^ 2)
+      = c * (1 - c * L / 2) * ‖v‖ ^ 2 := by ring
+  linarith [key, harith.symm.le, harith.le]
+
+/-- The squared norm of the `F_s` gradient is `∑_a (π(a|s) A(s,a))²`. -/
+theorem norm_sq_gradient_g (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A) :
+    ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a) ^ 2
+      ≤ ‖gradient (g (S := S) (A := A) s
+            (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2 := by
+  set q : A → ℝ := fun a' => advInf M (F.toPolicy θ) s a' with hq
+  set w : EuclideanSpace ℝ (S × A) := gradient (g (S := S) (A := A) s q) θ with hw
+  have hcoord : w (s, a) = (F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a := by
+    have hinner : (inner ℝ w (EuclideanSpace.single (s, a) (1:ℝ)) : ℝ)
+        = fderiv ℝ (g (S := S) (A := A) s q) θ (EuclideanSpace.single (s, a) (1:ℝ)) :=
+      inner_gradient_left ..
+    rw [(hasFDeriv_g (S := S) (A := A) s q θ).fderiv,
+      dg_adv_single M F hF hr hγ₀ hγ₁ θ s a] at hinner
+    rw [← hinner, EuclideanSpace.inner_single_right]
+    simp
+  rw [← hcoord]
+  have := EuclideanSpace.norm_eq w
+  have hle : w (s, a) ^ 2 ≤ ∑ p : S × A, w p ^ 2 := by
+    refine Finset.single_le_sum (f := fun p : S × A => w p ^ 2)
+      (fun p _ => sq_nonneg _) (Finset.mem_univ (s, a))
+  have hnorm : ‖w‖ ^ 2 = ∑ p : S × A, w p ^ 2 := by
+    rw [EuclideanSpace.norm_eq, Real.sq_sqrt
+      (Finset.sum_nonneg fun p _ => sq_nonneg _)]
+    exact Finset.sum_congr rfl fun p _ => by rw [Real.norm_eq_abs, sq_abs]
+  rw [hnorm]
+  exact hle
+
 end Resid
 
 end Proofs
