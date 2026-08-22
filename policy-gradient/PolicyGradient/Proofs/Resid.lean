@@ -1252,6 +1252,39 @@ theorem not_theta_atBot_of_adv_pos (M : FiniteMDP S A)
   intro t ht
   exact lt_of_lt_of_le (by linarith [hpos] : (0:ℝ) < advInf M πbar s b / 2) (hT t ht)
 
+/-! ### `θ^{(t)}(s,b) → -∞` forces `b` off-support
+
+If `θ^{(t)}(s,b) → -∞` while some coordinate is bounded below, the softmax ratio
+`π^{(t)}(b|s)/π^{(t)}(a|s) = exp(θ_b - θ_a) → 0`, so `π^{(t)}(b|s) → 0` and
+`π̄(b|s) = 0`. -/
+
+theorem pi_tendsto_zero_of_theta_atBot (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (s : S) (b : A) (c : ℝ) (a0 : A) (T : ℕ)
+    (hlow : ∀ t, T ≤ t → c ≤ (θ t) (s, a0))
+    (hbot : Filter.Tendsto (fun t => (θ t) (s, b)) Filter.atTop Filter.atBot) :
+    Filter.Tendsto (fun t => (F.toPolicy (θ t) s) b) Filter.atTop (nhds 0) := by
+  -- `π(b|s) ≤ exp(θ_b - c)` because the denominator is at least `exp(θ_{a0}) ≥ exp c`
+  have hbound : ∀ t, T ≤ t → (F.toPolicy (θ t) s) b ≤ Real.exp ((θ t) (s, b) - c) := by
+    intro t ht
+    rw [hF, softmax_apply]
+    have hden : Real.exp c ≤ ∑ a', Real.exp ((θ t) (s, a')) := by
+      calc Real.exp c ≤ Real.exp ((θ t) (s, a0)) := Real.exp_le_exp.mpr (hlow t ht)
+        _ ≤ ∑ a', Real.exp ((θ t) (s, a')) :=
+            Finset.single_le_sum (f := fun a' : A => Real.exp ((θ t) (s, a')))
+              (fun a' _ => le_of_lt (Real.exp_pos _)) (Finset.mem_univ a0)
+    rw [Real.exp_sub]
+    exact div_le_div_of_nonneg_left (le_of_lt (Real.exp_pos _)) (Real.exp_pos c) hden
+  -- `exp(θ_b - c) → 0`
+  have hexp : Filter.Tendsto (fun t => Real.exp ((θ t) (s, b) - c)) Filter.atTop (nhds 0) := by
+    refine Real.tendsto_exp_atBot.comp ?_
+    exact Filter.tendsto_atBot_add_const_right _ (-c) hbot |>.congr (fun t => by ring)
+  refine squeeze_zero' ?_ ?_ hexp
+  · exact Filter.Eventually.of_forall fun t => (F.toPolicy (θ t) s).nonneg b
+  · exact Filter.eventually_atTop.mpr ⟨T, hbound⟩
+
 end Resid
 
 end Proofs
