@@ -1162,6 +1162,69 @@ theorem stable_forward (M : FiniteMDP S A)
       · have : T = n + 1 := le_antisymm ht hge
         rw [this] at hT; exact hT
 
+/-! ### The support of `π̄` is where the mass goes
+
+`∑_a π̄(a|s) = 1`, so `π̄` has at least one action with positive probability, and
+`∑_{a : π̄(a|s) > 0} π^{(t)}(a|s) → 1`. Every action with `A^{π̄}(s,a) ≠ 0` is
+off-support (`tendsto_pi_zero_of_adv_pos` for the positive case), so the mass
+concentrates on `I^s_0 ∩ supp π̄`. -/
+
+/-- `π̄` has an action of positive probability at every state. -/
+theorem exists_support (πbar : Policy S A) (s : S) : ∃ a, 0 < (πbar s) a := by
+  by_contra hcon
+  push_neg at hcon
+  have hzero : ∀ a, (πbar s) a = 0 := fun a =>
+    le_antisymm (hcon a) ((πbar s).nonneg a)
+  have := (πbar s).sum_eq_one
+  rw [Finset.sum_congr rfl (fun a _ => hzero a)] at this
+  simp at this
+
+/-- **Every on-support action lies in `I^s_0`.** Restated for the endgame:
+at the limit, on-support advantages vanish, so if the goal fails at `(s, ap)`
+then `ap` is off-support with `A^{π̄}(s,ap) > 0` — AKM's `I^s_+ ≠ ∅`. -/
+theorem support_in_I0 (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) :
+    ∃ a0, 0 < (πbar s) a0 ∧ advInf M πbar s a0 = 0 := by
+  obtain ⟨a0, ha0⟩ := exists_support πbar s
+  exact ⟨a0, ha0, advInf_eq_zero_on_support M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+    πbar hlim s a0 ha0⟩
+
+/-! ### The endgame comparison
+
+Suppose the goal fails at `(s, ap)`: `π̄(ap|s) = 0` but `A^{π̄}(s,ap) > 0`. Take
+`a0` on-support (so `A^{π̄}(s,a0) = 0` and `π̄(a0|s) > 0`). Then eventually
+
+* `A^{(t)}(s,ap) ≥ A^{π̄}(s,ap)/2 > 0` (continuity), so `θ^{(t)}(s,ap)` increases
+  (`theta_increasing_of_adv_pos`) and is bounded below;
+* `π^{(t)}(a0|s) → π̄(a0|s) > 0`, while `π^{(t)}(ap|s) → 0`.
+
+So `π^{(t)}(ap|s) < π^{(t)}(a0|s)` eventually, i.e. `θ^{(t)}(s,ap) < θ^{(t)}(s,a0)`
+(`pi_le_iff_theta_le`), and `θ^{(t)}(s,a0)` is therefore **bounded below** too. -/
+
+theorem theta_a0_bounded_below (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (s : S) (ap a0 : A) (c : ℝ) (T : ℕ)
+    (hlow : ∀ t, T ≤ t → c ≤ (θ t) (s, ap))
+    (hord : ∀ t, T ≤ t → (F.toPolicy (θ t) s) ap ≤ (F.toPolicy (θ t) s) a0) :
+    ∀ t, T ≤ t → c ≤ (θ t) (s, a0) := by
+  intro t ht
+  have h1 : (θ t) (s, ap) ≤ (θ t) (s, a0) :=
+    (pi_le_iff_theta_le F hF (θ t) s ap a0).mp (hord t ht)
+  exact le_trans (hlow t ht) h1
+
 end Resid
 
 end Proofs
