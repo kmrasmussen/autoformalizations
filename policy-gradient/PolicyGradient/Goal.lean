@@ -883,7 +883,8 @@ theorem vsoftDisc_exists (M : FiniteMDP S A) (τ : ℝ) (hτ : 0 < τ)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) :
     ∃ V : Policy S A → S → ℝ,
       ∀ π s, V π s = (∑ a, (π s) a * M.r s a) + τ * entropy (π s)
-        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * V π s' := sorry
+        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * V π s' :=
+  Proofs.vsoftDisc_exists_proof M τ hτ hr hγ₀ hγ₁
 
 /-- **Entropy is bounded** — needed before `⨆ π, Ṽ` means anything.
 
@@ -891,6 +892,7 @@ theorem vsoftDisc_exists (M : FiniteMDP S A) (τ : ℝ) (hτ : 0 < τ)
 statement about it is vacuous. Proved as `Proofs.entropy_le_card` during the
 refutation; stated here so the dependency is explicit. -/
 @[infra "Entropy-bounded"]
-theorem entropy_bdd (d : Dist A) : entropy d ≤ (Fintype.card A : ℝ) - 1 := sorry
+theorem entropy_bdd (d : Dist A) : entropy d ≤ (Fintype.card A : ℝ) - 1 :=
+  Proofs.entropy_bdd_proof d
 
 end PolicyGradient
