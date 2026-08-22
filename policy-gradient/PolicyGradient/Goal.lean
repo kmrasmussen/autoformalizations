@@ -438,9 +438,22 @@ function with `hastar` only requiring `Q*`-optimality, which admits a different
 tied action than `π*` picks — and that is exactly the defect that refuted `g9`
 twice. Tying `astar` to `πstar` would match the paper.
 
-The paper also uses TWO measures (`ρ` for suboptimality, `μ` for the gradient)
-and the reciprocal of `‖d^{π*}_ρ / d^{π_θ}_μ‖_∞` — occupancy over occupancy, not
-occupancy over `μ`. The statement below collapses both.
+**Two discrepancies remain in the statement below, deliberately not yet fixed.**
+
+1. The paper's coefficient is `‖d^{π*}_ρ / d^{π_θ}_μ‖_∞⁻¹` — occupancy over
+   **occupancy**. The statement below uses `mismatchCoeff M πstar μ`, which is
+   occupancy over `μ`. Since `μ ≤ d^{π_θ}_μ` pointwise (the `t = 0` term alone
+   contributes `μ s`), occupancy-over-`μ` is the LARGER coefficient, so dividing
+   by it makes the left side SMALLER — the statement below is therefore weaker
+   than Mei's, not stronger. That is safe but not faithful.
+2. The paper measures suboptimality at `ρ` and takes the gradient at `μ`. The
+   statement below collapses both to `μ`, which is the case `ρ = μ`.
+
+Both are recorded rather than repaired because agents are mid-proof against this
+form. `mei_theorem4` above has already been restated with the two measures
+separated, so the pattern is established; this should follow once the current
+round lands. Fixing (1) requires a `mismatchCoeffOcc` in `Target.lean` — the
+ratio against `d^{π_θ}_μ` rather than `μ`.
 
 Corrected: tabular `hF`, `mismatchCoeff` in place of a free real, values against
 a start distribution, and `hr` restored.
