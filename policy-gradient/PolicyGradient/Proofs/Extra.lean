@@ -5,6 +5,7 @@ import PolicyGradient.Target
 import PolicyGradient.Proofs.AKM51
 import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Bridge
+import PolicyGradient.Proofs.Conv
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.G1
