@@ -2170,5 +2170,304 @@ theorem g7a_gradient_bound_proof (M : FiniteMDP S A)
 end G7a
 
 
+/-! ## G9 — **the goal is FALSE as stated**
+
+`Goal.g9_c_positive` asserts
+
+    ∃ c > 0, ∀ t, c ≤ ⨅ s, π_{θ t}(astar s | s)
+
+with `astar : S → A` an **unconstrained** parameter. Nothing in the statement
+says `astar` is an optimal policy — it is an arbitrary map from states to
+actions, universally quantified, so a caller may instantiate it with the
+*worst* action at each state.
+
+Softmax policy gradient converges to the optimal deterministic policy, which
+means the probability of every **suboptimal** action tends to `0`. Instantiating
+`astar` at such an action therefore drives the infimum to `0`, and no positive
+`c` can be a uniform lower bound.
+
+The section below exhibits that instance and refutes the goal outright:
+one state, two actions, `r = (1, -1)`, `γ = 1/2`, tabular softmax logits,
+`θ 0 = 0`, `astar ≡ a₁` (the reward `-1` action).
+
+Mei et al.'s Lemma 9 is *about the optimal action* `a*(s) ∈ argmax Q*(s,·)`.
+The Lean statement dropped that side condition, and the result is a theorem that
+is not merely hard but false. See the report accompanying this branch.
+
+**This does not discharge G9** — it shows G9 cannot be discharged, and must be
+restated with `astar` pinned to an optimal action before any proof is possible.
+-/
+
+section G9Counterexample
+
+
+/-! # G9 is FALSE as stated — the counterexample -/
+
+noncomputable abbrev E9 := EuclideanSpace ℝ (Fin 1 × Fin 2)
+noncomputable abbrev i0 : Fin 1 × Fin 2 := (0, 0)
+noncomputable abbrev i1 : Fin 1 × Fin 2 := (0, 1)
+
+noncomputable def tlog (θ : E9) (s : Fin 1) (a : Fin 2) : ℝ := θ (s, a)
+
+/-! ## The MDP: one state, two actions, r = (1, -1), γ = 1/2 -/
+
+noncomputable def cP (_s : Fin 1) (_a : Fin 2) : Dist (Fin 1) where
+  prob _ := 1
+  nonneg _ := zero_le_one
+  sum_eq_one := by simp
+
+noncomputable def cR : Fin 1 → Fin 2 → ℝ := fun _ a => if a = 0 then 1 else -1
+
+noncomputable def cMDP : FiniteMDP (Fin 1) (Fin 2) where
+  P := cP
+  r := cR
+  γ := 1/2
+
+theorem cMDP_hr : ∀ s a, |cMDP.r s a| ≤ 1 := by
+  intro s a; fin_cases a <;> norm_num [cMDP, cR]
+
+theorem cMDP_hγ₀ : (0:ℝ) ≤ cMDP.γ := by norm_num [cMDP]
+theorem cMDP_hγ₁ : cMDP.γ < 1 := by norm_num [cMDP]
+
+/-! ## Vinf in closed form -/
+
+variable {A : Type*} [Fintype A] [DecidableEq A]
+
+omit [DecidableEq A] in
+/-- In a one-state MDP the Bellman equation solves explicitly. -/
+theorem Vinf_one_state (M : FiniteMDP (Fin 1) A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy (Fin 1) A) :
+    Vinf M π 0 = (∑ a, (π 0) a * M.r 0 a) / (1 - M.γ) := by
+  have hb := Vinf_bellman M π 1 zero_le_one hr hγ₀ hγ₁ 0
+  have hstep : ∑ s', step M π 0 s' * Vinf M π s' = Vinf M π 0 := by
+    rw [Fin.sum_univ_one]
+    have h1 : step M π (0 : Fin 1) 0 = 1 := by
+      unfold step
+      have : ∀ a, (M.P (0:Fin 1) a) (0:Fin 1) = 1 := by
+        intro a
+        have := (M.P (0:Fin 1) a).sum_eq_one
+        rwa [Fin.sum_univ_one] at this
+      simp [this, (π 0).sum_eq_one]
+    rw [h1, one_mul]
+  rw [hstep] at hb
+  have hne : (1 : ℝ) - M.γ ≠ 0 := by linarith
+  field_simp
+  linarith [hb]
+
+/-! ## The 1-D profile -/
+
+noncomputable def psi (x : ℝ) : ℝ := 2 * (Real.exp x - 1) / (Real.exp x + 1)
+
+theorem psi_deriv (x : ℝ) :
+    HasDerivAt psi (4 * Real.exp x / (Real.exp x + 1)^2) x := by
+  have hne : Real.exp x + 1 ≠ 0 := by positivity
+  have hnum : HasDerivAt (fun y => 2 * (Real.exp y - 1)) (2 * Real.exp x) x := by
+    simpa using ((Real.hasDerivAt_exp x).sub_const 1).const_mul (2:ℝ)
+  have hden : HasDerivAt (fun y => Real.exp y + 1) (Real.exp x) x :=
+    (Real.hasDerivAt_exp x).add_const 1
+  have h := hnum.div hden hne
+  have heq : (2 * Real.exp x * (Real.exp x + 1) - 2 * (Real.exp x - 1) * Real.exp x)
+      / (Real.exp x + 1) ^ 2 = 4 * Real.exp x / (Real.exp x + 1)^2 := by
+    rw [div_eq_div_iff (by positivity) (by positivity)]; ring
+  rw [← heq]
+  exact h
+
+/-! ## The gradient in `EuclideanSpace` -/
+
+noncomputable def dvec : E9 := EuclideanSpace.single i0 (1:ℝ) - EuclideanSpace.single i1 (1:ℝ)
+
+theorem inner_dvec (w : E9) : (@inner ℝ _ _ dvec w : ℝ) = w i0 - w i1 := by
+  simp [dvec, inner_sub_left, EuclideanSpace.inner_single_left]
+
+noncomputable def dl : E9 →L[ℝ] ℝ :=
+  EuclideanSpace.proj (𝕜 := ℝ) i0 - EuclideanSpace.proj (𝕜 := ℝ) i1
+
+theorem toDual_dvec : (InnerProductSpace.toDual ℝ E9) dvec = dl := by
+  ext w; simp [dl, inner_dvec]
+
+theorem hasGradientAt_comp (θ : E9) :
+    HasGradientAt (fun w : E9 => psi (w i0 - w i1))
+      ((4 * Real.exp (θ i0 - θ i1) / (Real.exp (θ i0 - θ i1) + 1)^2) • dvec) θ := by
+  rw [hasGradientAt_iff_hasFDerivAt, map_smul, toDual_dvec]
+  have hl : HasFDerivAt (fun w : E9 => w i0 - w i1) dl θ := dl.hasFDerivAt
+  exact (psi_deriv (θ i0 - θ i1)).comp_hasFDerivAt θ hl
+
+/-! ## Softmax probabilities in terms of `d` -/
+
+theorem softmax_a1 (θ : E9) : (softmax (tlog θ 0)) 1 = 1 / (Real.exp (θ i0 - θ i1) + 1) := by
+  rw [softmax_apply, Fin.sum_univ_two, Real.exp_sub]
+  show Real.exp (tlog θ 0 1) / (Real.exp (tlog θ 0 0) + Real.exp (tlog θ 0 1)) = _
+  unfold tlog
+  rw [div_eq_div_iff (by positivity) (by positivity)]
+  field_simp
+
+theorem softmax_a0 (θ : E9) :
+    (softmax (tlog θ 0)) 0 = Real.exp (θ i0 - θ i1) / (Real.exp (θ i0 - θ i1) + 1) := by
+  rw [softmax_apply, Fin.sum_univ_two, Real.exp_sub]
+  show Real.exp (tlog θ 0 0) / (Real.exp (tlog θ 0 0) + Real.exp (tlog θ 0 1)) = _
+  unfold tlog
+  rw [div_eq_div_iff (by positivity) (by positivity)]
+  field_simp
+
+/-! ## The softmax policy family `Fc` -/
+
+noncomputable def Fc : VecPolicy (Fin 1) (Fin 2) E9 where
+  toPolicy := fun θ s => softmax (tlog θ s)
+  dπ := fun θ s a => fderiv ℝ (fun t => (softmax (tlog t s)) a) θ
+  hasFDeriv := fun θ s a => by
+    have hd : Differentiable ℝ (fun t : E9 => (softmax (tlog t s)) a) :=
+      softmax_diff (fun t => tlog t s)
+        (fun a' t => (EuclideanSpace.proj (𝕜 := ℝ) (s, a')).differentiableAt) a
+    exact (hd θ).hasFDerivAt
+
+theorem Fc_hF : ∀ θ s a, (Fc.toPolicy θ s) a = softmax (tlog θ s) a := fun _ _ _ => rfl
+
+/-- **The objective equals `psi` of the logit gap.** -/
+theorem Vinf_eq_psi (θ : E9) :
+    Vinf cMDP (Fc.toPolicy θ) 0 = psi (θ i0 - θ i1) := by
+  rw [Vinf_one_state cMDP cMDP_hr cMDP_hγ₀ cMDP_hγ₁, Fin.sum_univ_two]
+  show ((Fc.toPolicy θ 0) 0 * cMDP.r 0 0 + (Fc.toPolicy θ 0) 1 * cMDP.r 0 1) / (1 - cMDP.γ) = _
+  rw [Fc_hF, Fc_hF, softmax_a0, softmax_a1]
+  show _ / (1 - (1/2 : ℝ)) = _
+  have r0 : cMDP.r 0 0 = 1 := by norm_num [cMDP, cR]
+  have r1 : cMDP.r 0 1 = -1 := by norm_num [cMDP, cR]
+  rw [r0, r1]
+  unfold psi
+  have hp : (0:ℝ) < Real.exp (θ i0 - θ i1) + 1 := by positivity
+  field_simp
+  ring
+
+/-! ## The gradient of the objective -/
+
+noncomputable def gc (θ : E9) : ℝ :=
+  4 * Real.exp (θ i0 - θ i1) / (Real.exp (θ i0 - θ i1) + 1)^2
+
+theorem gc_pos (θ : E9) : 0 < gc θ := by unfold gc; positivity
+
+theorem gradient_Vinf (θ : E9) :
+    gradient (fun w => Vinf cMDP (Fc.toPolicy w) 0) θ = gc θ • dvec := by
+  have hfun : (fun w : E9 => Vinf cMDP (Fc.toPolicy w) 0)
+      = fun w : E9 => psi (w i0 - w i1) := funext Vinf_eq_psi
+  rw [hfun]
+  exact (hasGradientAt_comp θ).gradient
+
+/-! ## The trajectory -/
+
+theorem dvec_i0 : (dvec : E9) i0 = 1 := by simp [dvec]
+theorem dvec_i1 : (dvec : E9) i1 = -1 := by simp [dvec]
+
+/-- The logit gap after one ascent step: `d ↦ d + 2η·gc`. -/
+theorem gap_step (θ : E9) (η : ℝ) :
+    (θ + η • gradient (fun w => Vinf cMDP (Fc.toPolicy w) 0) θ) i0
+      - (θ + η • gradient (fun w => Vinf cMDP (Fc.toPolicy w) 0) θ) i1
+      = (θ i0 - θ i1) + 2 * η * gc θ := by
+  rw [gradient_Vinf]
+  simp [PiLp.add_apply, PiLp.smul_apply, dvec_i0, dvec_i1, smul_eq_mul]
+  ring
+
+/-! ## The refutation -/
+
+/-- The stepsize the goal prescribes, for `γ = 1/2`. -/
+theorem eta_val : ((1 - cMDP.γ) ^ 3 / 8 : ℝ) = 1 / 64 := by norm_num [cMDP]
+
+/-- The infimum over the one-element state type. -/
+theorem iInf_fin1 (f : Fin 1 → ℝ) : (⨅ s : Fin 1, f s) = f 0 := by
+  simp [ciInf_unique]
+
+/-- **G9 is FALSE.**
+
+Take the one-state two-action MDP `cMDP` (`r = (1,-1)`, `γ = 1/2`), the tabular
+softmax family `Fc`, `θ 0 = 0` and — crucially — `astar = fun _ => 1`, the
+*suboptimal* action. `astar` is an entirely unconstrained parameter of the goal:
+nothing in the statement says it is an optimal policy.
+
+Gradient ascent then drives `π_t(a1) → 0` (the logit gap grows without bound),
+so no `c > 0` bounds `⨅ s, π_t(astar s | s)` from below for every `t`. -/
+theorem g9_is_false :
+    ∃ (M : FiniteMDP (Fin 1) (Fin 2))
+      (logits : E9 → Fin 1 → Fin 2 → ℝ)
+      (F : VecPolicy (Fin 1) (Fin 2) E9)
+      (_hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+      (_hr : ∀ s a, |M.r s a| ≤ 1) (_hγ₀ : 0 ≤ M.γ) (_hγ₁ : M.γ < 1)
+      (μ : Fin 1) (θ : ℕ → E9)
+      (_hstep : ∀ t, θ (t + 1)
+        = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
+      (astar : Fin 1 → Fin 2),
+      ¬ (∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : Fin 1, (F.toPolicy (θ t) s) (astar s)) := by
+  classical
+  -- the trajectory
+  set Θ : ℕ → E9 := fun t => Nat.rec (0 : E9)
+    (fun _ prev => prev + ((1 - cMDP.γ) ^ 3 / 8) •
+      gradient (fun w => Vinf cMDP (Fc.toPolicy w) 0) prev) t with hΘ
+  have hstep : ∀ t, Θ (t + 1)
+      = Θ t + ((1 - cMDP.γ) ^ 3 / 8) • gradient (fun w => Vinf cMDP (Fc.toPolicy w) 0) (Θ t) :=
+    fun _ => rfl
+  refine ⟨cMDP, tlog, Fc, Fc_hF, cMDP_hr, cMDP_hγ₀, cMDP_hγ₁, 0, Θ, hstep, fun _ => 1, ?_⟩
+  rintro ⟨c, hc, hbd⟩
+  -- the logit gap
+  set d : ℕ → ℝ := fun t => Θ t i0 - Θ t i1 with hd
+  have hd0 : d 0 = 0 := by simp [hd, hΘ]
+  -- the bound, transported to `d`
+  have hbound : ∀ t, c ≤ 1 / (Real.exp (d t) + 1) := by
+    intro t
+    have h := hbd t
+    rw [iInf_fin1] at h
+    rw [Fc_hF, softmax_a1] at h
+    exact h
+  -- the exact one-step recursion for the gap
+  have hrec : ∀ t, d (t + 1) = d t + (1/32 : ℝ) * gc (Θ t) := by
+    intro t
+    have hg : d (t + 1) = d t + 2 * ((1 - cMDP.γ) ^ 3 / 8) * gc (Θ t) := by
+      simp only [hd]; rw [hstep t]; exact gap_step (Θ t) _
+    rw [hg, eta_val]; ring
+  -- the gap is nondecreasing, hence `≥ 0` throughout
+  have hmono : ∀ t, d t ≤ d (t + 1) := by
+    intro t
+    rw [hrec t]
+    nlinarith [gc_pos (Θ t)]
+  have hnn : ∀ t, 0 ≤ d t := by
+    intro t; induction t with
+    | zero => rw [hd0]
+    | succ n ih => exact ih.trans (hmono n)
+  -- under the standing bound, each step advances by at least `4ηc = c/16`
+  have hgrow : ∀ t, d t + (1/16 : ℝ) * c ≤ d (t + 1) := by
+    intro t
+    rw [hrec t]
+    have he : (1:ℝ) ≤ Real.exp (d t) := Real.one_le_exp (hnn t)
+    have hp : (0:ℝ) < Real.exp (d t) + 1 := by positivity
+    -- `gc = 4·e^d/(e^d+1)²`, and `1/(e^d+1) ≥ c`, `e^d/(e^d+1) ≥ 1/2`
+    have hc1 : c * (Real.exp (d t) + 1) ≤ 1 := by
+      have := hbound t; rw [le_div_iff₀ hp] at this; linarith
+    have hgc : 2 * c ≤ gc (Θ t) := by
+      unfold gc
+      rw [le_div_iff₀ (by positivity)]
+      have hdt : Θ t i0 - Θ t i1 = d t := rfl
+      rw [hdt]
+      nlinarith [hc1, he, hp]
+    nlinarith [hgc]
+  -- linear growth
+  have hlin : ∀ t, ((1/16 : ℝ) * c) * t ≤ d t := by
+    intro t; induction t with
+    | zero => simp [hd0]
+    | succ n ih => have := hgrow n; push_cast; nlinarith [ih, this]
+  -- but the standing bound caps `d` by `log (1/c)`
+  have hcap : ∀ t, d t ≤ Real.log (1/c) := by
+    intro t
+    have h := hbound t
+    have hp : (0:ℝ) < Real.exp (d t) + 1 := by positivity
+    rw [le_div_iff₀ hp] at h
+    have hexp : Real.exp (d t) ≤ 1/c := by rw [le_div_iff₀ hc]; nlinarith [h]
+    calc d t = Real.log (Real.exp (d t)) := (Real.log_exp _).symm
+      _ ≤ Real.log (1/c) := Real.log_le_log (Real.exp_pos _) hexp
+  obtain ⟨t, ht⟩ := exists_nat_gt (Real.log (1/c) / ((1/16 : ℝ) * c))
+  have hpos : (0:ℝ) < (1/16 : ℝ) * c := by positivity
+  rw [div_lt_iff₀ hpos] at ht
+  nlinarith [hlin t, hcap t]
+
+
+
+end G9Counterexample
+
 end Proofs
 end PolicyGradient
