@@ -4,22 +4,107 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 import PolicyGradient.Proofs.G1Sel
 
 /-!
-# G1Cpl — closing `g1_aggregate_bound` by a coupled use of `mismatchCoeff`
+# G1Cpl — `g1_aggregate_bound` at the argmax selector
 
-Work file. The frozen goal (selector form) is
+The frozen goal (selector form, `@[infra "G1-aggregate"]`) is
 
 ```
 c · (V*_μ - V^π_μ)  ≤  mism · ∑_s |d^π_μ(s) · m(s)|,
-    c = ⨅_s π(a*(s)|s),   m(s) = π(b s|s)·A^π(s, b s).
+    c = ⨅_s π(a*(s)|s),   m(s) = π(b s|s)·A^π(s, b s),   mism = ‖d^{πstar}_μ/μ‖_∞
 ```
 
-`G1Sel` removes the absolute value (`sel_rhs_eq`, since `m ≥ 0`).  This file
-routes the left-hand side through the **dual** performance-difference identity
-`VstarDist_sub_VinfDist_dual`, which already expands the value gap along
-`d^π_μ` — the *same* occupancy the right-hand side carries — so that no change
-of measure is needed on that half at all.
--/
+with `b` the `π·A^π`-argmax (`hb`) and `a* = astar` an action in `supp πstar`
+(`hastar : 0 < πstar(astar s|s)`).
 
+## What is proved here
+
+`g1_aggregate_bound_at_argmax` proves **the frozen conclusion verbatim** under
+one extra hypothesis on `astar`:
+
+```
+hmax : ∀ s a, 0 < πstar(a|s) → A^π(s,a) ≤ A^π(s, astar s)
+```
+
+i.e. `astar s ∈ argmax { A^π(s,a) : a ∈ supp πstar(·|s) }`.  Such an `astar`
+always exists (`exists_argmax_selector`) and automatically satisfies the frozen
+`hastar`, so `exists_astar_g1_aggregate_bound` gives the frozen conclusion with
+`astar` quantified **existentially**.
+
+The proof is per-state, and the **order of the two steps is the whole content**:
+
+1. collapse `X(s) := ∑_a πstar(a|s)·A^π(s,a) ≤ A^π(s, astar s)` and then
+   `c·A^π(s, astar s) ≤ π(astar s|s)·A^π(s, astar s) ≤ m(s)` — *first*;
+2. only then apply `d^{πstar}_μ(s) ≤ mism·μ(s) ≤ mism·d^π_μ(s)`, on a sum all of
+   whose factors are now nonnegative (`sel_nonneg`).
+
+Every earlier refutation in this repo (`g1_aggregate_bound_general_false`,
+`g1c_aggregate_bound_general_false`, `advantage_cross_state_general_false`)
+applied the change of measure while still carrying `X`, which is where the
+`Q*`-tie slack escapes.
+
+## The remaining gap: `astar` is universally quantified
+
+The frozen statement gives `astar` only `hastar : 0 < πstar(astar s|s)` — *in*
+the support, not at the top of it.  Since the left side grows in
+`c = ⨅_s π(astar s|s)`, the hardest instance is
+`c_max = ⨅_s max_{a ∈ supp πstar(·|s)} π(a|s)`, and `c_max − c_argmax` reaches
+`1.0`.  The per-state collapse (step 1) genuinely fails there: with
+`π(·|s) = (0.9999, 0.0001, ε)`, `A^π(s,·) = (−0.0002, 3.7372, 13.2021)`,
+`supp πstar = {0, 2}` and `astar s = 0`, step 1 reads `12.587 ≤ 0.00024`.
+Softmax positivity does not repair it — `ε > 0` only makes `m(s) ≥ ε·13.2`,
+still arbitrarily small against `c ≈ 1`.
+
+## Why the gap is structural: `mismatchCoeff` is at the wrong policy
+
+Every route that repairs the arbitrary-`astar` case wants
+`mismatchCoeff M (detPolicy astar) μ`, but the goal supplies
+`mismatchCoeff M πstar μ`, and those are different occupancies.  Three routes
+were worked and each dies on exactly that:
+
+* **(A) via `d^{πstar}` (the Dirac / `VstarDist_sub_VinfDist_eq` identity).**
+  Needs `c·X(s) ≤ m(s)` per state, which is the failure above.  Its aggregate
+  weakening `L ≤ mism · ∑_s d^π_μ(s)·(A^π(s, astar s))₊` is **refuted**: worst
+  ratio `1.0069` over 300 000 sampled MDPs (see the sweep caveat below).  The
+  `d^{πstar}`-weighted variant `c·L ≤ mism·∑_s d^{πstar}_μ(s)·m(s)` is refuted
+  too, at `1.0376`.
+* **(B) via `d^{astar}` (`sub_eq_pdAstar`, `V*_μ − V^π_μ =
+  ∑_s d^{astar}_μ(s)·A^π(s, astar s)`).**  Termwise exact, but the change of
+  measure it then needs is at `detPolicy astar`, not at `πstar`.  A
+  deterministic selection from `supp πstar` can blow the coefficient up
+  (observed `+1.26e6`), and no selection rule keeps it small in general.
+* **(C) dual, via `VstarDist_sub_VinfDist_dual` (`= ∑_s d^π_μ(s)·dualGap(s)`),
+  which puts *both* sides on `d^π_μ` and needs no change of measure at all.**
+  Reduces to `c·dualGap(s) ≤ mism·m(s)` per state
+  (`g1_aggregate_of_pointwise_dual`, proved below).  With
+  `δ(s) := V*(s) − V^π(s)` and `Δ(s,a) := γ∑_{s'}P(s'|s,a)·δ(s')` one has
+  `dualGap(s) = δ(s) − ∑_a π(a|s)Δ(s,a)` and `A^π(s, astar s) = δ(s) −
+  Δ(s, astar s)` (using `Q*(s, astar s) = V*(s)`), so the deficit is
+  `Δ(s, astar s) − ∑_a π(a|s)Δ(s,a)`.  Flow conservation controls the *second*
+  term under `d^π` — `∑_s d^π_μ(s)∑_a π(a|s)Δ(s,a) = ∑_s d^π_μ(s)δ(s) −
+  ∑_s μ(s)δ(s)` — but the first is `astar`'s kernel pushed by `d^π_μ`, which
+  conservation says nothing about.  Measured pointwise ratio: `5423`.
+
+A genuine bound in this family does exist, `d^{πstar}_μ ≥ d^{astar}_{γp,μ}`
+with `p := ⨅_s πstar(astar s|s) > 0` (every `astar`-path has `πstar`-probability
+at least `p^t` times its `astar`-probability).  It is unusable here because `p`
+appears nowhere in the frozen statement, so `mism` cannot see it.
+
+**Conclusion.**  `g1_aggregate_bound` as frozen appears to need its
+`mismatchCoeff` at the policy that supplies `astar`, or `astar` quantified
+existentially.  Mei Lemma 8 uses `‖d^{π*}_ρ / d^{π_θ}_μ‖_∞` with `π*` the *same*
+fixed optimal policy whose action `a*(s)` is, so either repair is faithful to
+the paper.  `exists_astar_g1_aggregate_bound` is the existential form, proved.
+
+## Sweep caveat (recorded because it cost real time)
+
+A first sweep reported the frozen goal itself violated by a factor `3.68`.  It
+was an artefact: value iteration had not converged, so the reference `πstar`
+built from the approximate `Q*` was **not optimal** and `hstar` was silently
+false.  Re-running with `Vinf M πstar = Vstar M` actually *verified* per sample
+turned `3.68` into `0.9689` — below `1`, and tight, as expected.  Any numerical
+check in this repo must verify `hstar`, never assume it; this is the second
+unconverged-VI false alarm recorded here.
+-/
 open Finset
 
 namespace PolicyGradient
