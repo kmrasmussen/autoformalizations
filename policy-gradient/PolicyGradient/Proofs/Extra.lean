@@ -5,6 +5,7 @@ import PolicyGradient.Target
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Resid
 import PolicyGradient.Proofs.ResidC8
+import PolicyGradient.Proofs.ResidC9
 import PolicyGradient.Proofs.ResidAsm
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G1Agg
