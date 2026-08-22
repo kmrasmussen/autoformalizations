@@ -1016,12 +1016,44 @@ were located — `eventually_adv_pos → theta_eventually_monotone`,
 telescopes step by step), and `exists_T0`, whose output is baked into the
 *definition* of `B0`, so a φ-restricted `B0` is a different, larger set.
 
-**This is genuinely new mathematics, not transcription.** AKM's Appendix C.1
-does not prove it, and it is delicate: under `Q*` ties the policy sequence need
-**not** converge — that is exactly what `Proofs.g9_c_positive_frozen_is_false`
-exploits. So it likely needs `hgap`-style hypotheses or a limit-set
-connectedness argument, which would mean the two goals do not close by the same
-lemma after all, despite reducing to the same statement today.
+**The statement is TRUE — my "ties might break it" worry was wrong.** Checked
+first, as it should have been. The repo's own tie witness (`G9b.lean`: one
+state, three actions, `γ = 0`, `r = (1,1,0)`) proves `tieP t 0 → 0` and
+`tieP t 2 → 0`, so the third probability tends to `1` — **the policy sequence
+converges** there, to the deterministic policy on action 1.
+
+The distinction that resolves it: ties break `g9_c_positive` (a uniform lower
+bound at a *chosen* `astar`) **without** breaking policy convergence. Mass
+leaves an abandoned tied action monotonically rather than oscillating. So do NOT
+add an `hgap` hypothesis here; the two goals really do close by the same lemma.
+
+A tie-seeded sweep agreed once scored correctly — and the scoring matters: the
+right diagnostic is cumulative total variation `∑‖π_{t+1} − π_t‖₁`, not
+`|π_t − π_T|`. One trajectory moved `0.97` in sup-norm between `t = 10⁴` and
+`10⁵` yet had TV `6.7328` at `10⁵` and `6.7358` at `10⁶` — long plateaus then a
+late switch, a path of finite length.
+
+**Why the monotone route fails**, which is the sharper finding. Granting
+advantage sign-stability outright is *still* not enough: softmax is monotone in
+its own logit only *relative to the others*. Sign-stability forces `a₀`'s logit
+up and all others down, so only `π_t(a₀|s)` is forced monotone — that half is
+proved unconditionally (`Proofs.pi_astar_monotone_of_sign_stability`). For two
+different abandoned actions the signs agree while their relative magnitudes are
+unconstrained, so the slower-decaying one's probability *rises*: logits
+`(0,0,0) → (0.1, −0.01, −1.0)` sends probabilities
+`(0.333,0.333,0.333) → (0.449, 0.402, 0.149)` — action 1's logit fell while its
+probability rose. For `|A| ≥ 3` the route closes exactly one coordinate per
+state.
+
+**The missing ingredient, named precisely:** a *rate comparison between the
+decaying coordinates* — control of the **ratios** of logit decrements among
+abandoned actions, not merely their signs. `summable_sq_grad` gives
+`∑‖∇‖² < ∞`, which does not give `∑‖∇‖ < ∞` (`1/t` is the counterexample), and
+the Łojasiewicz upgrade is unavailable because ascent drives `‖θ_t‖ → ∞`,
+putting the limit set at infinity. `ResidC9.ratio_step` is exactly the needed
+estimate — and it too binds `πbar` and `hlim`, so it is downstream of policy
+convergence rather than a route to it. That circularity holds for every `Resid`
+sign-stability fact.
 
 A useful fact fell out while checking this: G9's step size `(1−γ)³/8` does
 satisfy `η ≤ (1−γ)²/5` for `0 ≤ γ < 1`, so the residual chain applies to G9
