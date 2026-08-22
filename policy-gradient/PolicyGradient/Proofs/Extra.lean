@@ -8,6 +8,7 @@ import PolicyGradient.Proofs.Bridge
 import PolicyGradient.Proofs.Conv
 import PolicyGradient.Proofs.Conv2
 import PolicyGradient.Proofs.Conv3
+import PolicyGradient.Proofs.Conv5
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Entropy
