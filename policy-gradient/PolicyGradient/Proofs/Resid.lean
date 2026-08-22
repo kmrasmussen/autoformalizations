@@ -1098,6 +1098,35 @@ theorem stable_step (M : FiniteMDP S A)
   simp only [PiLp.add_apply, PiLp.smul_apply, smul_eq_mul]
   nlinarith [hθ, hgle, hη₀]
 
+/-! ### The limit identity `∑_a π̄(a|s) A^{π̄}(s,a) = 0` and what it does *not* give
+
+At the limit policy, `sum_pi_advInf_self` gives `∑_a π̄(a|s) A^{π̄}(s,a) = 0`, and
+`advInf_eq_zero_on_support` makes every on-support term individually zero. So the
+identity is satisfied **regardless** of the off-support advantages: it carries no
+information about them. This is precisely the obstruction recorded in `Goal.lean`,
+and it is why AKM's argument must descend to the `θ`-dynamics (Lemmas C.5–C.11)
+rather than work at the limit policy. -/
+
+theorem limit_identity_vacuous (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) :
+    ∀ a, (πbar s) a * advInf M πbar s a = 0 := by
+  intro a
+  rcases eq_or_lt_of_le ((πbar s).nonneg a) with h | h
+  · rw [← h]; ring
+  · rw [advInf_eq_zero_on_support M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep πbar hlim s a h,
+      mul_zero]
+
 end Resid
 
 end Proofs
