@@ -11,6 +11,7 @@ import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Entropy
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G1Agg
+import PolicyGradient.Proofs.Conv2
 import PolicyGradient.Proofs.G1Sel
 import PolicyGradient.Proofs.G1Cpl
 import PolicyGradient.Proofs.G1b
@@ -57,6 +58,7 @@ retroactively carved up while agents hold branches against it.
 
 namespace PolicyGradient
 namespace Proofs
+
 
 /-! No modules yet — add `import PolicyGradient.Proofs.<Topic>` above as they
 land. -/
