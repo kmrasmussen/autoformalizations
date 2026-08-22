@@ -1092,11 +1092,18 @@ theorem mei_theorem4 (M : FiniteMDP S A)
     -- `c` the positive constant from Lemma 9 (`g9_c_positive`).
     (c : ℝ) (hc : 0 < c)
     (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
-    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s)) :
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    -- Mei's Lemma 9 proof opens by assuming a strictly positive optimal value
+    -- gap `Δ*(s) > 0`, which excludes `Q*` ties. `g9_c_positive` — the source of
+    -- `c` and `hcbound` — already carries exactly this, so requiring it here
+    -- costs nothing a caller does not already have.
+    (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
     ∀ T : ℕ, 1 ≤ T →
       VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
         ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
-            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ := sorry
+            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ :=
+  Proofs.mei_theorem4_of_astar_gap M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc
+    astar hastar hcbound hgap
 
 /-! ## The remaining soft spot in the vacuity defence
 
