@@ -101,7 +101,7 @@ optimized by gradient ascent with stepsize `1/β`, has suboptimality at most
 This is the shape of AKM Theorem 4.1 and Corollary 5.1. The constants there are
 instantiations: `β` from the smoothness of the value function and `c` from the
 distribution-mismatch coefficient. -/
-theorem domination_rate {f f' : ℝ → ℝ} {β c fstar : ℝ}
+theorem domination_rate_abstract {f f' : ℝ → ℝ} {β c fstar : ℝ}
     (hβ : 0 < β) (hc : 0 < c) (hs : SmoothAt f f' β)
     (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t))
     (hdom : ∀ t, c * (fstar - f (x t)) ≤ |f' (x t)|)
@@ -127,9 +127,14 @@ When the policy class cannot represent the optimum, the guarantee degrades by a
 comparison policy's state distribution — amplified by a *concentrability*
 coefficient measuring the distribution shift between the two.
 
-The structure of the bound is: `suboptimality ≤ optimization error + transfer
-error × concentrability`. The first term goes to zero with more iterations; the
-other two are irreducible properties of the function class and the MDP.
+The structure of the paper's bound is: `suboptimality ≤ optimization error +
+transfer error × concentrability`. The first term goes to zero with more
+iterations; the other two are irreducible properties of the function class and
+the MDP.
+
+**Only the first term is modelled below.** Transfer error and concentrability
+are undefined here (**G4**), so the results in this section are abstract
+optimization statements, not AKM's Section 6.
 -/
 
 /-- **The approximate-domination rate.**
@@ -138,9 +143,11 @@ If gradient domination holds only up to an additive slack `ε` — the transfer
 error — then gradient ascent drives the suboptimality to `ε/c` plus an `O(1/T)`
 optimization term, rather than to zero.
 
-This is the shape of AKM's Section 6 results: the `ε/c` floor is where the
-function-approximation error and the distribution-mismatch coefficient enter,
-and it does not shrink with more iterations. -/
+This is the *shape* of AKM's Section 6 results. **Neither the transfer error
+nor the concentrability coefficient is defined anywhere in this repo** (gap
+**G4**): `ε` is an abstract slack, and nothing here connects it to function
+approximation or to a distribution mismatch. In the paper the corresponding
+floor does not shrink with more iterations. -/
 theorem approx_domination_floor {f f' : ℝ → ℝ} {β c fstar ε : ℝ}
     (hβ : 0 < β) (hc : 0 < c) (hε : 0 ≤ ε) (hs : SmoothAt f f' β) (x : ℝ)
     (hdom : c * (fstar - f x) - ε ≤ |f' x|) (hle : f x ≤ fstar)

@@ -84,9 +84,13 @@ theorem softmaxScore_sum_eq_zero (w : A → ℝ) (b : A) :
 ### The softmax policy family
 
 A softmax-parameterized family of policies, and the fact that its score is the
-`softmaxScore` above. This packages a `DiffPolicy` from a differentiable
-logit map, which is what makes the policy gradient theorem applicable to
-softmax policies.
+`softmaxScore` above.
+
+**This does not yet package a `DiffPolicy`** (gap **G6**): `softmaxPolicy`
+returns a bare `ℝ → Policy S A`, and no differentiability proof is given. So the
+policy gradient theorem is **not** currently applicable to softmax policies, and
+`sum_abs_score_le_one` has no Lean-level link to the `hscore` hypothesis of
+`smoothAt_V_final`. Building `softmaxC2Policy` is what closes this.
 -/
 
 /-- A softmax policy family driven by logits that depend on the parameter. -/

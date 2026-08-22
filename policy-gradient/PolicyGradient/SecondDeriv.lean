@@ -541,7 +541,7 @@ Assembling everything:
 The factor of two is the MVT-versus-integral loss documented above; the paper's
 sharp constant is `8/(1-γ)³`. Since `SmoothAt` is monotone in its constant, this
 is a genuine derivation of a valid smoothness constant, and it discharges the
-hypothesis that `ascent_step` and `domination_rate` consume. -/
+hypothesis that `ascent_step` and `domination_rate_abstract` consume. -/
 theorem smoothAt_V_sixteen (dlocal : ℕ → S → ℝ) (m : ℕ) (s : S)
     (hdloc : ∀ (j : ℕ) (s' : S), |dlocal j s'| ≤ 3 / (1 - M.γ))
     (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)
@@ -576,8 +576,8 @@ theorem hasDerivAt_dV_canonical (m : ℕ) (s : S) :
 
 /-- **The value function is `8/(1-γ)³`-smooth — AKM Lemma E.4's exact constant.**
 
-The final form. Inputs are exactly the paper's standing assumptions plus the
-bound on the local-term derivative:
+The final form. Inputs are the paper's standing assumptions **plus an
+undischarged bound on the local-term derivative** (`hdloc`, gap **G7**):
 
 * `|dLocalTerm| ≤ 3/(1-γ)`,
 * softmax score total variation `≤ 1` (`sum_abs_score_le_one`),
@@ -585,9 +585,14 @@ bound on the local-term derivative:
 
 No `HasDerivAt` hypotheses: `hasDerivAt_V`, `hasDerivAt_localTerm` and
 `hasDerivAt_dV_canonical` are all theorems. The constant is the paper's sharp
-`8/(1-γ)³`, obtained from `smoothAt_of_abs_second_deriv_le_sharp`. This is what
-`ascent_step` and `domination_rate` consume, so AKM Theorem 4.1 is instantiable
-for a concrete MDP. -/
+`8/(1-γ)³`, obtained from `smoothAt_of_abs_second_deriv_le_sharp`.
+
+**Two caveats (see `GAPS.md`).** This theorem has *no callers*: `ascent_step`
+and `domination_rate_abstract` take an abstract `SmoothAt f f' β` and are never
+instantiated here, so AKM Theorem 4.1 is **not** currently instantiated for any
+concrete MDP. And `hdloc` is undischarged (**G7**) while `hscore` is about the
+abstract field `PF.dπ`, with no Lean-level link to `sum_abs_score_le_one`
+(**G6**) — no concrete softmax `C2Policy` exists. -/
 theorem smoothAt_V_final (m : ℕ) (s : S)
     (hdloc : ∀ (t : ℝ) (j : ℕ) (s' : S), |dLocalTerm M PF t j s'| ≤ 3 / (1 - M.γ))
     (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)

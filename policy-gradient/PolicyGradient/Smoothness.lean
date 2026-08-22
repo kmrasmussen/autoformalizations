@@ -340,7 +340,7 @@ Given a second-order remainder bound on the value function with constant
 AKM Lemma E.4, whose four terms are bounded by `4/(1-γ)³`, `6/(1-γ)²`,
 `2/(1-γ)²` and `3/(1-γ)` and summed by `smoothness_arithmetic`) — the value
 function satisfies `SmoothAt` at that constant, and hence feeds `ascent_step`
-and `domination_rate` directly. -/
+and `domination_rate_abstract` directly. -/
 theorem smoothAt_V_of_remainder (m : ℕ) (s : S)
     (hrem : ∀ θ₁ θ₂ : ℝ,
       |V M (PF.toPolicy θ₂) m s - V M (PF.toPolicy θ₁) m s

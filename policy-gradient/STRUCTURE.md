@@ -97,7 +97,8 @@ An `UNGROUNDED` claim should not merely warn, or it will be ignored. The rule:
   `@[gap "G7"]`-style justification or a pointer to the theorem that discharges
   it, so the count in the linter output is never silently nonzero.
 
-Under this rule, today's `mei_theorem4` cannot keep its name. It becomes
+Under this rule, `mei_theorem4` could not keep its name. **This was carried out
+on 2026-08-22:** it is now
 `@[paper_tool "Mei2020" "Theorem 4"] theorem smooth_loja_rate`, and the name
 `mei_theorem4` is reserved for the grounded statement that does not yet exist.
 **That is the property we want: the missing work is named and visibly absent,
@@ -195,12 +196,12 @@ work.** That is a large gain and not a complete one.
 
 ## Ordering
 
-1. **Correct the seven overclaiming docstrings** (`GAPS.md` table). Fast, and
-   they are what actively mislead a reader today.
-2. **Land `@[paper]` + the grounding linter.** Already implemented and validated;
-   needs wiring into `lakefile` and CI as an error.
-3. **Rename** `mei_theorem4`/`mei_theorem6`/`domination_rate` to tool names,
-   freeing the paper names for the real statements.
+1. ~~**Correct the seven overclaiming docstrings**~~ — **done 2026-08-22.**
+2. **Land `@[paper]` + the grounding linter** — implemented, validated, and
+   wired into CI as a required step (2026-08-22).
+3. ~~**Rename** `mei_theorem4`/`mei_theorem6`/`domination_rate`~~ — **done
+   2026-08-22**: now `smooth_loja_rate`, `geometric_rate`,
+   `domination_rate_abstract`. The paper names are free and unoccupied.
 4. **Hypothesis classification**, generating `GAPS.md`.
 5. **Reachability check**, once `@[paper_tool]` annotations exist.
 6. Then the mathematics: **G5 → G6 → {G7, G1 → G2} , G8, G10**.

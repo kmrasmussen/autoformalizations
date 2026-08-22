@@ -177,12 +177,12 @@ logit ascent.
 | `ascent_step` | one step with `η = 1/β` gains at least `\|f'\|²/(2β)` |
 | `quad_decrease_of_domination` | smoothness + gradient domination ⟹ quadratic decrease of the suboptimality |
 | `quad_decrease_rate` | `δ_{t+1} ≤ δ_t − Kδ_t²` ⟹ `δ_t ≤ 1/(Kt)` — the induction **no paper writes out** |
-| `domination_rate` | the three composed: suboptimality `≤ 2β/(c²T)` after `T` steps |
+| `domination_rate_abstract` | the three composed: suboptimality `≤ 2β/(c²T)` after `T` steps |
 | `approx_domination_floor` | Section 6: with transfer error `ε`, the decrease is toward an irreducible `ε/c` floor |
 | `ascent_monotone`, `ascent_converges` | Theorem 5.1's asymptotic content — monotone + bounded ⟹ convergent |
 | `optimal_of_greedy` | greedy ⟹ globally optimal, the conclusion Thm 5.1 reaches |
 
-`domination_rate` is AKM Theorem 4.1 and Corollary 5.1 in skeleton form: their
+`domination_rate_abstract` is AKM Theorem 4.1 and Corollary 5.1 in skeleton form: their
 constants (`64γ|S||A|/((1−γ)⁶ε²)`, `320|S|²|A|²/((1−γ)⁶ε²)`) are instantiations,
 with `β` from the value function's smoothness and `c` from the
 distribution-mismatch coefficient.
@@ -197,9 +197,9 @@ distribution-mismatch coefficient.
 | `lojaCoeff` | `minₛ π(a*(s)\|s)` — the non-uniform Łojasiewicz coefficient |
 | `loja_pointwise` | the coefficient bounds the weighted advantage below |
 | `subopt_eq_weighted_adv` | suboptimality as a visitation-weighted sum of optimal-action advantages |
-| **`mei_theorem4`** | **the `O(1/T)` rate**, with the paper's exact stepsize `(1−γ)³/8` and smoothness `8/(1−γ)³` |
+| **`smooth_loja_rate`** | **the `O(1/T)` rate**, with the paper's exact stepsize `(1−γ)³/8` and smoothness `8/(1−γ)³` |
 | `geometric_decay` | `δ_{t+1} ≤ (1−K)δ_t ⟹ δ_t ≤ (1−K)ᵗδ_0` |
-| **`mei_theorem6`** | **the entropy-regularized geometric rate** |
+| **`geometric_rate`** | **the entropy-regularized geometric rate** |
 
 **Why the constants differ.** Theorem 4's recursion is `δ_{t+1} ≤ δ_t − Kδ_t²`,
 giving `O(1/t)` with a constant `c` the paper admits is non-explicit — and which

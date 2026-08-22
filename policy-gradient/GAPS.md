@@ -15,19 +15,21 @@ each, and records which docstrings currently claim more than the code proves.
 
 ## The structural finding
 
-**`mei_theorem4`, `mei_theorem6`, and all seven theorems in `AKM.lean` never
-mention the MDP.** They quantify over an abstract `f f' : ℝ → ℝ`.
+**`smooth_loja_rate`, `geometric_rate`, and all seven theorems in `AKM.lean`
+never mention the MDP.** (These two were named `mei_theorem4` / `mei_theorem6`
+until 2026-08-22; renaming them was the first fix, see `STRUCTURE.md`.) They quantify over an abstract `f f' : ℝ → ℝ`.
 
 ```
-AKM.lean  — abstract: ascent_step, quad_decrease_of_domination, domination_rate,
+AKM.lean  — abstract: ascent_step, quad_decrease_of_domination,
+            domination_rate_abstract,
             approx_domination_floor, ascent_monotone, subopt_antitone,
             ascent_converges
-Mei.lean  — abstract: mei_theorem4, geometric_decay, geometric_tendsto_zero,
-            entropy_value_converges, mei_theorem6
+Mei.lean  — abstract: smooth_loja_rate, geometric_decay, geometric_tendsto_zero,
+            entropy_value_converges, geometric_rate
 Rate.lean — abstract: all three
 ```
 
-In `mei_theorem4` the discount `γ` is a free real constrained only by `0 ≤ γ < 1`.
+In `smooth_loja_rate` the discount `γ` is a free real constrained only by `0 ≤ γ < 1`.
 Nothing forces `f` to be a value function. **The theorem is instantiable at
 `f = 0`.** It is a true and non-trivial theorem about real sequences; it is not
 Mei's Theorem 4.
@@ -70,7 +72,7 @@ Stated first, because the gaps below are not the whole picture.
 
 **Severity: critical. This is the paper's central technical contribution.**
 
-`mei_theorem4` (`Mei.lean:174`) assumes
+`smooth_loja_rate` (`Mei.lean`) assumes
 
 ```lean
 (hloja : ∀ t, c * (fstar - f (x t)) ≤ |f' (x t)|)
@@ -106,7 +108,7 @@ Not accepted: any restatement not mentioning a gradient of `V`.
 
 **Severity: critical.**
 
-`domination_rate` (`AKM.lean:104`) assumes
+`domination_rate_abstract` (`AKM.lean`) assumes
 
 ```lean
 (hdom : ∀ t, c * (fstar - f (x t)) ≤ |f' (x t)|)
@@ -129,12 +131,12 @@ containing it or being renamed (`OptimalityCertificates.lean`).
 
 **Severity: moderate. Easy to miss.**
 
-`mei_theorem4` and `domination_rate` assume `∀ t, f (x t) < fstar` — strict
+`smooth_loja_rate` and `domination_rate_abstract` assume `∀ t, f (x t) < fstar` — strict
 suboptimality at *every* iterate, forever. It is **false if the algorithm ever
 reaches the optimum exactly**, and nothing in the repo proves `V < V*` along a
 trajectory.
 
-It is load-bearing: `domination_rate` needs `0 < δ t` for the reciprocal
+It is load-bearing: `domination_rate_abstract` needs `0 < δ t` for the reciprocal
 recursion (`AKM.lean:112`).
 
 **Acceptance criterion.** Either prove it for softmax (true: softmax never
@@ -268,12 +270,12 @@ correct until the composition exists.
 
 ---
 
-## G10 — `mei_theorem6` does not state the entropy result
+## G10 — `geometric_rate` does not state the entropy result
 
 **Severity: high.**
 
 ```lean
-theorem mei_theorem6 {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
+theorem geometric_rate {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
     (δ : ℕ → ℝ) (hnn : ∀ t, 0 ≤ δ t)
     (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) : ...
 ```
@@ -291,8 +293,8 @@ the self-contained part" — but it proves only that *a* limit exists, not Lemma
 
 **Acceptance criterion.** Define the entropy-regularized objective
 `Vsoft = Vinf + τ·H`, prove Lemma 14 and Lemma 15, derive `hstep`. This is the
-largest item after G5. Until then, rename to `geometric_rate` — the current name
-attributes a paper theorem to a fact about geometric sequences.
+largest item after G5. **Done 2026-08-22:** renamed to `geometric_rate`; the name `mei_theorem6` is now
+free and conspicuously unoccupied.
 
 ---
 
@@ -335,6 +337,9 @@ anything the build reports. `lake build` is green, `sorry` count is zero,
 `#print axioms` is clean. The signal that would have caught all of this is
 **"which theorems mention `FiniteMDP`, and which of those are ever applied?"**,
 and nothing computes it.
+
+**Status 2026-08-22:** the seven overclaiming docstrings are corrected, the three
+mis-named theorems are renamed, and the grounding linter runs in CI.
 
 See `STRUCTURE.md` for the proposed fix: making the gaps fall out of the build
 rather than out of an audit.

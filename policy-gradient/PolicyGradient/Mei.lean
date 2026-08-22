@@ -12,24 +12,38 @@ arXiv:2005.06392.
 
 The paper's headline results:
 
-* **Lemma 7** — `V^{π_θ}` is `8/(1-γ)³`-smooth. Already proved as
-  `smoothAt_V_final`, with the paper's exact constant.
+* **Lemma 7** — `V^{π_θ}` is `8/(1-γ)³`-smooth. Proved as `smoothAt_V_final`
+  with the paper's exact constant — but with `hdloc` undischarged (**G7**), and
+  never applied by anything below.
 * **Lemma 8** — the *non-uniform Łojasiewicz* inequality: the gradient norm is
   bounded below by the suboptimality, times a coefficient that degrades as the
-  policy's probability on optimal actions shrinks.
+  policy's probability on optimal actions shrinks. **Not formalized** (**G1**);
+  no theorem here lower-bounds a gradient.
 * **Theorem 4** — `O(1/t)` convergence, with a constant `c` the paper admits is
   non-explicit.
 
 ## The dependency the paper does not advertise
 
 Mei's Lemma 9 (`c > 0`) is proved by citing *"the asymptotic convergence results
-of Agarwal et al. [Theorem 5.1]"*. It is **not proved in their paper**. We have
-that content (`ascent_converges`, `optimal_of_greedy`), so Theorem 4 is
-reachable here in a way it is not from Mei alone.
+of Agarwal et al. [Theorem 5.1]"*. It is **not proved in their paper**.
 
 Following the paper's own framing, `c` enters as an explicit hypothesis: their
 theorem statement says "`c` the positive constant from Lemma 9", so carrying it
 as a hypothesis is faithful, not a weakening.
+
+We have adjacent content (`ascent_converges`, `optimal_of_greedy`), but **the
+composition does not exist in Lean** (gap **G9**): `ascent_converges` yields only
+`∃ L ≤ fstar` with `Tendsto`; it never identifies `L = fstar`, never shows the
+limit policy is greedy, and is never composed with `optimal_of_greedy`.
+
+## Scope of this file — read `GAPS.md` before citing it
+
+The rate results below (`smooth_loja_rate`, `geometric_rate`) are **theorems about
+abstract real functions and sequences**, not about `V`. They are never
+instantiated at a value function; in `smooth_loja_rate` the discount `γ` is a free
+real constrained only by `0 ≤ γ < 1`, and the statement is instantiable at
+`f = 0`. Mei's Lemma 8 (the non-uniform Łojasiewicz inequality, their central
+technical contribution) is **assumed, not proved** (gap **G1**).
 -/
 
 open Finset
@@ -82,13 +96,17 @@ theorem advGap_detPolicy [DecidableEq A] (π : Policy S A) (astar : S → A)
   rw [Finset.sum_ite_eq' univ (astar s) (fun a => adv M π j s a)]
   simp
 
-/-- **The Łojasiewicz mechanism.**
+/-- **A monotonicity fact used by the Łojasiewicz argument.**
 
 The `π`-weighted advantage at a state is bounded below by the Łojasiewicz
 coefficient times the optimal-action advantage, whenever that advantage is
 nonnegative.
 
-This is the inequality Mei's Lemma 8 turns into a gradient bound: the gradient
+**This is not Lemma 8** (**G1**). It is a one-line consequence of `⨅ ≤ ·`, with
+no gradient in it, no `√|S|` and no distribution-mismatch coefficient. It is at
+most a step in the intuition below.
+
+Mei's Lemma 8 turns a bound of this shape into a gradient bound: the gradient
 carries a factor `π(a|s)`, so the *policy's own probability* on the optimal
 action controls how much signal the gradient has. When that probability is tiny
 the gradient is tiny even though the suboptimality is large — which is exactly
@@ -155,7 +173,7 @@ Lemma 9,
 
 The structure is: smoothness (`smoothAt_V_final`, our `8/(1-γ)³`) plus the
 Łojasiewicz bound gives a quadratic decrease, and `quad_decrease_rate` turns
-that into `1/t`. That composition is `domination_rate`, already proved.
+that into `1/t`. That composition is `domination_rate_abstract`, already proved.
 
 `c` is a hypothesis here, exactly as in the paper — their statement reads "`c`
 the positive constant from Lemma 9", and Lemma 9 is proved by citing AKM
@@ -167,11 +185,15 @@ Theorem 5.1 rather than from first principles.
 A `β`-smooth objective satisfying a Łojasiewicz bound with coefficient `c`,
 optimized by gradient ascent at stepsize `1/β`, has suboptimality `≤ 2β/(c²T)`.
 
-Instantiating `β = 8/(1-γ)³` (our `smoothAt_V_final`, the paper's exact
-constant) gives `16/(c²(1-γ)³T)` — the paper's `16S/(c²(1-γ)⁶t)` up to the
-`|S|` and distribution-mismatch factors that come from converting the
-per-coordinate Łojasiewicz bound into a norm bound. -/
-theorem mei_theorem4 {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
+Instantiating `β = 8/(1-γ)³` would give `16/(c²(1-γ)³T)` — the paper's
+`16S/(c²(1-γ)⁶t)` up to the `|S|` and distribution-mismatch factors that come
+from converting the per-coordinate Łojasiewicz bound into a norm bound.
+
+**That instantiation does not exist** (**G1**, **G5**). `f` here is an abstract
+`ℝ → ℝ` and `γ` a free real; nothing ties either to an MDP, and `hloja` — Mei's
+Lemma 8 — is assumed. This is the rate *skeleton*, correctly proved; it is not
+Mei's Theorem 4. -/
+theorem smooth_loja_rate {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
     (hγ₀ : 0 ≤ γ) (hγ₁ : γ < 1) (hc : 0 < c)
     (hs : SmoothAt f f' (8 / (1 - γ) ^ 3))
     (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + ((1 - γ) ^ 3 / 8) * f' (x t))
@@ -181,7 +203,7 @@ theorem mei_theorem4 {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
     fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * (8 / (1 - γ) ^ 3)) * T) := by
   have hpos : 0 < 1 - γ := by linarith
   have hβ : (0:ℝ) < 8 / (1 - γ) ^ 3 := by positivity
-  refine domination_rate hβ hc hs x ?_ hloja hlt T hT
+  refine domination_rate_abstract hβ hc hs x ?_ hloja hlt T hT
   intro t
   rw [hx t]
   congr 1
@@ -230,10 +252,14 @@ theorem geometric_tendsto_zero {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 
   have := tendsto_pow_atTop_nhds_zero_of_lt_one hK₀ hK₁
   simpa using this.mul_const (δ 0)
 
-/-- **Mei Lemma 16, the self-contained part.**
+/-- **The self-contained part of Mei Lemma 16.**
 
 Along a gradient-ascent trajectory on a bounded-above objective, the value
 converges — by monotone convergence, with no external citation.
+
+This proves only that *a* limit exists. Lemma 16's actual claim is `c > 0`;
+the gap between "the value converges" and "the optimal-action probability is
+bounded away from zero" is the whole of that lemma (**G10**).
 
 This is the structural reason the entropy-regularized constant is explicit while
 the unregularized one is not: Mei's Lemma 16 (`c > 0` for the entropy case)
@@ -247,17 +273,22 @@ theorem entropy_value_converges {f f' : ℝ → ℝ} {β fstar : ℝ} (hβ : 0 <
       Filter.Tendsto (fun t => f (x t)) Filter.atTop (nhds L) :=
   ascent_converges hβ hs x hx hbdd
 
-/-- **Mei Theorem 6, in the form the machinery delivers.**
+/-- **The geometric-rate skeleton behind Mei Theorem 6.**
 
-The entropy-regularized objective converges *geometrically*: if the
-suboptimality contracts by a factor `1-K` each step, it decays like `(1-K)^t`
-and tends to zero.
+If the suboptimality contracts by a factor `1-K` each step, it decays like
+`(1-K)^t` and tends to zero.
 
-Contrast with `mei_theorem4`: there the recursion is `δ_{t+1} ≤ δ_t - Kδ_t²`,
+**This does not state the entropy-regularized result** (**G10**). There is no
+`V`, no MDP, no entropy and no `τ` here — only an abstract real sequence. The
+hypothesis `hstep` *is* Mei Theorem 6: their Lemmas 14 (entropy smoothness),
+15 (entropy Łojasiewicz) and 16 exist precisely to establish that contraction,
+and none of them is formalized. What is proved below is the induction.
+
+Contrast with `smooth_loja_rate`: there the recursion is `δ_{t+1} ≤ δ_t - Kδ_t²`,
 giving `O(1/t)` with a non-explicit constant. Here the recursion is linear,
 giving a geometric rate with an explicit constant — the trade the entropy term
 buys. -/
-theorem mei_theorem6 {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
+theorem geometric_rate {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
     (δ : ℕ → ℝ) (hnn : ∀ t, 0 ≤ δ t)
     (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) :
     (∀ t, δ t ≤ (1 - K) ^ t * δ 0)
