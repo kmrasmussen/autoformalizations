@@ -156,6 +156,12 @@ def runPaperLint : CoreM Bool := do
   let mut ungrounded : Array PaperClaim := #[]
   let mut groundedRoots : Array Name := #[]
   let mut totalHyps : Nat := 0
+  -- Witness.lean exhibits a concrete MDP satisfying the STANDING hypotheses.
+  -- Anything outside that set is unwitnessed: a goal whose hypotheses are
+  -- jointly contradictory is provable by `exfalso` and the census would read
+  -- "proved". Tracking coverage keeps that gap visible instead of implicit.
+  let witnessed : Array String := #["|M.r", "0 ≤ M.γ", "M.γ <", "Differentiable"]
+  let mut unwitnessed : Nat := 0
   for c in full do
     let g ← MetaM.run' (checkGrounding c.decl)
     if g.grounded then
@@ -168,7 +174,13 @@ def runPaperLint : CoreM Bool := do
       else
         IO.println s!"             MDP-level hypotheses ({g.mdpHyps.size}) — declared gaps:"
         for h in g.mdpHyps do
-          IO.println s!"               · {h}"
+          let hs := toString h
+          let cov := witnessed.any (fun w => (hs.splitOn w).length > 1)
+          if cov then
+            IO.println s!"               · [witnessed] {h}"
+          else
+            unwitnessed := unwitnessed + 1
+            IO.println s!"               · [UNWITNESSED] {h}"
     else
       ungrounded := ungrounded.push c
       IO.println s!"[UNGROUNDED] {c.decl}"
@@ -233,6 +245,7 @@ def runPaperLint : CoreM Bool := do
   IO.println s!"  │ unreached @[paper_tool]     (warnings)      │ {leftPad (toString unreached.size) 5} │"
   IO.println "  ├─────────────────────────────────────────────┼───────┤"
   IO.println s!"  │ MDP-level hypotheses (the honest debt)      │ {leftPad (toString totalHyps) 5} │"
+  IO.println s!"  │   of which UNWITNESSED (vacuity risk)       │ {leftPad (toString unwitnessed) 5} │"
   IO.println s!"  │ OPEN frozen goals (sorry -- the frontier)   │ {leftPad (toString openGoals) 5} │"
   IO.println "  └─────────────────────────────────────────────┴───────┘"
   IO.println ""

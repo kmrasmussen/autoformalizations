@@ -78,8 +78,8 @@ echo "── baseline ($BASE) ──"
 base_out=$(build_and_census); base_rc=$?
 [[ $base_rc -eq 0 && "$base_out" != *BUILD_FAILED* ]] \
   || { tail -25 /tmp/gate-build.log; die "baseline build failed"; }
-read -r b_open b_debt b_ungr <<<"$base_out"
-echo "  OPEN=$b_open  debt=$b_debt  ungrounded=$b_ungr"; echo
+read -r b_open b_debt b_ungr b_unwit <<<"$base_out"
+echo "  OPEN=$b_open  debt=$b_debt  ungrounded=$b_ungr  unwitnessed=$b_unwit"; echo
 
 cd "$GATE" && git merge --no-edit -q "$BRANCH" 2>/dev/null || die "merge conflict with $BASE"
 
@@ -92,8 +92,8 @@ if [[ $cand_rc -ne 0 || "$cand_out" == *BUILD_FAILED* ]]; then
   rm -rf "$GATE/policy-gradient/.lake/build/ir"
   exit 1
 fi
-read -r a_open a_debt a_ungr <<<"$cand_out"
-echo "  OPEN=$a_open  debt=$a_debt  ungrounded=$a_ungr"; echo
+read -r a_open a_debt a_ungr a_unwit <<<"$cand_out"
+echo "  OPEN=$a_open  debt=$a_debt  ungrounded=$a_ungr  unwitnessed=$a_unwit"; echo
 
 # ── rules ───────────────────────────────────────────────────────────────────
 fail=0
@@ -127,6 +127,10 @@ if [[ $KIND == SOLVE ]]; then
   # The original failure mode: swapping a visible sorry for invisible hypotheses.
   [[ "$a_debt" -le "$b_debt" ]] && r ok "debt did not grow ($b_debt → $a_debt)" \
                                 || r no "debt GREW ($b_debt → $a_debt) -- a sorry was traded for hypotheses"
+  # A goal with contradictory hypotheses is provable by exfalso. Witness.lean
+  # refutes that for the standing set; anything outside it is a vacuity risk.
+  [[ "$a_unwit" -le "$b_unwit" ]] && r ok "unwitnessed hypotheses did not grow ($b_unwit → $a_unwit)" \
+                                  || r no "UNWITNESSED hypotheses GREW ($b_unwit → $a_unwit) -- vacuity risk"
 else
   [[ "$a_open" -ge "$b_open" ]] && r ok "no sorry disappeared ($b_open → $a_open)" \
                                 || r no "OPEN dropped ($b_open → $a_open) -- a solve is hiding in a SPEC change"
@@ -151,4 +155,4 @@ fi
 rm -rf "$GATE/policy-gradient/.lake/build/ir"   # 37M of C IR we never link
 echo
 if (( fail )); then echo "✗ GATE FAILED ($KIND)"; exit 1; fi
-echo "✓ GATE PASSED ($KIND)  OPEN $b_open → $a_open   debt $b_debt → $a_debt"
+echo "✓ GATE PASSED ($KIND)  OPEN $b_open → $a_open   debt $b_debt → $a_debt   unwitnessed $b_unwit → $a_unwit"
