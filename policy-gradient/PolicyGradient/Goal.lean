@@ -679,6 +679,35 @@ for the rate track as well. -/
 
 /-- **Mei Theorem 4 — the `O(1/T)` rate for softmax policy gradient.**
 
+VERBATIM, Mei et al. (arXiv:2005.06392) Theorem 4:
+
+> **Theorem 4.** Let **Assumption 2** hold and let `{θ_t}_{t≥1}` be generated
+> using Algorithm 1 with `η = (1−γ)³/8`, `c` the positive constant from Lemma 9.
+> Then, for all `t ≥ 1`,
+> ```
+> V*(ρ) − V^{π_{θ_t}}(ρ) ≤ (16·S)/(c²·(1−γ)⁶·t) · ‖d^{π*}_μ / μ‖_∞
+> ```
+
+> **Assumption 2 (Sufficient exploration).** The initial state distribution
+> satisfies `min_s μ(s) > 0`.
+
+**Three things my earlier statement was missing**, all found by reading this:
+
+1. **Assumption 2.** The start measure must have full support. I had a single
+   start state — a Dirac, the maximal violation. Mei note the assumption
+   "ensures sufficient exploration in the sense that the occupancy measure
+   `d^π_μ` of any policy `π` when started from `μ` will be guaranteed to be
+   positive over the whole state space", which is precisely what the proof needs.
+2. **The mismatch factor `‖d^{π*}_μ / μ‖_∞` on the right.** I had dropped it, so
+   the bound was unconditionally tighter than the paper's.
+3. **Two measures.** Suboptimality is measured at `ρ`; the gradient and the
+   occupancy are taken at `μ`. I had collapsed them.
+
+`c` is a hypothesis with `hcbound` tying it to the trajectory, exactly as
+`MEI_NOTES.md` in this repo recorded months ago and as Lemma 9 supplies. An
+earlier version took `c` universally with only `0 < c`, which made the statement
+false — the caller could send `c → ∞`.
+
 The statement the repo is actually for. Note what it mentions and the current
 `smooth_loja_rate` does not: an MDP, a softmax family, `Vinf`, and `V*`.
 
@@ -722,12 +751,21 @@ theorem mei_theorem4 (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    -- Assumption 2 (Sufficient exploration): `min_s μ(s) > 0`.
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
     (hstep : ∀ t, θ (t + 1)
-      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t)) :
-    ∃ c : ℝ, 0 < c ∧ ∀ T : ℕ, 1 ≤ T →
-      Vstar M μ - Vinf M (F.toPolicy (θ T)) μ
-        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T) := sorry
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    -- `c` the positive constant from Lemma 9 (`g9_c_positive`).
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s)) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ := sorry
 
 /-! ## The remaining soft spot in the vacuity defence
 
