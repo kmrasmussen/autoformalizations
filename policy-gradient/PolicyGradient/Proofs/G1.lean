@@ -878,6 +878,140 @@ theorem VstarDist_sub_VinfDist_eq (M : FiniteMDP S A) (π πstar : Policy S A)
         rw [Finset.sum_mul]
         exact Finset.sum_congr rfl fun s₀ _ => by ring
 
+/-! ### The Łojasiewicz inequality
+
+Assembling: suboptimality is the occupancy-weighted advantage
+(`VstarDist_sub_VinfDist_eq`); `mismatchCoeff` converts `d^{πstar}_μ` into `μ`
+and thence into `d^π_μ`; the Łojasiewicz coefficient `⨅ s, π(a*(s)|s)` extracts
+the `π(a*|s)` factor the softmax gradient carries; and `sum_abs_adv_le_norm`
+turns the resulting per-coordinate sum into `√|S| · ‖∇‖`.
+
+The one step that does **not** hold under the frozen hypotheses alone is the
+per-state comparison
+`∑_a πstar(a|s)·A^π(s,a) ≤ A^π(s, a*(s))`.
+`hastar` pins `a*(s)` to `argmax Q*(s,·)`, and `hstar` pins `πstar`'s support to
+the same set (`optimal_support_greedy_proof`) — but when `Q*` **ties**, two
+distinct `Q*`-optimal actions can carry different `A^π`, and `πstar` may sit on
+the larger one. It is supplied here as the explicit hypothesis `hgreedy`. See the
+report for the machine-checked witness. -/
+
+/-- The Łojasiewicz coefficient is nonnegative and bounds each state's
+optimal-action probability. -/
+theorem loja_le (π : Policy S A) (astar : S → A) (s : S) :
+    (⨅ s : S, (π s) (astar s)) ≤ (π s) (astar s) :=
+  ciInf_le (Finite.bddBelow_range _) s
+
+theorem loja_nonneg (π : Policy S A) (astar : S → A) :
+    0 ≤ ⨅ s : S, (π s) (astar s) :=
+  le_ciInf fun s => (π s).nonneg _
+
+/-- **G1 — the non-uniform Łojasiewicz inequality**, with the greedy-dominance
+step supplied as a hypothesis. -/
+theorem g1_lojasiewicz_of_greedy (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (astar : S → A) (hastar : ∀ s, Qstar M s (astar s) = Vstar M s)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : E S A)
+    (hgreedy : ∀ s, advGapInf M (F.toPolicy θ) πstar s
+      ≤ advInf M (F.toPolicy θ) s (astar s)) :
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := by
+  classical
+  have hpos : 0 < 1 - M.γ := by linarith
+  set π := F.toPolicy θ with hπ
+  set c : ℝ := ⨅ s : S, (π s) (astar s) with hc
+  set mism : ℝ := mismatchCoeff M πstar μ with hmism
+  have hcnn : 0 ≤ c := loja_nonneg π astar
+  have hmpos : 0 < mism := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+  have hSpos : 0 < Real.sqrt (Fintype.card S) := by
+    have : 0 < (Fintype.card S : ℝ) := by
+      have := Fintype.card_pos_iff.mpr ‹Nonempty S›
+      exact_mod_cast this
+    exact Real.sqrt_pos.mpr this
+  -- Step 1: suboptimality as occupancy-weighted advantage
+  have hsub := VstarDist_sub_VinfDist_eq M π πstar hr hγ₀ hγ₁ hstar μ
+  -- Step 2: bound each term using hgreedy and the mismatch coefficient
+  have hterm : ∀ s, c * (dinfDist M πstar μ s * advGapInf M π πstar s)
+      ≤ mism * |dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))| := by
+    intro s
+    have hAnn : 0 ≤ advGapInf M π πstar s ∨ advGapInf M π πstar s < 0 :=
+      le_or_gt 0 _
+    rcases hAnn with hA | hA
+    · -- nonnegative gap: chain through hgreedy
+      have hdnn : 0 ≤ dinfDist M πstar μ s := dinfDist_nonneg M hγ₀ πstar μ s
+      have h1 : c * (dinfDist M πstar μ s * advGapInf M π πstar s)
+          ≤ dinfDist M πstar μ s * ((π s) (astar s) * advInf M π s (astar s)) := by
+        have hcle : c ≤ (π s) (astar s) := loja_le π astar s
+        have hAg : advGapInf M π πstar s ≤ advInf M π s (astar s) := hgreedy s
+        -- c·G ≤ π(a*|s)·G ≤ π(a*|s)·A(a*), then multiply by d ≥ 0
+        have hstep1 : c * advGapInf M π πstar s
+            ≤ (π s) (astar s) * advInf M π s (astar s) := by
+          calc c * advGapInf M π πstar s
+              ≤ (π s) (astar s) * advGapInf M π πstar s :=
+                mul_le_mul_of_nonneg_right hcle hA
+            _ ≤ (π s) (astar s) * advInf M π s (astar s) :=
+                mul_le_mul_of_nonneg_left hAg ((π s).nonneg _)
+        calc c * (dinfDist M πstar μ s * advGapInf M π πstar s)
+            = dinfDist M πstar μ s * (c * advGapInf M π πstar s) := by ring
+          _ ≤ dinfDist M πstar μ s * ((π s) (astar s) * advInf M π s (astar s)) :=
+              mul_le_mul_of_nonneg_left hstep1 hdnn
+      -- and dinfDist πstar ≤ mism * μ s ≤ mism * dinfDist π
+      have h2 : dinfDist M πstar μ s * ((π s) (astar s) * advInf M π s (astar s))
+          ≤ mism * |dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))| := by
+        -- d^{πstar}_μ(s) ≤ mism · μ(s) ≤ mism · d^π_μ(s)
+        have hb1 : dinfDist M πstar μ s ≤ mism * μ s :=
+          mismatch_bound_proof_of_support M hγ₀ hγ₁ πstar μ hμ s
+        have hb2 : μ s ≤ dinfDist M π μ s := mu_le_dinfDist M hγ₀ hγ₁ π μ s
+        have hchain : dinfDist M πstar μ s ≤ mism * dinfDist M π μ s := by
+          calc dinfDist M πstar μ s ≤ mism * μ s := hb1
+            _ ≤ mism * dinfDist M π μ s := mul_le_mul_of_nonneg_left hb2 hmpos.le
+        -- the factor `π(a*|s)·A^π(s,a*)` is nonnegative here
+        have hfac : 0 ≤ (π s) (astar s) * advInf M π s (astar s) := by
+          have hAg : advGapInf M π πstar s ≤ advInf M π s (astar s) := hgreedy s
+          have : 0 ≤ advInf M π s (astar s) := le_trans hA hAg
+          exact mul_nonneg ((π s).nonneg _) this
+        have hdnn2 : 0 ≤ dinfDist M π μ s := dinfDist_nonneg M hγ₀ π μ s
+        calc dinfDist M πstar μ s * ((π s) (astar s) * advInf M π s (astar s))
+            ≤ (mism * dinfDist M π μ s) * ((π s) (astar s) * advInf M π s (astar s)) :=
+              mul_le_mul_of_nonneg_right hchain hfac
+          _ = mism * (dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))) := by
+              ring
+          _ ≤ mism * |dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))| :=
+              mul_le_mul_of_nonneg_left (le_abs_self _) hmpos.le
+      linarith
+    · -- negative gap: the left side is ≤ 0 and the right side is ≥ 0
+      have hdnn : 0 ≤ dinfDist M πstar μ s := dinfDist_nonneg M hγ₀ πstar μ s
+      have hL : c * (dinfDist M πstar μ s * advGapInf M π πstar s) ≤ 0 := by
+        have : dinfDist M πstar μ s * advGapInf M π πstar s ≤ 0 :=
+          mul_nonpos_of_nonneg_of_nonpos hdnn hA.le
+        exact mul_nonpos_of_nonneg_of_nonpos hcnn this
+      have hR : 0 ≤ mism * |dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))| :=
+        mul_nonneg hmpos.le (abs_nonneg _)
+      linarith
+  -- Step 3: sum the per-state bounds
+  have hsum : c * (VstarDist M μ - VinfDist M π μ)
+      ≤ mism * ∑ s, |dinfDist M π μ s * ((π s) (astar s) * advInf M π s (astar s))| := by
+    rw [hsub, Finset.mul_sum, Finset.mul_sum]
+    exact Finset.sum_le_sum fun s _ => hterm s
+  -- Step 4: the ℓ¹ sum is bounded by √|S| · ‖∇‖
+  have hgrad := sum_abs_adv_le_norm M F hF hr hγ₀ hγ₁ μ θ astar
+  have hchain : c * (VstarDist M μ - VinfDist M π μ)
+      ≤ mism * (Real.sqrt (Fintype.card S)
+          * ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖) :=
+    le_trans hsum (mul_le_mul_of_nonneg_left hgrad hmpos.le)
+  -- Step 5: divide by √|S| · mism > 0
+  rw [div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
+  calc c * (VstarDist M μ - VinfDist M π μ)
+      ≤ mism * (Real.sqrt (Fintype.card S)
+          * ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖) := hchain
+    _ = ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖
+          * (Real.sqrt (Fintype.card S) * mism) := by ring
+
 end G1
 
 end Proofs
