@@ -487,9 +487,42 @@ def runPaperLint : CoreM Bool := do
     IO.println "  ✓ no free scalar or selector parameters."
   IO.println ""
 
-  -- ── Check 9: summary ──────────────────────────────────────────────────
+  -- ── Check 9: paper fidelity — every @[paper] goal quotes its source ──
+  -- Eleven of seventeen statement defects this session came from PARAPHRASING
+  -- the papers rather than transcribing them: `mei_theorem4` alone was wrong
+  -- three times (missing Assumption 2, missing the mismatch factor, then the
+  -- coefficient unsquared and `‖1/μ‖_∞` dropped). Each was found by an agent
+  -- after real work, and each was fixed by opening the PDF.
+  --
+  -- So: a `@[paper]` goal must carry the source sentence in its docstring,
+  -- marked `VERBATIM`, with its qualifying clauses. The clauses are where the
+  -- content is — "for the DIRECT policy parameterization", "μ strictly
+  -- positive", "the action that the optimal policy selects".
+  --
+  -- This checks presence, not correctness: no machine can verify a quote is
+  -- faithful. But a missing quote means nobody transcribed the statement, and
+  -- that is exactly the condition under which every one of those defects arose.
+  IO.println "── CHECK 9: paper fidelity (VERBATIM quotes) ──────────────────"
+  IO.println ""
+  let mut unquoted : Nat := 0
+  for c in all do
+    if !c.isFull then continue
+    let doc? ← findDocString? env c.decl
+    let quoted := match doc? with
+      | some d => (d.splitOn "VERBATIM").length > 1
+      | none => false
+    if !quoted then
+      unquoted := unquoted + 1
+      IO.println s!"  [NO-QUOTE]   {c.decl}  ({c.paper} — {c.result})"
+      IO.println "               no VERBATIM block: the source sentence was never"
+      IO.println "               transcribed into the docstring."
+  if unquoted == 0 then
+    IO.println "  ✓ every @[paper] goal quotes its source."
+  IO.println ""
+
+  -- ── Check 10: summary ──────────────────────────────────────────────────
   let grounded := full.size - ungrounded.size
-  IO.println "── CHECK 9: summary ───────────────────────────────────────────"
+  IO.println "── CHECK 10: summary ──────────────────────────────────────────"
   IO.println ""
   IO.println "  ┌─────────────────────────────────────────────┬───────┐"
   IO.println s!"  │ total claims                                │ {leftPad (toString all.size) 5} │"
@@ -507,6 +540,7 @@ def runPaperLint : CoreM Bool := do
   IO.println s!"  │ UNINHABITED quantified types (vacuity risk) │ {leftPad (toString uninhabited) 5} │"
   IO.println s!"  │ goals failing Formalized                    │ {leftPad (toString notFormalized) 5} │"
   IO.println s!"  │ goals with FREE parameters (justify each)   │ {leftPad (toString freeParams) 5} │"
+  IO.println s!"  │ @[paper] goals NOT quoting their source     │ {leftPad (toString unquoted) 5} │"
   IO.println "  └─────────────────────────────────────────────┴───────┘"
   IO.println ""
   IO.println "  The debt number counts assumptions grounded theorems take about"

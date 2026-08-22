@@ -630,7 +630,27 @@ its `b = astar` instance.
 So state it at the selector that works: `b(s) = argmax_a π(a|s)·A^π(s,a)`. That
 form held over 75 000 tie-seeded MDPs (max violation `1.7e-13`) and is **tight**
 — `lhs/rhs` reaches `0.9999999999`. It cannot be broken by a `Q*` tie because
-`b` is read off `π` and `A^π` directly rather than routed through `πstar`. -/
+`b` is read off `π` and `A^π` directly rather than routed through `πstar`.
+
+**Proved 2026-08-22, with `astar` made EXISTENTIAL — which is what the paper
+says.** Mei Lemma 8 reads "fix an arbitrary optimal policy `π*`" and takes
+`a*(s)` to be an action *that policy* selects, so producing the witness is
+faithful rather than a weakening. `Proofs.exists_argmax_selector` builds it as
+`argmax_{a ∈ supp πstar(·|s)} A^π(s,a)`.
+
+**The order of steps is the entire content.** Collapse
+`X(s) := ∑_a πstar(a|s)·A^π(s,a) ≤ A^π(s,astar s)` and then
+`c·A^π(s,astar s) ≤ π(astar s|s)·A^π(s,astar s) ≤ m(s)` *first*, and only then
+apply `d^{πstar} ≤ mism·μ ≤ mism·d^π` to a now all-nonnegative sum. Every prior
+refutation in this family applied the change of measure while still carrying
+`X`.
+
+Why universal `astar` could not be salvaged: every repair route wants
+`mismatchCoeff M (detPolicy astar) μ` while the goal supplies
+`mismatchCoeff M πstar μ` — different occupancies. The real bound
+`d^{πstar}_μ ≥ d^{astar}_{γp,μ}` with `p := ⨅_s πstar(astar s|s)` exists, but `p`
+appears nowhere in the statement. Two candidate sufficient conditions were
+refuted numerically under a corrected `hstar` filter (1.0069 and 1.0376). -/
 
 /-- **The aggregate Łojasiewicz bound at the maximizing selector.**
 
@@ -650,17 +670,17 @@ theorem g1_aggregate_bound (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
-    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A))
-    -- the maximizing selector, read off `π` and `A^π` rather than `πstar`
     (b : S → A)
     (hb : ∀ s a, (F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a
             ≤ (F.toPolicy θ s) (b s) * advInf M (F.toPolicy θ) s (b s)) :
-    (⨅ s : S, (F.toPolicy θ s) (astar s))
-        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
-      ≤ mismatchCoeff M πstar μ
-          * ∑ s, |dinfDist M (F.toPolicy θ) μ s
-              * ((F.toPolicy θ s) (b s) * advInf M (F.toPolicy θ) s (b s))| := sorry
+    ∃ astar : S → A, (∀ s, 0 < (πstar s) (astar s)) ∧
+      (⨅ s : S, (F.toPolicy θ s) (astar s))
+          * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+        ≤ mismatchCoeff M πstar μ
+            * ∑ s, |dinfDist M (F.toPolicy θ) μ s
+                * ((F.toPolicy θ s) (b s) * advInf M (F.toPolicy θ) s (b s))| :=
+  Proofs.exists_astar_g1_aggregate_bound M hr hγ₀ hγ₁ μ hμ (F.toPolicy θ) πstar hstar b hb
 
 /-! ## G2 proper — AKM Lemma 4.1 with the gradient in it
 
