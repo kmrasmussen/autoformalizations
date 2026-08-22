@@ -4,9 +4,136 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 import PolicyGradient.Proofs.Conv2
 
 /-!
-# Conv3 — `Goal.softmax_policy_converges`: the tie split, closed for `γ = 0`
+# Conv3 — `Goal.softmax_policy_converges`: closed for `γ = 0`, open for `γ > 0`
 
-Work in progress header; see the end of the file for the obstruction note.
+## Status
+
+The goal is **PROVED for `γ = 0`** — `softmax_policy_converges_gamma_zero`, the
+frozen statement verbatim, with no hypothesis on `M` beyond the frozen ones — and
+**OPEN for `γ > 0`**, with the obstruction reduced to a single, quantified
+hypothesis and its failure explained by a closed-form identity `(‡)`.
+
+Read `Conv2.lean`'s header first: it refutes the `∑ ‖θ_{t+1} - θ_t‖ < ∞` route
+with a closed form, and reduces the goal to the *tie split* — convergence of the
+policy coordinates whose limiting advantage vanishes.  This file attacks that
+split and closes it at `γ = 0`.
+
+## 1. The engine: a leading tied action assembles a whole state
+
+`coord_tendsto_of_leader` is the new analytic core, and it is πbar-free.  Fix a
+state `s` and a set `Z` of actions.  Suppose
+
+* every action outside `Z` loses its mass (`π_t(b|s) → 0`), and
+* some `a₀ ∈ Z` **leads** the rest from a time `T`: `θ_T(s,b) ≤ θ_T(s,a₀)` for
+  `b ∈ Z`, and each gap `θ_t(s,a₀) - θ_t(s,b)` never shrinks while nonnegative.
+
+Then **every** coordinate at `s` converges.  The mechanism is `softmax_ratio`:
+`π_t(b|s) = exp(θ_t(s,b) - θ_t(s,a₀)) · π_t(a₀|s)`; the exponential factor is a
+nonincreasing sequence in `(0,1]`, hence convergent to some `ρ b ∈ [0,1]` with
+`ρ a₀ = 1`; and `∑_{b ∈ Z} π_t(b|s) → 1` (`Conv2.tendsto_mass_on_zero_set`) then
+pins `π_t(a₀|s) → 1 / ∑_{b∈Z} ρ b`, a limit that is well-defined because the sum
+is `≥ ρ a₀ = 1 > 0`.  Every other coordinate follows by multiplying back.
+
+Note what this does **not** need: no monotonicity of the probabilities themselves
+(they are not monotone — a non-leading tied coordinate can rise then fall), no
+summability of anything, and no rate.  Only the *logit gaps to one leader* have
+to be monotone.  That is a strictly weaker demand than `Conv.lean`'s
+`policy_converges_of_eventually_monotone`, whose own obstruction note records
+that coordinatewise policy monotonicity fails once `|A| ≥ 3`.
+
+`gap_monotone_of_adv_dominates` supplies that gap monotonicity from a hypothesis
+strictly weaker than `Conv2.tie_gap_monotone`'s exact tie: it suffices that
+`0 ≤ A^{(t)}(s,b) ≤ A^{(t)}(s,a₀)` whenever `b` trails `a₀`, since then
+`π_t(a₀|s) A^{(t)}(s,a₀) ≥ π_t(b|s) A^{(t)}(s,b)` and `theta_decrement` gives the
+gap a nonnegative increment.
+
+## 2. `γ = 0` closes, with no tie hypothesis on the MDP
+
+At `γ = 0`, `advInf M π s a = r(s,a) - V^π(s)`, so **the difference of two
+advantages at a state is the reward difference, at every finite time**
+(`advInf_sub_gamma_zero`).  Two actions whose limiting advantages both vanish
+therefore have equal rewards and hence *exactly equal advantages at every `t`*
+(`adv_eq_of_both_zero_limit_gamma_zero`) — the exact tie is **derived, not
+assumed**.  And that common advantage is `r(s,a) - V^{(t)}(s) ≥ 0`, because
+`V^{(t)}(s)` increases to its limit (`exists_Vinf_limit`), making the advantage
+antitone with limit `0` (`adv_nonneg_of_zero_limit_gamma_zero`).
+
+So both hypotheses of `gap_monotone_of_adv_dominates` hold on the tied set for
+*every* `γ = 0` MDP, with the leader taken to be any maximiser of `θ_0(s,·)` over
+the tied set (`exists_leader`).  `coord_tendsto_of_leader` closes each state and
+`Conv.exists_policy_limit_of_coord_tendsto` assembles the limit policy.  That is
+`softmax_policy_converges_gamma_zero`.
+
+This subsumes the `G9b` tie witness (one state, three actions, `γ = 0`,
+`r = (1,1,0)`) — exactly the configuration `Goal.lean` worried about, and the one
+that breaks `g9_c_positive` without breaking policy convergence.
+
+## 3. `γ > 0`: the obstruction, made quantitative
+
+Let `Vbar s := lim_t V^{(t)}(s)` (`Conv2.exists_Vinf_tendsto`) and
+`δ_t s := Vbar s - V^{(t)}(s) ≥ 0`, decreasing to `0`.  For an action `a` whose
+limiting advantage vanishes, `Vbar` satisfies the Bellman identity at `(s,a)`
+(`vbar_bellman_of_adv_limit_zero`), and subtracting it from `advInf` gives
+
+    A^{(t)}(s,a) = δ_t s - γ · ∑_{s'} P(s'|s,a) · δ_t s'.        (‡)
+
+`adv_eq_value_gap_of_zero_limit` is `(‡)`.  It explains both §2 and what is still
+missing:
+
+* **`γ = 0` collapses `(‡)` to `A^{(t)}(s,a) = δ_t s`** — the same nonnegative
+  number for every tied `a`.  So §2 is not a lucky special case: `(‡)` shows it
+  is the whole content of `γ = 0`.
+* **For `γ > 0` the sign of `A^{(t)}(s,a)` on the tied set is free.**  `(‡)` reads
+  `δ_t s - γ ⟨P(·|s,a), δ_t⟩`, and nothing forces `δ_t s ≥ γ ⟨P(·|s,a), δ_t⟩`.
+  It *is* forced at a state maximising `δ_t`, where `A^{(t)}(s,a) ≥ (1-γ) δ_t s ≥ 0`
+  — but the maximiser moves with `t`, so this yields no *eventual* sign at any
+  fixed state.  That is precisely `Conv2`'s numerical finding (`γ = 0.6`:
+  `A^{(t)}` negative for thousands of consecutive steps at tied states), now with
+  a reason.  Hence neither `gap_monotone_of_adv_dominates` nor
+  `Conv2.tie_gap_monotone` can be discharged — `(‡)` shows the latter's exact-tie
+  hypothesis is equivalent to `⟨P(·|s,a) - P(·|s,b), δ_t⟩ = 0`, an accident of
+  the transition kernel rather than a consequence of the tie.
+* **The bounded-variation route hits the same wall, and `(‡)` says where.**
+  From `(‡)`, `|A^{(t)}(s,a)| ≤ (1 + γ) ‖δ_t‖_∞` for tied `a`, so a tied logit gap
+  moves by `O(‖δ_t‖_∞)` per step and `∑_t ‖π_{t+1} - π_t‖` is controlled as soon
+  as `∑_t ‖δ_t‖_∞ < ∞`.  But softmax policy gradient converges at rate `Θ(1/t)` —
+  in `Conv2`'s two-action model `π_t(loser) ≍ 1/(2ηt)`, so `δ_t ≍ 1/t` — and
+  `∑_t ‖δ_t‖_∞` **diverges logarithmically**, by the same logarithm that defeats
+  `∑_t ‖θ_{t+1} - θ_t‖`.  The policy total variation nevertheless saturates
+  numerically (`Conv.lean`'s header: `6.7328` at `10⁵`, `6.7358` at `10⁶`), so the
+  divergence is entirely an artefact of replacing the signed difference
+  `π_t(a|s) A^{(t)}(s,a) - π_t(b|s) A^{(t)}(s,b)` by `|A^{(t)}(s,a)| + |A^{(t)}(s,b)|`.
+  **So `Summable (fun t => ‖π_{t+1} - π_t‖)` is not reachable by majorisation:
+  it requires the cancellation**, i.e. a rate comparison between two tied
+  coordinates — which is exactly `ResidC9.ratio_step`'s estimate, and
+  `ratio_step` binds `πbar`.  The circularity `Conv2` §4 localises survives; this
+  file localises it further, to a statement purely about `δ_t`.
+
+## 4. What is left, exactly
+
+`softmax_policy_converges_of_leader` is the sharpest πbar-free reduction reached
+here: the frozen goal follows from `hlead`, which asks for **one** leading action
+per state whose gaps to the other tied actions never shrink.  Discharging `hlead`
+for `γ > 0` needs one of
+
+* `∑_t ‖Vbar - V^{(t)}‖_∞ < ∞` — **false**, the rate is `Θ(1/t)`; or
+* eventual nonnegativity of `A^{(t)}(s,·)` on the tied set — **false** by `(‡)`,
+  and confirmed numerically in `Conv2` §4; or
+* a signed rate comparison of `π_t(a|s) A^{(t)}(s,a)` against
+  `π_t(b|s) A^{(t)}(s,b)` for `a, b` both tied — the one open ingredient, and not
+  available πbar-free anywhere in the repo.
+
+**Routes not to retry.**  `∑ ‖θ_{t+1} - θ_t‖ < ∞` (refuted in `Conv2` §1 with a
+closed form).  Any `Resid` sign-stability fact, or `ResidC9.ratio_step`, or
+`ResidFinal.limit_adv_nonpos_offsupport_proof` — all bind `πbar` and `hlim`.
+Łojasiewicz on `‖θ‖` (`‖θ‖ → ∞`).  And **connectedness of the limit set**:
+Ostrowski does apply, since `‖θ_{t+1} - θ_t‖ = η‖∇V(θ_t)‖ → 0`
+(`AKM51.tendsto_norm_grad_zero`) and the policies are bounded, so the set of limit
+points is compact and connected; but every limit point shares the same value
+function `Vbar`, hence the same advantage, so the limit set lies inside
+`∏_s Δ(Z s)` — a **product of simplices, which is itself connected**.
+Connectedness therefore adds nothing beyond `Conv2.coord_tendsto_of_unique_zero`'s
+already-handled singleton case.
 -/
 
 namespace PolicyGradient
