@@ -518,7 +518,20 @@ directional derivative along `π' − π`, which is exactly AKM's quantity. -/
 Suboptimality is bounded by the mismatch-weighted *directional* gradient. Unlike
 `g2_advantage_bound` this mentions a derivative, and unlike the refuted `‖∇V‖`
 form it is true for softmax: the directional maximum over the simplex retains
-the `π(a|s)` factor that a norm discards. -/
+the `π(a|s)` factor that a norm discards.
+
+**The fidelity check flags `hF` as unused here, and that flag is a false
+positive** — recorded rather than silenced, because the distinction is the whole
+point of the check. When it fired on `g2_advantage_bound` it was right: that
+statement had been substituted for Lemma 4.1 and had no gradient in it. Here the
+statement *is* Lemma 4.1's directional right side; the inequality simply also
+holds for a general policy family, so softmax is not needed to prove it. What
+softmax buys is that the directional form is the right object to carry a
+gradient at all.
+
+The sharper `Proofs.g2b_sharp` drops the `1/(1-γ)` entirely and is stated for a
+general `Policy`; this goal follows from it by weakening. So the frozen constant
+is not tight — kept as frozen, since the statement is the paper's. -/
 @[paper "AKM2021" "Lemma 4.1"]
 theorem g2_gradient_domination (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -530,7 +543,8 @@ theorem g2_gradient_domination (M : FiniteMDP S A)
     VstarDist M μ - VinfDist M (F.toPolicy θ) μ
       ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
           * (⨆ s : S, ∑ a : A,
-              ((πstar s) a - (F.toPolicy θ s) a) * advInf M (F.toPolicy θ) s a) := sorry
+              ((πstar s) a - (F.toPolicy θ s) a) * advInf M (F.toPolicy θ) s a) :=
+  Proofs.g2_gradient_domination_directional_proof M F hF hr hγ₀ hγ₁ μ hμ πstar hstar θ
 
 /-! ## G8 / Mei Theorem 4 — the headline rate
 
