@@ -12,6 +12,7 @@ import PolicyGradient.Proofs.Entropy
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G1Agg
 import PolicyGradient.Proofs.G1Sel
+import PolicyGradient.Proofs.G1Cpl
 import PolicyGradient.Proofs.G1b
 import PolicyGradient.Proofs.G1c
 import PolicyGradient.Proofs.G2
