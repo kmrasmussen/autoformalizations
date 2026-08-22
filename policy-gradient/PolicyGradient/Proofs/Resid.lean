@@ -758,6 +758,89 @@ theorem tendsto_pi_adv_zero (M : FiniteMDP S A)
   rw [← h2]
   exact Real.sqrt_le_sqrt hsq
 
+/-! ## Towards the contradiction: AKM Lemmas C.3, C.5, C.6
+
+Fix a state `s` and suppose some `a₊` has `A^{π̄}(s,a₊) > 0` (this is
+`I^s_+ ≠ ∅`). By continuity `A^{(t)}(s,a₊) → A^{π̄}(s,a₊) > 0`, so eventually
+`A^{(t)}(s,a₊) > Δ/4` for a fixed `Δ > 0` (AKM Lemma C.3). Since
+`d^{(t)}_μ(s) ≥ μ(s) > 0`, `tendsto_pi_adv_zero` then forces
+`π^{(t)}(a₊|s) → 0`.
+
+The `θ`-coordinate for such an action is *strictly increasing* eventually
+(AKM Lemma C.5), because its gradient coordinate
+`d^{(t)}_μ(s) π^{(t)}(a₊|s) A^{(t)}(s,a₊)` is strictly positive. -/
+
+/-- **AKM Lemma C.3, positive case.** Eventually `A^{(t)}(s,a) ≥ A^{π̄}(s,a)/2`
+whenever `A^{π̄}(s,a) > 0`. -/
+theorem eventually_adv_pos (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) (hpos : 0 < advInf M πbar s a) :
+    ∀ᶠ t in Filter.atTop, advInf M πbar s a / 2 ≤ advInf M (F.toPolicy (θ t)) s a := by
+  have hA := tendsto_adv_traj M F hr hγ₀ hγ₁ θ πbar hlim s a
+  have hhalf : advInf M πbar s a / 2 < advInf M πbar s a := by linarith
+  exact (hA.eventually (eventually_gt_nhds hhalf)).mono fun t ht => le_of_lt ht
+
+/-- **AKM Lemma C.4 consequence.** If `A^{π̄}(s,a) > 0` then `π^{(t)}(a|s) → 0`. -/
+theorem tendsto_pi_zero_of_adv_pos (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) (hpos : 0 < advInf M πbar s a) :
+    (πbar s) a = 0 := by
+  -- `π^{(t)}(a|s) → π̄(a|s)` and `π^{(t)}(a|s) A^{(t)}(s,a) → 0`
+  have hprod := tendsto_pi_adv_zero M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep s a
+  have hpi : Filter.Tendsto (fun t => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds ((πbar s) a)) := by
+    have h1 := (tendsto_pi_nhds.mp hlim) s
+    exact (tendsto_pi_nhds.mp h1) a
+  have hA := tendsto_adv_traj M F hr hγ₀ hγ₁ θ πbar hlim s a
+  -- the product converges to `π̄(a|s) · A^{π̄}(s,a)`, which must be `0`
+  have hlimprod : Filter.Tendsto
+      (fun t => (F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a)
+      Filter.atTop (nhds ((πbar s) a * advInf M πbar s a)) := hpi.mul hA
+  have heq : (πbar s) a * advInf M πbar s a = 0 :=
+    tendsto_nhds_unique hlimprod hprod
+  rcases mul_eq_zero.mp heq with h | h
+  · exact h
+  · exact absurd h (ne_of_gt hpos)
+
+/-- **AKM Lemma C.5, positive case.** Once `A^{(t)}(s,a) > 0`, the coordinate
+`θ^{(t)}(s,a)` is strictly increasing: its gradient coordinate is
+`d^{(t)}_μ(s) · π^{(t)}(a|s) · A^{(t)}(s,a) > 0`, all three factors positive
+(`d ≥ μ(s) > 0` by `hμ`, `π > 0` by softmax positivity). -/
+theorem theta_increasing_of_adv_pos (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (η : ℝ) (hη₀ : 0 < η)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A)
+    (hadv : 0 < advInf M (F.toPolicy θ) s a) :
+    θ (s, a)
+      < (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, a) := by
+  have hgrad := gradient_VinfDist_apply M F hF hr hγ₀ hγ₁ μ θ s a
+  have hdpos : 0 < dinfDist M (F.toPolicy θ) μ s :=
+    lt_of_lt_of_le (hμ s) (mu_le_dinfDist M hγ₀ hγ₁ _ μ s)
+  have hpipos : 0 < (F.toPolicy θ s) a := by
+    rw [hF]; exact softmax_pos _ a
+  have hprod : 0 < dinfDist M (F.toPolicy θ) μ s
+      * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a) :=
+    mul_pos hdpos (mul_pos hpipos hadv)
+  simp only [PiLp.add_apply, PiLp.smul_apply, smul_eq_mul]
+  rw [hgrad]
+  nlinarith [hprod, hη₀]
+
 end Resid
 
 end Proofs
