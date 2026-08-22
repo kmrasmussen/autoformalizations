@@ -237,6 +237,50 @@ theorem tie_gap_monotone (M : FiniteMDP S A)
     mul_nonneg hη₀.le (mul_nonneg hdnn (mul_nonneg (by linarith) hAnn))
   nlinarith [hda, hdb, hprod]
 
+
+/-! ## The capstone: the frozen goal, conditional on the tie split converging
+
+Everything above is πbar-free.  Assembling it, the frozen goal follows from a
+single remaining hypothesis, and that hypothesis concerns **only the actions
+whose limiting advantage vanishes**.
+
+`hZ` below says: at each state, the policy coordinates of the *zero-limiting-
+advantage* actions converge.  Every other coordinate is handled unconditionally
+by `tendsto_pi_zero_of_adv_limit_ne`.
+
+Compare `Conv.lean`'s capstone, which needed sign-stability of **every**
+advantage *and* was still insufficient (its own obstruction note shows
+sign-stability does not give monotone policy coordinates for `|A| ≥ 3`).  Here
+the sign-stability half is **discharged outright** — advantages converge, by
+`exists_adv_tendsto` — and what remains is strictly the tie split. -/
+
+/-- **The frozen goal, given that the tie split converges.**
+
+Exactly `Goal.softmax_policy_converges`'s hypotheses plus `hZ`, which asks only
+that coordinates with vanishing limiting advantage converge. -/
+theorem softmax_policy_converges_of_tie_split (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (hZ : ∀ s a, Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) atTop (nhds 0) →
+      ∃ L : ℝ, Tendsto (fun t => (F.toPolicy (θ t) s) a) atTop (nhds L)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (F.toPolicy (θ t) s) a) atTop
+        (nhds (fun s a => (πbar s) a)) := by
+  classical
+  refine exists_policy_limit_of_coord_tendsto (fun t => F.toPolicy (θ t)) ?_
+  intro s a
+  obtain ⟨L, hL⟩ := exists_adv_tendsto M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep s a
+  by_cases hL0 : L = 0
+  · exact hZ s a (by rw [← hL0]; exact hL)
+  · exact ⟨0, tendsto_pi_zero_of_adv_limit_ne M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+      s a L hL0 hL⟩
+
 end Conv2
 
 end Proofs

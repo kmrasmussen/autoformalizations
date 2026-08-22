@@ -1,34 +1,38 @@
-import numpy as np
-from mdp import make_instance, policy_eval, occupancy
-rng = np.random.default_rng(21)
-modes=['rand','grid','coarse','bin']; opts=['uniform_argmax','rand_argmax','single']
-N=40000
-# KEY REDUCTION TEST (the proof route):
-# Let pihat = deterministic policy s->astar(s). Facts to verify:
-#  R1: pihat is optimal (V^pihat = V*)
-#  R2: gap = sum_s dhat(s) * A^pi(s,astar(s))     [F1 applied to pihat]
-#  R3: c*A^pi(s,astar(s)) <= m(s)  per state      [from F4 + c<=pi(astar|s), needs A>=0 OR m>=0]
-#  R4: dhat(s) <= mismhat*mu(s) <= mismhat*dpi(s) [F2 for pihat]
-#  => c*gap <= mismhat * sum_s dpi(s) m(s)
-# Question: is mismhat <= mism? NO (t9). So (G) as stated with mism from pistar
-# needs mism to be the max over the *chosen* astar occupancy, OR the sum saves it.
-w1=w2=w3=w4=-1e18
-for i in range(N):
-    I=make_instance(rng,mode=modes[i%4],astar_mode=['min','max','rand'][i%3],opt_mode=opts[i%3])
-    S=I['S'];A=I['A'];gamma=I['gamma'];r=I['r'];P=I['P'];pi=I['pi'];supp=I['supp'];mu=I['mu']
-    aidx=np.empty(S,dtype=int)
-    for s in range(S):
-        idx=np.flatnonzero(supp[s]); aidx[s]=idx[np.argmin(np.abs(pi[s,idx]-I['cvec'][s]))]
-    ph=np.zeros((S,A)); ph[np.arange(S),aidx]=1.0
-    Vh,Qh,Pph=policy_eval(S,A,gamma,r,P,ph)
-    dh=occupancy(S,gamma,Pph,mu)
-    w1=max(w1,np.max(np.abs(Vh-I['Vstar'])))
-    Aa=I['Adv'][np.arange(S),aidx]
-    w2=max(w2,abs(np.sum(dh*Aa)-I['gap']))
-    w3=max(w3,np.max(I['c']*Aa-I['m']))
-    mismh=np.max(dh/mu)
-    w4=max(w4,I['c']*I['gap']-mismh*np.sum(I['dpi']*I['m']))
-print("R1 max|V^pihat-V*| :",w1)
-print("R2 max|sum dhat*A(astar) - gap| :",w2)
-print("R3 max (c*A(s,astar)-m) :",w3)
-print("R4 final: max(c*gap - mismhat*sum dpi*m) :",w4)
+import math,random
+def solveV(P,r,g,pi,nS,nA,it=300):
+    V=[0.0]*nS
+    for _ in range(it):
+        V=[sum(pi[s][a]*(r[s][a]+g*sum(P[s][a][sp]*V[sp] for sp in range(nS))) for a in range(nA)) for s in range(nS)]
+    return V
+def run(P,r,g,nS,nA,T,eta,seed):
+    random.seed(seed); th=[[random.gauss(0,1.5) for _ in range(nA)] for _ in range(nS)]
+    mu=[1.0/nS]*nS; negcount=[[0]*nA for _ in range(nS)]
+    for t in range(T):
+        pi=[]
+        for s in range(nS):
+            m=max(th[s]); e=[math.exp(x-m) for x in th[s]]; Z=sum(e); pi.append([x/Z for x in e])
+        V=solveV(P,r,g,pi,nS,nA,150)
+        A=[[r[s][a]+g*sum(P[s][a][sp]*V[sp] for sp in range(nS))-V[s] for a in range(nA)] for s in range(nS)]
+        occ=[0.0]*nS; cur=mu[:]
+        for k in range(150):
+            for s in range(nS): occ[s]+=cur[s]*(g**k)
+            nxt=[0.0]*nS
+            for s in range(nS):
+                for a in range(nA):
+                    for sp in range(nS): nxt[sp]+=cur[s]*pi[s][a]*P[s][a][sp]
+            cur=nxt
+        for s in range(nS):
+            for a in range(nA):
+                if A[s][a]<-1e-10: negcount[s][a]+=1
+                th[s][a]+=eta*occ[s]*pi[s][a]*A[s][a]
+    return negcount,[[round(x,6) for x in row] for row in A],[[round(x,4) for x in row] for row in pi]
+nS,nA=2,3
+random.seed(0)
+for trial in range(4):
+    P=[[[random.random() for _ in range(nS)] for _ in range(nA)] for _ in range(nS)]
+    for s in range(nS):
+        for a in range(nA):
+            z=sum(P[s][a]); P[s][a]=[x/z for x in P[s][a]]
+    r=[[1.0,1.0,0.0],[0.4,0.1,0.7]]
+    nc,A,pi=run(P,r,0.6,nS,nA,3000,0.15,trial)
+    print(trial,"negcounts",nc,"Abar",A)
