@@ -148,6 +148,38 @@ carry all of it. -/
 theorem sum_pibar_eq_one (πbar : Policy S A) (s : S) :
     ∑ a, (πbar s) a = 1 := (πbar s).sum_eq_one
 
+/-! ### AKM's bound (a): the `I^s_-` mass is negligible against `π^{(t)}(ap|s)`
+
+For `a ∈ I^s_-`, `θ^{(t)}(s,a) → -∞` while `θ^{(t)}(s,ap) ≥ c`, so
+`π^{(t)}(a|s)/π^{(t)}(ap|s) = exp(θ_a - θ_ap) ≤ exp(θ_a - c) → 0`. Hence for any
+`ε > 0`, eventually `π^{(t)}(a|s) ≤ ε · π^{(t)}(ap|s)`. -/
+
+theorem pi_ratio_small (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (s : S) (a ap : A) (c : ℝ) (T : ℕ)
+    (hlow : ∀ t, T ≤ t → c ≤ (θ t) (s, ap))
+    (hbot : Filter.Tendsto (fun t => (θ t) (s, a)) Filter.atTop Filter.atBot)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∀ᶠ t in Filter.atTop, (F.toPolicy (θ t) s) a ≤ ε * (F.toPolicy (θ t) s) ap := by
+  -- eventually `θ_a ≤ c + log ε`
+  have hev : ∀ᶠ t in Filter.atTop, (θ t) (s, a) ≤ c + Real.log ε :=
+    Filter.tendsto_atBot.mp hbot (c + Real.log ε)
+  filter_upwards [hev, Filter.eventually_ge_atTop T] with t ht htT
+  -- `π(a|s) = exp(θ_a - θ_ap) π(ap|s)` and `exp(θ_a - θ_ap) ≤ exp(log ε) = ε`
+  have hratio : (F.toPolicy (θ t) s) a
+      = Real.exp ((θ t) (s, a) - (θ t) (s, ap)) * (F.toPolicy (θ t) s) ap := by
+    rw [hF, hF]
+    exact softmax_ratio (fun a' => (θ t) (s, a')) a ap
+  have hexp : Real.exp ((θ t) (s, a) - (θ t) (s, ap)) ≤ ε := by
+    have hle : (θ t) (s, a) - (θ t) (s, ap) ≤ Real.log ε := by
+      have := hlow t htT; linarith
+    calc Real.exp ((θ t) (s, a) - (θ t) (s, ap)) ≤ Real.exp (Real.log ε) :=
+          Real.exp_le_exp.mpr hle
+      _ = ε := Real.exp_log hε
+  rw [hratio]
+  exact mul_le_mul_of_nonneg_right hexp ((F.toPolicy (θ t) s).nonneg ap)
+
 end ResidAsm
 
 end Proofs
