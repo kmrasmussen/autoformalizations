@@ -177,6 +177,69 @@ theorem exists_ratio_limit (θ : ℕ → EuclideanSpace ℝ (S × A)) (s : S) (a
   exact le_of_tendsto hρ (Filter.eventually_atTop.mpr ⟨T, hb1⟩)
 
 
+/-- **The state assembly.**  If every action in `Z` trails a fixed leader `a₀ ∈ Z`
+with a never-shrinking gap from time `T` on, and every action outside `Z` loses
+its mass, then every policy coordinate at `s` converges. -/
+theorem coord_tendsto_of_leader
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : ℕ → EuclideanSpace ℝ (S × A)) (s : S) (Z : Finset A) (a₀ : A)
+    (ha₀ : a₀ ∈ Z) (T : ℕ)
+    (hT : ∀ b ∈ Z, (θ T) (s, b) ≤ (θ T) (s, a₀))
+    (hstepgap : ∀ b ∈ Z, ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) →
+      (θ t) (s, a₀) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a₀) - (θ (t + 1)) (s, b))
+    (hout : ∀ b ∉ Z, Tendsto (fun t => (F.toPolicy (θ t) s) b) atTop (nhds 0)) :
+    ∀ a, ∃ L : ℝ, Tendsto (fun t => (F.toPolicy (θ t) s) a) atTop (nhds L) := by
+  classical
+  -- ratio limits
+  have hratio : ∀ b ∈ Z, ∃ ρ : ℝ, 0 ≤ ρ ∧ ρ ≤ 1 ∧
+      Tendsto (fun t => Real.exp ((θ t) (s, b) - (θ t) (s, a₀))) atTop (nhds ρ) :=
+    fun b hb => exists_ratio_limit θ s a₀ b T (hT b hb) (hstepgap b hb)
+  choose ρ hρ0 hρ1 hρlim using hratio
+  -- the softmax ratio identity
+  have hid : ∀ (t : ℕ) (b : A), (F.toPolicy (θ t) s) b
+      = Real.exp ((θ t) (s, b) - (θ t) (s, a₀)) * (F.toPolicy (θ t) s) a₀ := by
+    intro t b
+    rw [hF, hF]
+    exact softmax_ratio (fun a' => (θ t) (s, a')) b a₀
+  -- `R := ∑_{b ∈ Z} ρ b ≥ 1 > 0`, since the `a₀` term is `1`
+  set R : ℝ := ∑ b ∈ Z.attach, ρ b.1 b.2 with hR
+  have hRlim : Tendsto (fun t => ∑ b ∈ Z.attach,
+      Real.exp ((θ t) (s, b.1) - (θ t) (s, a₀))) atTop (nhds R) :=
+    tendsto_finsetSum _ (fun b _ => hρlim b.1 b.2)
+  have hρa₀ : ρ a₀ ha₀ = 1 := by
+    have hc : Tendsto (fun _ : ℕ => (1:ℝ)) atTop (nhds (ρ a₀ ha₀)) := by
+      refine (hρlim a₀ ha₀).congr (fun t => ?_)
+      simp
+    exact (tendsto_nhds_unique tendsto_const_nhds hc).symm
+  have hRpos : 0 < R := by
+    have hmem : (⟨a₀, ha₀⟩ : {x // x ∈ Z}) ∈ Z.attach := Finset.mem_attach _ _
+    have hle : ρ a₀ ha₀ ≤ R := by
+      refine Finset.single_le_sum (f := fun b : {x // x ∈ Z} => ρ b.1 b.2) ?_ hmem
+      intro b _; exact hρ0 b.1 b.2
+    rw [hρa₀] at hle; linarith
+  -- mass on `Z` tends to `1`
+  have hmass : Tendsto (fun t => ∑ b ∈ Z, (F.toPolicy (θ t) s) b) atTop (nhds 1) :=
+    tendsto_mass_on_zero_set (fun t => F.toPolicy (θ t)) s Z hout
+  -- rewrite the mass as `(∑ ratios) * π_t(a₀|s)`
+  have hmass' : Tendsto (fun t => (∑ b ∈ Z.attach,
+      Real.exp ((θ t) (s, b.1) - (θ t) (s, a₀))) * (F.toPolicy (θ t) s) a₀)
+      atTop (nhds 1) := by
+    refine hmass.congr (fun t => ?_)
+    rw [Finset.sum_mul, ← Finset.sum_attach Z (fun b => (F.toPolicy (θ t) s) b)]
+    exact Finset.sum_congr rfl (fun b _ => hid t b.1)
+  -- divide out
+  have ha₀lim : Tendsto (fun t => (F.toPolicy (θ t) s) a₀) atTop (nhds (1 / R)) := by
+    have hdiv := hmass'.div hRlim (ne_of_gt hRpos)
+    refine hdiv.congr' ?_
+    filter_upwards [hRlim.eventually (eventually_gt_nhds hRpos)] with t ht
+    exact mul_div_cancel_left₀ _ (ne_of_gt ht)
+  intro a
+  by_cases haZ : a ∈ Z
+  · refine ⟨ρ a haZ * (1 / R), ?_⟩
+    exact ((hρlim a haZ).mul ha₀lim).congr (fun t => (hid t a).symm)
+  · exact ⟨0, hout a haZ⟩
+
 end Conv3
 
 end Proofs
