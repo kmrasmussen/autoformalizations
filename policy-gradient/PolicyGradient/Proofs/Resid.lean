@@ -692,6 +692,72 @@ theorem VinfDist_gain (M : FiniteMDP S A)
       _ ≤ _ := h1
   linarith [hpd, hswap, hsingle, hlow]
 
+/-- **AKM Lemma C.4 (gradient half).** `‖∇F_s(θ^{(t)})‖ → 0` at every state.
+
+The gains of `VinfDist_gain` telescope against the bound `V(μ) ≤ 1/(1-γ)`, so
+`∑_t ‖∇F_s(θ^{(t)})‖²` converges. This is where `hμ` is indispensable: without
+`μ(s) > 0` the weight `μ s * (η μ s/5)` vanishes and the bound is vacuous. -/
+theorem tendsto_norm_gradF_zero (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) :
+    Filter.Tendsto (fun t => ‖gradient (g (S := S) (A := A) s
+        (fun a' => advInf M (F.toPolicy (θ t)) s a')) (θ t)‖) Filter.atTop (nhds 0) := by
+  set κ : ℝ := μ s * (η * μ s / 5) with hκ
+  have hκpos : 0 < κ := by
+    have := hμ s; rw [hκ]; positivity
+  refine tendsto_zero_of_summable_sq (g := fun t => ‖gradient (g (S := S) (A := A) s
+      (fun a' => advInf M (F.toPolicy (θ t)) s a')) (θ t)‖) ?_
+  refine summable_sq_of_ascent (v := fun t => VinfDist M (F.toPolicy (θ t)) μ)
+    (B := 1 / (1 - M.γ)) hκpos ?_ ?_
+  · intro t
+    have h := VinfDist_gain M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη (θ t) s
+    rw [← hstep t] at h
+    exact h
+  · intro t
+    unfold VinfDist
+    calc ∑ s₀, μ s₀ * Vinf M (F.toPolicy (θ t)) s₀
+        ≤ ∑ s₀, μ s₀ * (1 / (1 - M.γ)) :=
+          Finset.sum_le_sum fun s₀ _ =>
+            mul_le_mul_of_nonneg_left (Vinf_le_one_div M hr hγ₀ hγ₁ _ _) (μ.nonneg s₀)
+      _ = 1 / (1 - M.γ) := by rw [← Finset.sum_mul, μ.sum_eq_one, one_mul]
+
+/-- **AKM Lemma C.4.** `π^{(t)}(a|s) · A^{(t)}(s,a) → 0` for every `s, a`. -/
+theorem tendsto_pi_adv_zero (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (a : A) :
+    Filter.Tendsto (fun t => (F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a)
+      Filter.atTop (nhds 0) := by
+  have hbase := tendsto_norm_gradF_zero M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep s
+  rw [tendsto_zero_iff_abs_tendsto_zero]
+  refine squeeze_zero (fun t => abs_nonneg _) (fun t => ?_) hbase
+  simp only [Function.comp_apply]
+  have hsq := norm_sq_gradient_g M F hF hr hγ₀ hγ₁ (θ t) s a
+  have h1 : |(F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a|
+      = Real.sqrt (((F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a) ^ 2) := by
+    rw [Real.sqrt_sq_eq_abs]
+  rw [h1]
+  have h2 : Real.sqrt (‖gradient (g (S := S) (A := A) s
+      (fun a' => advInf M (F.toPolicy (θ t)) s a')) (θ t)‖ ^ 2)
+      = ‖gradient (g (S := S) (A := A) s
+          (fun a' => advInf M (F.toPolicy (θ t)) s a')) (θ t)‖ :=
+    Real.sqrt_sq (norm_nonneg _)
+  rw [← h2]
+  exact Real.sqrt_le_sqrt hsq
+
 end Resid
 
 end Proofs
