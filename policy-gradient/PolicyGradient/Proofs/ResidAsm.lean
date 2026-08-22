@@ -241,6 +241,33 @@ theorem sum_I0_pibar_eq_one (M : FiniteMDP S A)
   simp only [Finset.mem_filter, Finset.mem_univ, true_and, not_not] at hnot
   exact pibar_supported_in_I0 M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep πbar hlim s a hnot
 
+/-! ### The on-support half is discharged; only the off-support half is left
+
+`limitAdvNonpos_of_offsupport` (in `Proofs/AKM51b.lean`) needs two hypotheses:
+`hsupp` on the support and `hoff` off it. Under the frozen goal's hypotheses the
+**`hsupp` half is now proved** (`advInf_eq_zero_on_support`), so the frozen goal
+is *equivalent* to the full statement `∀ s a, A^{π̄}(s,a) ≤ 0`, which is what
+`vinf_eq_vstar_of_adv_nonpos` and `tendsto_vstar_of_limitAdvNonpos` consume. -/
+
+theorem full_adv_nonpos_of_offsupport (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (hoff : ∀ s a, (πbar s) a = 0 → advInf M πbar s a ≤ 0) :
+    ∀ s a, advInf M πbar s a ≤ 0 :=
+  limitAdvNonpos_of_offsupport M hr hγ₀ hγ₁ πbar
+    (fun s a hpos => advInf_eq_zero_on_support M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+      πbar hlim s a hpos)
+    hoff
+
 end ResidAsm
 
 end Proofs
