@@ -1012,6 +1012,35 @@ theorem g1_lojasiewicz_of_greedy (M : FiniteMDP S A)
     _ = ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖
           * (Real.sqrt (Fintype.card S) * mism) := by ring
 
+/-! ### Where this stops
+
+`g1_lojasiewicz_of_greedy` is the frozen G1 statement plus one hypothesis:
+
+    hgreedy : ∀ s, advGapInf M π πstar s ≤ advInf M π s (astar s)
+
+Everything else the goal needs is proved above and unconditionally: the
+infinite-horizon performance difference lemma, Fréchet differentiability of
+`VinfDist` with the explicit tabular softmax policy gradient
+`∂V/∂θ(s,a) = d^π_μ(s)·π(a|s)·A^π(s,a)`, the `√|S|` operator-norm bound via a
+signed test vector, and the mismatch-coefficient conversion.
+
+`hgreedy` is **not derivable** from the frozen hypotheses. `hastar` pins
+`a*(s) ∈ argmax Q*(s,·)` and `hstar` pins `supp πstar ⊆ argmax Q*(s,·)`
+(`optimal_support_greedy_proof`), but when `Q*` has a **tie** the two may be
+different actions, and `Q*`-tied actions can carry different `A^π`. A witness
+satisfying every frozen hypothesis:
+
+    S = A = Fin 2, γ = 1/4, r = ![![0,1],![1,1]],
+    Q*(1,·) = (4/3, 4/3) = V*(1)          -- a genuine tie, so hastar allows astar 1 = 0
+    A^π(1,0) = -0.0319  <  A^π(1,1) = +0.0076
+
+so `advGapInf = A^π(1,1) > A^π(1, astar 1)` and `hgreedy` fails. G1 itself still
+holds there (LHS 0.032 ≤ RHS 0.247): the slack is absorbed **across** states by
+the interplay of `d^{πstar}_μ` and `d^π_μ`. Every per-state factorisation of the
+remaining step was checked numerically and each is false under ties — the
+surviving inequality is genuinely aggregate. Closing G1 therefore needs a
+cross-state argument that this development does not yet contain. -/
+
 end G1
 
 end Proofs
