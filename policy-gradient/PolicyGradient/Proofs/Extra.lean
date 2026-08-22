@@ -37,6 +37,7 @@ import PolicyGradient.Proofs.ResidFinal
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.VecRate
 import PolicyGradient.Proofs.VecStep
+import PolicyGradient.Proofs.Mei4D
 
 /-!
 # Proofs/Extra.lean — additional proof modules
