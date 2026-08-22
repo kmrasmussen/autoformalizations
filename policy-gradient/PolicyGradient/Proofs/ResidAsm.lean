@@ -214,6 +214,33 @@ theorem I0_adv_small (M : FiniteMDP S A)
       Filter.atTop (nhds 0) := by simpa using hA.abs
   exact habs.eventually_le_const hε
 
+/-! ### The limiting mass sits on `I^s_0`, quantitatively
+
+`∑_{a : A^{π̄}(s,a) = 0} π̄(a|s) = 1`, since every other action has `π̄(a|s) = 0`
+(`pibar_supported_in_I0`). -/
+
+theorem sum_I0_pibar_eq_one (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) :
+    ∑ a ∈ Finset.univ.filter (fun a => advInf M πbar s a = 0), (πbar s) a = 1 := by
+  classical
+  rw [← (πbar s).sum_eq_one]
+  refine Finset.sum_subset (f := fun a : A => (πbar s) a)
+    (Finset.filter_subset (fun a => advInf M πbar s a = 0) Finset.univ) ?_
+  intro a _ hnot
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and, not_not] at hnot
+  exact pibar_supported_in_I0 M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep πbar hlim s a hnot
+
 end ResidAsm
 
 end Proofs
