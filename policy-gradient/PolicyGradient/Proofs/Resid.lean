@@ -507,6 +507,104 @@ theorem norm_sq_gradient_g (M : FiniteMDP S A)
   rw [hnorm]
   exact hle
 
+/-! ### From the per-state gain to `π^{(t)}(a|s) A^{(t)}(s,a) → 0`
+
+At state `s`, `sum_pi_next_adv_nonneg`'s proof produced a *gain*: with
+`c_t = η d^{(t)}_μ(s)` and `L = 8/(1-γ)`,
+
+`∑_a π^{(t+1)}(a|s) A^{(t)}(s,a) ≥ c_t (1 - c_t L/2) ‖∇F_s(θ^{(t)})‖² ≥ 0`,
+
+and `c_t L ≤ 8/5` gives `1 - c_t L/2 ≥ 1/5`. Now `hμ` enters: `d^{(t)}_μ(s) ≥ μ(s) > 0`
+(`mu_le_dinfDist`), so `c_t ≥ η μ(s) > 0` and the gain is at least
+`(η μ(s)/5)‖∇F_s(θ^{(t)})‖²`.
+
+Feeding this through the performance-difference lemma at start distribution `μ`,
+`V^{(t+1)}(μ) - V^{(t)}(μ) ≥ (1-γ)μ(s) · (η μ(s)/5) ‖∇F_s(θ^{(t)})‖²`
+(the occupancy weight `d^{π^{(t+1)}}_μ(s) ≥ μ(s)`), and `V(μ)` is bounded, so
+the gains are summable and `‖∇F_s(θ^{(t)})‖ → 0`. -/
+
+/-- **The per-state gain, with `hμ` making it uniformly positive.** -/
+theorem state_gain (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) :
+    η * μ s / 5
+        * ‖gradient (g (S := S) (A := A) s
+              (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2
+      ≤ ∑ a, (F.toPolicy (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) s) a
+          * advInf M (F.toPolicy θ) s a := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  set q : A → ℝ := fun a' => advInf M (F.toPolicy θ) s a' with hq
+  set B : ℝ := 2 / (1 - M.γ) with hB
+  have hqB : ∀ a, |q a| ≤ B := fun a => abs_advInf_le M (F.toPolicy θ) hr hγ₀ hγ₁ s a
+  set L : ℝ := 4 * B with hL
+  have hLeq : L = 8 / (1 - M.γ) := by rw [hL, hB]; field_simp; ring
+  have hLnn : 0 ≤ L := by rw [hLeq]; positivity
+  have hd : ∀ x, HasFDerivAt (g (S := S) (A := A) s q) (dg (S := S) (A := A) s q x) x :=
+    fun x => hasFDeriv_g (S := S) (A := A) s q x
+  have hlip : ∀ x y, ‖dg (S := S) (A := A) s q x - dg (S := S) (A := A) s q y‖
+      ≤ L * ‖x - y‖ := fun x y => dg_lipschitz4 s q B hqB x y
+  set c : ℝ := η * dinfDist M (F.toPolicy θ) μ s with hc
+  have hdnn : 0 ≤ dinfDist M (F.toPolicy θ) μ s := dinfDist_nonneg M hγ₀ _ _ _
+  have hc₀ : 0 ≤ c := mul_nonneg (le_of_lt hη₀) hdnn
+  have hdle : dinfDist M (F.toPolicy θ) μ s ≤ 1 / (1 - M.γ) := by
+    unfold dinfDist
+    calc ∑ s₀, μ s₀ * dinf M (F.toPolicy θ) s₀ s
+        ≤ ∑ s₀, μ s₀ * (1 / (1 - M.γ)) :=
+          Finset.sum_le_sum fun s₀ _ =>
+            mul_le_mul_of_nonneg_left (dinf_le_one_div M hγ₀ hγ₁ _ _ _) (μ.nonneg s₀)
+      _ = 1 / (1 - M.γ) := by rw [← Finset.sum_mul, μ.sum_eq_one, one_mul]
+  have hcL : c * L ≤ 8 / 5 := by
+    have h1 : c ≤ (1 - M.γ) ^ 2 / 5 * (1 / (1 - M.γ)) := by
+      rw [hc]; exact mul_le_mul hη hdle hdnn (by positivity)
+    have h2 : (1 - M.γ) ^ 2 / 5 * (1 / (1 - M.γ)) = (1 - M.γ) / 5 := by field_simp
+    rw [h2] at h1
+    rw [hLeq]
+    calc c * (8 / (1 - M.γ)) ≤ ((1 - M.γ) / 5) * (8 / (1 - M.γ)) :=
+          mul_le_mul_of_nonneg_right h1 (by positivity)
+      _ = 8 / 5 := by field_simp
+  -- `hμ` gives the lower bound on `c`
+  have hcμ : η * μ s ≤ c := by
+    rw [hc]
+    exact mul_le_mul_of_nonneg_left (mu_le_dinfDist M hγ₀ hγ₁ _ μ s) (le_of_lt hη₀)
+  set v : EuclideanSpace ℝ (S × A) := gradient (g (S := S) (A := A) s q) θ with hv
+  have hGv : dg (S := S) (A := A) s q θ v = ‖v‖ ^ 2 := by
+    have h := inner_gradient_left (𝕜 := ℝ) (f := g (S := S) (A := A) s q) (x := θ) (y := v)
+    rw [(hasFDeriv_g (S := S) (A := A) s q θ).fderiv] at h
+    rw [← h, hv, real_inner_self_eq_norm_sq]
+  have hgain := ascent_gain hLnn hd hlip θ v c hGv
+  -- the actual step agrees with `θ + c • v` on block `s`
+  have hblock : ∀ a,
+      (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) (s, a)
+        = (θ + c • v) (s, a) := by
+    intro a
+    have hg := grad_block_eq M F hF hr hγ₀ hγ₁ μ θ s a
+    simp only [PiLp.add_apply, PiLp.smul_apply, smul_eq_mul]
+    rw [hg, hv, hc]; ring
+  have hgeq : g (S := S) (A := A) s q
+        (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ)
+      = g (S := S) (A := A) s q (θ + c • v) := g_congr_block s q _ _ hblock
+  have hzero : g (S := S) (A := A) s q θ = 0 := by
+    rw [g_eq_sum_pi s q F hF θ]
+    exact sum_pi_advInf_self M hr hγ₀ hγ₁ (F.toPolicy θ) s
+  have hfin : g (S := S) (A := A) s q
+      (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ)
+      = ∑ a, (F.toPolicy (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ) s) a
+          * advInf M (F.toPolicy θ) s a := g_eq_sum_pi s q F hF _
+  rw [← hfin, hgeq]
+  -- `c (1 - cL/2) ≥ (η μ s) · (1/5)`
+  have hfac : η * μ s / 5 ≤ c * (1 - c * L / 2) := by
+    have hone : (1:ℝ) / 5 ≤ 1 - c * L / 2 := by linarith [hcL]
+    have hημ : 0 ≤ η * μ s := mul_nonneg (le_of_lt hη₀) (le_of_lt (hμ s))
+    calc η * μ s / 5 = (η * μ s) * (1/5) := by ring
+      _ ≤ c * (1 - c * L / 2) := by
+          refine mul_le_mul hcμ hone (by norm_num) hc₀
+  have hvsq : 0 ≤ ‖v‖ ^ 2 := sq_nonneg _
+  nlinarith [hgain, hzero, hfac, hvsq]
+
 end Resid
 
 end Proofs
