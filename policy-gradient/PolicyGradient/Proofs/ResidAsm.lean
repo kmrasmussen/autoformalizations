@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Proofs.ResidC8
+import PolicyGradient.Proofs.ResidC9
 
 /-!
 # ResidAsm — assembly of AKM Appendix C.1 towards the residual goal
