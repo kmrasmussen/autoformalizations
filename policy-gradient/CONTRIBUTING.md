@@ -117,6 +117,41 @@ unconstrained makes a goal too weak, universal makes it too strong.
 > **A hypothesis is a promise. A theorem with no callers is a promise nobody
 > ever pays. Prefer a visible `sorry` to an invisible hypothesis.**
 
+## The flow
+
+Agents work in their own git worktree on a branch, and the orchestrator gates
+the branch after they finish. The gate never runs in the agent's tree: if the
+thing being checked runs the check, the check is honour-system.
+
+```bash
+# agent, at the start:
+cd /tmp/autoform
+git worktree add -b solve/<name> /tmp/wt-<name> main
+cd /tmp/wt-<name>/policy-gradient
+mkdir -p .lake/build/lib
+ln -sfn ~/projects/policy-gradient-lean/.lake/packages .lake/packages
+cp -r ~/projects/policy-gradient-lean/.lake/build/lib/lean .lake/build/lib/lean
+lake build PolicyGradient        # ~35s once, then ~5s per edit
+
+# agent, at the end:
+rm -rf .lake/build/ir            # 37M of C IR nothing links
+git add -A && git commit -m "..."
+
+# orchestrator:
+scripts/gate.sh solve/<name>     # ~9s: build, lint, compare census
+```
+
+Mathlib is symlinked, never rebuilt — no toolchain install, no download. The
+warm-up copies ~9M of oleans; steady state is ~11M per worktree.
+
+Two gotchas the gate handles and you should know about:
+
+* `lake build` alone does **not** build `Meta.Lint` (it is only reachable
+  through the exe target). The gate builds it explicitly.
+* `lake env lean PaperLint.lean` on its own reads **stale oleans** and will
+  report a green census over code that does not compile — verified by injecting
+  a broken proof. Always build before linting.
+
 ## Checking
 
 ```
