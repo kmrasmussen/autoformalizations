@@ -700,7 +700,31 @@ The missing bridge. Every route to Theorem 4 passes through it, and `G9`'s `c`
 follows from it rather than being assumed: `c > 0 ⟸ π_t(a*|s) ↛ 0 ⟸ V(θ_t) → V*`.
 
 Mei cite AKM for this; AKM prove it asymptotically. It is the one genuinely
-deep ingredient neither paper proves from first principles. -/
+deep ingredient neither paper proves from first principles.
+
+**Investigated 2026-08-22: the statement is true but the proof is out of reach**,
+and the analytic half is done. Proved on the way (`Proofs/AKM51.lean`, all
+axiom-clean): `∑ ‖∇V(θ_t)‖² < ∞`, hence `‖∇V(θ_t)‖ → 0`; monotone convergence to
+*some* `L ≤ Vstar`; and `tendsto_vstar_of_limit_optimal`, which reduces this goal
+to the single hypothesis "every limit of the trajectory's value is at least
+`Vstar`". Numerically the claim holds (gap `6.5e-4` after `2·10⁵` steps, decaying
+like `O(1/t)`), so the goal stays as stated.
+
+Two structural blockers, recorded as goals below:
+
+1. **This goal starts from a single state `μ : S`** — a Dirac. The only route
+   from small gradient to small suboptimality here runs through
+   `g1_lojasiewicz`, which factors through `mismatchCoeff` and so needs
+   `hμ : ∀ s, 0 < μ s`. `Proofs.mismatch_bound_is_false` already refutes that
+   bound without full support, and a Dirac is the maximally degenerate
+   violation. So the Łojasiewicz machinery is inapplicable *by the shape of this
+   statement*, not for want of effort.
+2. **A mutual reduction.** `sum_abs_adv_le_norm` bounds only the product
+   `d^π_μ(s)·π(a*|s)·A^π(s,a*)`, so vanishing gradients permit
+   `π_t(a*|s) → 0` to do the work instead of `A → 0`. Excluding that is exactly
+   `g9_c_positive`, which `Goal.lean` discharges by citing this goal. The two
+   mutually reduce; compactness cannot break the cycle (`‖θ t‖ → ∞`), and
+   monotonicity is ruled out (`m(t) ≥ m(0)` fails in 66/400 random MDPs). -/
 @[infra "AKM-5.1"]
 theorem softmax_ascent_converges (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -727,7 +751,46 @@ theorem vec_ascent_step (M : FiniteMDP S A)
     Vinf M (F.toPolicy θ) μ
         + ((1 - M.γ) ^ 3 / 16) * ‖gradient (fun w => Vinf M (F.toPolicy w) μ) θ‖ ^ 2
       ≤ Vinf M (F.toPolicy
-          (θ + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) θ)) μ := sorry
+          (θ + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) θ)) μ :=
+  Proofs.vec_ascent_step_proof M F hF hr hγ₀ hγ₁ μ θ
+
+/-- **Greedy limit points** — the real content of AKM 5.1.
+
+Along the ascent trajectory, every limit point `π̄` in the compact simplex
+`Δ(A)^S` puts mass only on zero-advantage actions. Given this,
+`optimal_support_greedy` and `vstar_eq_greedy` finish `softmax_ascent_converges`
+immediately, so this is where the genuine work lives. Stated over policies
+rather than parameters deliberately: the simplex is compact, parameter space is
+not, and `‖θ t‖ → ∞` is exactly what defeats a compactness argument upstairs. -/
+@[infra "Greedy-limit-points"]
+theorem greedy_limit_points (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : S) (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a))) :
+    ∀ s a, 0 < (πbar s) a → advInf M πbar s a = 0 := sorry
+
+/-- **Dirac-compatible gradient domination.**
+
+`g1_lojasiewicz` needs `hμ : ∀ s, 0 < μ s`, so no single-start-state goal in this
+repo can use the Łojasiewicz route — `mismatch_bound` is refuted without full
+support, and a Dirac is the worst case. The correct substitute is the comparator
+occupancy `dinf M πstar μ`, which is positive exactly on the states `πstar`
+reaches from `μ`. `perfDiffInf` already supplies the identity. -/
+@[infra "Dirac-domination"]
+theorem dirac_gradient_domination (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (μ : S) (θ : EuclideanSpace ℝ (S × A)) :
+    Vstar M μ - Vinf M (F.toPolicy θ) μ
+      ≤ (∑ s, dinf M πstar μ s * ∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a) := sorry
 
 /-! ## G10 — the entropy-regularized track
 
