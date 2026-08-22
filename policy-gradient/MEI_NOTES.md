@@ -6,9 +6,16 @@ self-contained and the dependency structure decides what is worth proving.
 ## The dependency that matters
 
 **Mei's Theorem 4 (the O(1/t) softmax rate) depends on AKM Theorem 5.1.**
-Their Lemma 9 — that `c := inf_{s,t≥1} π_θₜ(a*(s)|s) > 0` — is proved by
-citing *"the asymptotic convergence results of Agarwal et al. [Theorem 5.1]"*.
-It is not proved in their paper.
+Their Lemma 9 — that `c := inf_{s,t≥1} π_θₜ(a*(s)|s) > 0` — has a real proof in
+four claims. **Correction (2026-08-22):** an earlier version of this note said it
+"is not proved in their paper". That is wrong, and formalizing it showed why:
+Claims I, II and IV are genuine arguments and are now formalized against our own
+`hstep` recursion (`Proofs/G9c.lean`). Only **Claim III** rests on the citation
+*"the asymptotic convergence results of Agarwal et al. [Theorem 5.1], which we
+can use thanks to Assumption 2"*.
+
+So the dependency is narrower than recorded: three quarters of Lemma 9 is
+self-contained, and exactly one claim reduces to AKM 5.1.
 
 So: proving AKM Thm 5.1 unlocks Mei Thm 4. The dependency runs in our favour.
 

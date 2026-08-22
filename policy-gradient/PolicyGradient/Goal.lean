@@ -309,6 +309,22 @@ theorem g9_c_positive (M : FiniteMDP S A)
     -- value nothing. So `c > 0` can never be argued from the value — only from
     -- the policy. `Proofs.g9_of_policy_limit` is the reduction that IS true.
     (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
+    -- STATUS (2026-08-22): `hgap` is a genuine repair, verified two ways.
+    -- `Proofs.gap_concentrates` proves any policy attaining `V*(s)` must put
+    -- mass 1 on `astar s` — exactly the property the tie witness destroyed —
+    -- and `gap_pistar_det` shows `hgap` forces `astar` to be the unique
+    -- `Q*`-argmax and `πstar` deterministic, removing the adversarial freedom.
+    -- A ~5000-MDP strict-gap sweep found no counterexample.
+    --
+    -- Mei's proof has four claims. I, II and IV are formalized against this
+    -- exact recursion (`Proofs/G9c.lean`); `g9_of_eventually_nice` is Lemma 9
+    -- with only Claim III assumed. Claim III is where they cite AKM Theorem
+    -- 5.1 — i.e. `softmax_ascent_converges` below. The two are mutually
+    -- reducing, which `Proofs/AKM51.lean` recorded from the other side.
+    --
+    -- Note monotonicity of the infimum FAILS even under `hgap` (25/288), which
+    -- independently confirms Mei's "eventually enters a nice region" structure
+    -- is required and that no global-monotonicity shortcut exists.
     ∃ c : ℝ, 0 < c ∧ ∀ t, c ≤ ⨅ s : S, (F.toPolicy (θ t) s) (astar s) := sorry
 
 /-! ## G7 — the local-term bound
