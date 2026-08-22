@@ -304,7 +304,8 @@ theorem g7a_gradient_bound (M : FiniteMDP S A)
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
-    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 2 / (1 - M.γ) ^ 2 := sorry
+    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 2 / (1 - M.γ) ^ 2 :=
+  Proofs.g7a_gradient_bound_proof M F hF hr hγ₀ hγ₁ θ s₀
 
 /-- **G7b — AKM Lemma E.4, the actual smoothness bound.**
 
@@ -332,7 +333,8 @@ bound is even stateable in the form the rate machinery wants. -/
 theorem vec_c2_family (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A) :
-    DifferentiableAt ℝ (fun t => F.dπ t s a) θ := sorry
+    DifferentiableAt ℝ (fun t => F.dπ t s a) θ :=
+  Proofs.vec_c2_family_proof F hF θ s a
 
 /-! ## G1 and G2 were both FALSE — three defects
 
