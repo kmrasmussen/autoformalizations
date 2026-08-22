@@ -161,9 +161,11 @@ theorem iInf_mu_pos (μ : Dist S) (hμ : ∀ s, 0 < μ s) : 0 < ⨅ s : S, μ s 
   rw [heq]
   exact hμ s₀
 
+omit [DecidableEq S] in
 theorem invMuSup_pos (μ : Dist S) (hμ : ∀ s, 0 < μ s) : 0 < invMuSup μ :=
   inv_pos.mpr (iInf_mu_pos μ hμ)
 
+omit [DecidableEq S] in
 /-- `1 ≤ ‖1/μ‖_∞ · μ s` for every `s`: the defining property of `‖1/μ‖_∞`. -/
 theorem one_le_invMuSup_mul (μ : Dist S) (hμ : ∀ s, 0 < μ s) (s : S) :
     1 ≤ invMuSup μ * μ s := by
@@ -288,6 +290,171 @@ theorem mei4_mu_rate (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
       sq_nonneg (Real.sqrt (Fintype.card S))]
   rw [← harith]
   exact hkey
+
+/-! ### The rate at `ρ`, with the paper's constants
+
+Composing `mei4_mu_rate` with `VstarDist_sub_le_invMu` gives the bound at `ρ`
+that this repo's ingredients actually produce:
+
+    V*(ρ) - V^{π_T}(ρ)  ≤  ‖1/μ‖_∞ · 16|S| · m² / (c² (1-γ)³ T)
+
+with `m = mismatchCoeff M πstar μ`.  Compare Mei's own Theorem 4 as recorded in
+`MEI_NOTES.md`:
+
+    V*(ρ) - V^{π_t}(ρ)  ≤  16|S| / (c² (1-γ)⁶ t) · ‖d^{π*}_μ/μ‖²_∞ · ‖1/μ‖_∞
+
+The two agree up to `(1-γ)³`, in the safe direction: `(1-γ)³ ≤ 1`, so the
+paper's `1/(1-γ)⁶` is *larger* than the `1/(1-γ)³` produced here.  **Both carry
+`m` SQUARED and both carry `‖1/μ‖_∞`.**  `Goal.mei_theorem4` as frozen has
+neither: it has `m` to the first power and no `‖1/μ‖_∞`. -/
+
+/-- **The `ρ` rate in the constants this repo's ingredients produce.**
+
+Strictly stronger than the paper's own Theorem 4 (see above), and *not*
+comparable to the frozen `Goal.mei_theorem4`, which is missing a factor
+`m · ‖1/μ‖_∞ · (1-γ)³`. -/
+theorem mei4_rho_rate (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (ρ : Dist S)
+    (πstar : Policy S A)
+    (θ : ℕ → E S A)
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (hloja : ∀ t, c / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖)
+    (hlt : ∀ t, VinfDist M (F.toPolicy (θ t)) μ < VstarDist M μ)
+    (T : ℕ) (hT : 1 ≤ T) :
+    VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+      ≤ invMuSup μ * (16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 3 * T)
+          * mismatchCoeff M πstar μ ^ 2) := by
+  refine le_trans
+    (VstarDist_sub_le_invMu M hr hγ₀ hγ₁ (F.toPolicy (θ T)) μ ρ hμ) ?_
+  exact mul_le_mul_of_nonneg_left
+    (mei4_mu_rate M F hF hr hγ₀ hγ₁ μ hμ πstar θ hstep c hc hloja hlt T hT)
+    (invMuSup_pos μ hμ).le
+
+/-! ### From `g1_lojasiewicz`'s literal conclusion to the spine's `hloja`
+
+`g1_lojasiewicz` concludes with `⨅ s, π(a*(s)|s)` in the numerator;
+`mei_theorem4` supplies `hcbound : ∀ t s, c ≤ π_t(a*(s)|s)`, hence
+`c ≤ ⨅ s, π_t(a*(s)|s)`, and the coefficient is monotone in that numerator. -/
+
+/-- Weakening `g1_lojasiewicz`'s `⨅ s, π(a*(s)|s)` to the Lemma-9 constant `c`. -/
+theorem loja_of_g1 (M : FiniteMDP S A) (F : VecPolicy S A (E S A))
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (πstar : Policy S A)
+    (astar : S → A) (θ : E S A) (c : ℝ)
+    (hcbound : ∀ s, c ≤ (F.toPolicy θ s) (astar s))
+    (hsub : VinfDist M (F.toPolicy θ) μ ≤ VstarDist M μ)
+    (hg1 : (⨅ s : S, (F.toPolicy θ s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) θ‖) :
+    c / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) θ‖ := by
+  classical
+  refine le_trans ?_ hg1
+  have hm : 0 < mismatchCoeff M πstar μ := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+  have hScard : (0:ℝ) < (Fintype.card S : ℝ) := by
+    have := Fintype.card_pos_iff.mpr ‹Nonempty S›
+    exact_mod_cast this
+  have hSq : 0 < Real.sqrt (Fintype.card S) := Real.sqrt_pos.mpr hScard
+  have hci : c ≤ ⨅ s : S, (F.toPolicy θ s) (astar s) := le_ciInf hcbound
+  have hden : (0:ℝ) < Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ := by positivity
+  refine mul_le_mul_of_nonneg_right ?_ (by linarith)
+  rw [div_le_div_iff_of_pos_right hden]
+  exact hci
+
+/-! ## `Goal.mei_theorem4`, as far as the ingredients reach
+
+The frozen statement is delivered with exactly three extra hypotheses beyond
+what `Goal.mei_theorem4` itself carries:
+
+* **`hloja`** — `g1_lojasiewicz`'s conclusion along the trajectory (OPEN);
+* **`hlt`** — strict suboptimality at every iterate (`g3_strict_suboptimality`
+  is the corresponding proved goal; it needs a non-degeneracy hypothesis this
+  statement does not carry, so it is taken as a hypothesis here);
+* **`hconst`** — the constant reconciliation.
+
+`hconst` is a **real gap in the frozen statement**, not a proof artefact.  See
+the module docstring: the ingredients produce `m² · ‖1/μ‖_∞ / (1-γ)³` where the
+frozen statement asks for `m / (1-γ)⁶`, and Mei's own Theorem 4 produces
+`m² · ‖1/μ‖_∞ / (1-γ)⁶`.  Both the extra `m` and the `‖1/μ‖_∞` are missing from
+the frozen statement, and `hconst` is exactly what is needed to bridge them.
+It is FALSE in general (γ = 0, |S| = 2, uniform `μ`: LHS `= 2`, RHS `= 1`). -/
+
+/-- **`Goal.mei_theorem4` reduced to the two open inputs plus the constant gap.**
+
+Every hypothesis of the frozen statement is present, verbatim; the added ones
+are `hloja` (open: `g1_lojasiewicz`), `hlt` (strict suboptimality) and `hconst`
+(the constant reconciliation, which is *not* provable — see above). -/
+set_option linter.unusedVariables false in
+theorem mei_theorem4_of_loja (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    -- OPEN INPUT: `Goal.g1_lojasiewicz` instantiated along the trajectory.
+    (hloja : ∀ t, (⨅ s : S, (F.toPolicy (θ t) s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖)
+    -- `Goal.g3_strict_suboptimality`: softmax is never exactly optimal.
+    (hlt : ∀ t, VinfDist M (F.toPolicy (θ t)) μ < VstarDist M μ)
+    -- THE CONSTANT GAP.  Not provable: see the section docstring.
+    (hconst : invMuSup μ * mismatchCoeff M πstar μ * (1 - M.γ) ^ 3 ≤ 1) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ := by
+  classical
+  intro T hT
+  have hpos : 0 < 1 - M.γ := by linarith
+  set m : ℝ := mismatchCoeff M πstar μ with hmdef
+  have hm : 0 < m := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+  have hiv : 0 < invMuSup μ := invMuSup_pos μ hμ
+  have hScard : (0:ℝ) < (Fintype.card S : ℝ) := by
+    have := Fintype.card_pos_iff.mpr ‹Nonempty S›
+    exact_mod_cast this
+  have hTpos : (0:ℝ) < (T : ℝ) := by exact_mod_cast Nat.lt_of_lt_of_le Nat.zero_lt_one hT
+  have hloja' : ∀ t, c / (Real.sqrt (Fintype.card S) * m)
+      * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+      ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖ := by
+    intro t
+    exact loja_of_g1 M F hγ₀ hγ₁ μ hμ πstar astar (θ t) c (hcbound t) (hlt t).le (hloja t)
+  have hmain := mei4_rho_rate M F hF hr hγ₀ hγ₁ μ hμ ρ πstar θ hstep c hc hloja' hlt T hT
+  refine le_trans hmain ?_
+  -- `‖1/μ‖_∞ · 16|S| m² / (c²(1-γ)³T)  ≤  16|S| m / (c²(1-γ)⁶T)`, by `hconst`.
+  have hg3 : (0:ℝ) < (1 - M.γ) ^ 3 := pow_pos hpos 3
+  have hg6 : (1 - M.γ) ^ 6 = (1 - M.γ) ^ 3 * (1 - M.γ) ^ 3 := by ring
+  have hLHS : invMuSup μ * (16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 3 * T) * m ^ 2)
+      = (16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T))
+        * (invMuSup μ * m * (1 - M.γ) ^ 3) := by
+    rw [hg6]; field_simp
+  have hRHS : 16 * (Fintype.card S : ℝ) / (c ^ 2 * (1 - M.γ) ^ 6 * T) * m
+      = 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) := by
+    field_simp
+  rw [hLHS, hRHS]
+  have hcoef : (0:ℝ) ≤ 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) := by
+    have : (0:ℝ) < (1 - M.γ) ^ 6 := pow_pos hpos 6
+    positivity
+  calc 16 * (Fintype.card S : ℝ) * m / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+        * (invMuSup μ * m * (1 - M.γ) ^ 3)
+      ≤ 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) * 1 :=
+        mul_le_mul_of_nonneg_left hconst hcoef
+    _ = 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) := mul_one _
 
 end Mei4C
 
