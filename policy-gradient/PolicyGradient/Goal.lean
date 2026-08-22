@@ -998,6 +998,48 @@ theorem softmax_ascent_converges (M : FiniteMDP S A)
     Filter.Tendsto (fun t => Vinf M (F.toPolicy (θ t)) s) Filter.atTop
       (nhds (Vstar M s)) := sorry
 
+/-- **Full-sequence policy convergence** — the single fact both AKM 5.1 and
+Mei Lemma 9 now reduce to.
+
+`Proofs.tendsto_vstar_of_policy_limit` is `softmax_ascent_converges` with its
+exact hypotheses and conclusion, plus **only** `πbar` and `hlim`.
+`Proofs.g9_of_policy_limit_bridge` is `g9_c_positive` likewise. So proving this
+closes both.
+
+**Why compactness is not enough.** `Proofs.exists_subseq_tendsto_policy` gives a
+*subsequential* limit, and the residual chain cannot consume one: its spine
+turns full-sequence convergence into an `∀ᶠ t in atTop` sign fact, extracts
+`∀ t, T ≤ t → …`, then **inducts `t → t+1`** against `hstep`. A subsequence has
+unbounded gaps, so the intermediate times are unconstrained. Three break points
+were located — `eventually_adv_pos → theta_eventually_monotone`,
+`eventually_adv_neg → theta_tendsto_atBot_of_adv_neg` (whose `ratio_induction`
+telescopes step by step), and `exists_T0`, whose output is baked into the
+*definition* of `B0`, so a φ-restricted `B0` is a different, larger set.
+
+**This is genuinely new mathematics, not transcription.** AKM's Appendix C.1
+does not prove it, and it is delicate: under `Q*` ties the policy sequence need
+**not** converge — that is exactly what `Proofs.g9_c_positive_frozen_is_false`
+exploits. So it likely needs `hgap`-style hypotheses or a limit-set
+connectedness argument, which would mean the two goals do not close by the same
+lemma after all, despite reducing to the same statement today.
+
+A useful fact fell out while checking this: G9's step size `(1−γ)³/8` does
+satisfy `η ≤ (1−γ)²/5` for `0 ≤ γ < 1`, so the residual chain applies to G9
+unchanged. -/
+@[infra "Policy-convergence"]
+theorem softmax_policy_converges (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t)) :
+    ∃ πbar : Policy S A,
+      Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+        (nhds (fun s a => (πbar s) a)) := sorry
+
 /-- **Off-support advantages are non-positive in the limit** — the residual of AKM 5.1.
 
 An agent reduced `softmax_ascent_converges` to exactly this one statement
