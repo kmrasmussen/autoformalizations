@@ -2,8 +2,8 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Meta.Paper
-import PolicyGradient.Infinite
-import PolicyGradient.Softmax
+import PolicyGradient.Target
+import PolicyGradient.Proofs
 import Mathlib.Analysis.InnerProductSpace.EuclideanDist
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.Analysis.Calculus.Gradient.Basic
@@ -70,14 +70,6 @@ namespace PolicyGradient
 variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A]
 variable [Nonempty S] [Nonempty A]
 
-/-! ### The optimal value
-
-Both papers state their rates against `V*`, the supremum over policies. -/
-
-/-- The optimal infinite-horizon value: the supremum over all policies. -/
-noncomputable def Vstar (M : FiniteMDP S A) (s₀ : S) : ℝ :=
-  ⨆ π : Policy S A, Vinf M π s₀
-
 /-! ## G5 — the vector parameter
 
 Both papers optimize over `θ ∈ ℝ^(S×A)`. This repo uses `θ : ℝ`, a single real,
@@ -87,19 +79,6 @@ stated**. Everything else waits on this.
 `EuclideanSpace ℝ (S × A)` is the target: `gradient` needs an
 `InnerProductSpace`, which the plain function type `(S × A) → ℝ` lacks, and both
 papers' bounds are on `‖∇V‖` in the ℓ² norm. -/
-
-/-- A policy family differentiable in a **vector** parameter.
-
-The Fréchet derivative `dπ θ s a : E →L[ℝ] ℝ` replaces the scalar `dπ` of
-`DiffPolicy`. -/
-structure VecPolicy (S A : Type*) [Fintype A] (E : Type*)
-    [NormedAddCommGroup E] [InnerProductSpace ℝ E] where
-  /-- The policy at parameter `θ`. -/
-  toPolicy : E → Policy S A
-  /-- The Fréchet derivative of `θ ↦ π(a|s)`. -/
-  dπ : E → S → A → (E →L[ℝ] ℝ)
-  /-- `dπ` really is the derivative. -/
-  hasFDeriv : ∀ θ s a, HasFDerivAt (fun t => (toPolicy t s) a) (dπ θ s a) θ
 
 /-- **G5 + G6 — the softmax family is a differentiable vector-parameter policy.**
 
@@ -149,13 +128,15 @@ are bounded and `γ < 1`, giving the uniform bound `1/(1-γ)`. Without this
 theorem vstar_upper (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (π : Policy S A) (s₀ : S) :
-    Vinf M π s₀ ≤ Vstar M s₀ := sorry
+    Vinf M π s₀ ≤ Vstar M s₀ :=
+  Proofs.vstar_upper_proof M hr hγ₀ hγ₁ π s₀
 
 /-- **The optimal value is finite.** `Vstar ≤ 1/(1-γ)` under bounded rewards. -/
 @[infra "Vstar-finite"]
 theorem vstar_le (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
-    Vstar M s₀ ≤ 1 / (1 - M.γ) := sorry
+    Vstar M s₀ ≤ 1 / (1 - M.γ) :=
+  Proofs.vstar_le_proof M hr hγ₀ hγ₁ s₀
 
 /-! ## G3 — strict suboptimality along the trajectory
 
@@ -362,22 +343,6 @@ theorem mismatch_positive (M : FiniteMDP S A)
 hypothesis `hstep` *is* Mei Theorem 6. Their Lemmas 14 (entropy smoothness),
 15 (entropy Łojasiewicz) and 16 exist to establish that contraction, and none is
 formalized. -/
-
-/-- The Shannon entropy of a distribution. -/
-noncomputable def entropy (d : Dist A) : ℝ := -∑ a, d a * Real.log (d a)
-
-/-- The entropy-regularized value `Ṽ = V + τ·H`. -/
-noncomputable def VinfSoft (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ) (s₀ : S) : ℝ :=
-  Vinf M π s₀ + τ * entropy (π s₀)
-
-/-- The optimal entropy-regularized value: the supremum over policies.
-
-Defined rather than existentially quantified. Stating Theorem 6 as
-`∃ Vsoftstar, Vsoftstar - Ṽ ≤ C(1-K)^t` would be **dischargeable in one line**
-by `⟨b + c, by linarith⟩` — pick a small enough number and the inequality is
-free. The target must name the real optimum. -/
-noncomputable def VsoftStar (M : FiniteMDP S A) (τ : ℝ) (s₀ : S) : ℝ :=
-  ⨆ π : Policy S A, VinfSoft M π τ s₀
 
 /-- **Mei Theorem 6 — the entropy-regularized geometric rate.**
 

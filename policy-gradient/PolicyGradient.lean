@@ -15,6 +15,7 @@ import PolicyGradient.AKM
 import PolicyGradient.Smoothness
 import PolicyGradient.SecondDeriv
 import PolicyGradient.Mei
+import PolicyGradient.Target
 import PolicyGradient.Goal
-import PolicyGradient.Witness
 import PolicyGradient.Proofs
+import PolicyGradient.Witness

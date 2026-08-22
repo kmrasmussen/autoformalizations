@@ -84,6 +84,23 @@ theorem summable_stepReward (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
 noncomputable def Vinf (π : Policy S A) (s₀ : S) : ℝ :=
   ∑' t, stepReward M π t s₀
 
+/-- **Uniform bound on the infinite-horizon value.**
+
+`|V^π(s₀)| ≤ R/(1-γ)` whenever every reward is bounded by `R`. Each time step
+contributes at most `γᵗ R` (`abs_stepReward_le`), and the geometric series sums
+to `R/(1-γ)`. The bound is uniform in `π`, which is exactly what makes
+`Vstar = ⨆ π, Vinf` a supremum of a bounded-above set rather than a `⨆` over an
+unbounded family (where Mathlib's `ciSup` would silently return `0`). -/
+theorem abs_Vinf_le (π : Policy S A) (R : ℝ) (hR : 0 ≤ R)
+    (hr : ∀ s a, |M.r s a| ≤ R) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    |Vinf M π s₀| ≤ R / (1 - M.γ) := by
+  have hgeo : HasSum (fun t : ℕ => M.γ ^ t * R) (R / (1 - M.γ)) := by
+    have h := (hasSum_geometric_of_lt_one hγ₀ hγ₁).mul_right R
+    simpa [div_eq_inv_mul, mul_comm] using h
+  have := tsum_of_norm_bounded (f := fun t => stepReward M π t s₀) hgeo
+    (fun t => by simpa [Real.norm_eq_abs] using abs_stepReward_le M π R hR hr hγ₀ t s₀)
+  simpa [Vinf, Real.norm_eq_abs] using this
+
 /-- **The discounted state-occupancy measure** `d^π(s₀, s) = ∑ₜ γᵗ Pr(sₜ = s)`.
 
 Unnormalized: it sums to `1/(1-γ)`, not `1`. Sources that normalize it into a
