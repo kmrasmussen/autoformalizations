@@ -16,6 +16,7 @@ import PolicyGradient.Smoothness
 import PolicyGradient.SecondDeriv
 import PolicyGradient.Mei
 import PolicyGradient.Target
+import PolicyGradient.Meta.Spec
 import PolicyGradient.Goal
 import PolicyGradient.Proofs
 import PolicyGradient.Proofs.Extra
