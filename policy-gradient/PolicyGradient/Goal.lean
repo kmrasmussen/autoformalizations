@@ -395,13 +395,27 @@ defined rather than chosen). -/
 
 /-- **The mismatch coefficient bounds the occupancy ratio.**
 
-`d^π_μ(s) ≤ mismatchCoeff · μ(s)` — the statement with content. Unlike the
-superseded version this cannot be discharged by picking a convenient constant:
-`mismatchCoeff` is a definition, and the bound is against `μ s`. -/
+`d^π_μ(s) ≤ mismatchCoeff · μ(s)` for full-support `μ`.
+
+**`hμ` was missing and the statement was FALSE without it** (found 2026-08-22 by
+machine-checked refutation, `Proofs.mismatch_bound_is_false`). At a state with
+`μ s = 0` reachable from the support of `μ`, the right side is `0` while the
+left is positive — occupancy flows into `s` from states that do carry mass. The
+`ciSup` cannot rescue it: that state's term is `dinfDist s / 0 = 0` by Lean's
+junk-value convention.
+
+This is the mirror of the defect this goal replaced. The superseded version was
+too *weak* (a free existential constant); pinning the coefficient by definition
+fixed that, but bounding against `μ s` without requiring `μ s > 0` made it too
+*strong*. AKM state it for full-support `μ` precisely because `d^π_μ/μ` is
+meaningless where `μ` vanishes — and it now matches `mismatch_pos`, which
+carried `hμ` all along. -/
 @[infra "Mismatch-bound"]
 theorem mismatch_bound (M : FiniteMDP S A)
-    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S) (s : S) :
-    dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s := sorry
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S)
+    (hμ : ∀ s, 0 < μ s) (s : S) :
+    dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s :=
+  Proofs.mismatch_bound_proof_of_support M hγ₀ hγ₁ π μ hμ s
 
 /-- **The mismatch coefficient is positive**, given `μ` has full support.
 
@@ -410,7 +424,8 @@ Needs the `t = 0` term of `dinf`, which is the point mass at the start state. -/
 theorem mismatch_pos (M : FiniteMDP S A)
     (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S)
     (hμ : ∀ s, 0 < μ s) :
-    0 < mismatchCoeff M π μ := sorry
+    0 < mismatchCoeff M π μ :=
+  Proofs.mismatch_pos_proof M hγ₀ hγ₁ π μ hμ
 
 /-! ## G10 — the entropy-regularized track
 
