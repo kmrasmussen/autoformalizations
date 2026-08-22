@@ -330,6 +330,36 @@ mathematics.
 
 ---
 
+## What the frozen-goal method found (2026-08-22)
+
+Seven defects, all in *statements* rather than proofs, and six of them in
+statements written by the orchestrating session. Each was found by an agent that
+was asked to prove the goal and reported the defect instead. Five carry
+machine-checked Lean refutations — the frozen statement taken verbatim as a
+hypothesis, deriving `False`.
+
+| Goal | Defect | How it was caught |
+|---|---|---|
+| `mei_theorem4` | `c` universally quantified: caller sends `c → ∞`, asserting `V* − V ≤ 0` | proof of contradiction |
+| `mismatch_positive` | bounded `dinf` by a free constant times a quantity that already bounds it | agent proved it with `mismatch = 1` and said so |
+| `mismatch_bound` | overcorrected: no `μ s > 0`, so a zero-mass reachable state breaks it | `mismatch_bound_is_false` |
+| `g7_smoothness` | `logits` unconstrained *and* smoothness constant on a first derivative | `g7_general_false` |
+| `g1_lojasiewicz` | free `mismatch` (dividing), unconstrained `logits` | `g1_general_false` |
+| `g2_gradient_domination` | free `mismatch`; and `‖∇V‖` cannot dominate for softmax at any constant | `g2_general_false` + 3000-MDP sweep |
+| `g9_c_positive` | `astar` unconstrained — may select *suboptimal* actions | `g9_is_false` |
+
+Three lessons the pattern makes hard to miss:
+
+1. **A floating quantity is a defect in both directions.** Existential and
+   unconstrained makes a goal too weak (the prover picks it); universal makes it
+   too strong (the caller picks it). `mismatch` managed both in one session.
+2. **Overcorrection is a failure mode of its own.** `mismatch_bound` was the
+   repair for a too-weak goal and was itself false. The asymmetry that should
+   have warned me — its sibling `mismatch_pos` carried the full-support
+   hypothesis all along — was visible and I missed it.
+3. **The prover is not where the errors are.** Every agent proof that
+   type-checked was correct. Every defect was in what was asked for.
+
 ## Why the audit was needed, and why it should not have been
 
 Every gap above was found by reading proofs and grepping for callers — not by
