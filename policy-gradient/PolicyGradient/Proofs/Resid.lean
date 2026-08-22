@@ -898,6 +898,73 @@ theorem sum_theta_const (M : FiniteMDP S A)
   rw [Finset.sum_congr rfl (fun a _ => hexp a), Finset.sum_add_distrib, ← Finset.mul_sum,
     sum_grad_coords_zero M F hF hr hγ₀ hγ₁ μ (θ t) s, mul_zero, add_zero]
 
+/-! ### AKM Lemma C.7: some coordinate diverges to `+∞`
+
+If `π^{(t)}(a₊|s) → 0` while `θ^{(t)}(s,a₊)` is nondecreasing, then since
+`π^{(t)}(a₊|s) = exp(θ_{a₊})/∑_a exp(θ_a)` with a nondecreasing numerator, the
+denominator diverges, so `max_a θ^{(t)}(s,a) → ∞`. Combined with the
+conservation law `∑_a θ^{(t)}(s,a) = c`, this forces
+`min_a θ^{(t)}(s,a) → -∞`. -/
+
+/-- `π_θ(a|s) ≥ exp(θ(s,a) - M) / |A|` where `M = max_a θ(s,a)`: the softmax of
+a coordinate is controlled below by its gap to the maximum. -/
+theorem softmax_ge_of_le_max (w : A → ℝ) (a : A) (Mx : ℝ) (hM : ∀ b, w b ≤ Mx) :
+    Real.exp (w a - Mx) / (Fintype.card A) ≤ (softmax w) a := by
+  rw [softmax_apply]
+  have hden : (0:ℝ) < ∑ a', Real.exp (w a') := softmax_denom_pos w
+  have hub : ∑ a', Real.exp (w a') ≤ (Fintype.card A) * Real.exp Mx := by
+    calc ∑ a', Real.exp (w a') ≤ ∑ _a' : A, Real.exp Mx :=
+          Finset.sum_le_sum fun a' _ => Real.exp_le_exp.mpr (hM a')
+      _ = (Fintype.card A) * Real.exp Mx := by
+          rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+  have hcard : (0:ℝ) < (Fintype.card A) := by
+    have : 0 < Fintype.card A := Fintype.card_pos
+    exact_mod_cast this
+  rw [Real.exp_sub, div_div]
+  refine div_le_div_of_nonneg_left (le_of_lt (Real.exp_pos _)) hden ?_
+  calc ∑ a', Real.exp (w a') ≤ (Fintype.card A) * Real.exp Mx := hub
+    _ = Real.exp Mx * (Fintype.card A) := by ring
+
+/-! ### The limit policy's advantages sum to zero against `π̄`
+
+`∑_a π̄(a|s) A^{π̄}(s,a) = 0` (`sum_pi_advInf_self`). So if every on-support
+action had `A^{π̄} = 0`, the off-support ones are unconstrained by this identity
+alone — which is exactly why AKM need the `θ`-dynamics. -/
+
+/-- On the support of `π̄`, the limiting advantage is **≤ 0**.
+
+`π̄(a|s) > 0` means `π^{(t)}(a|s)` is eventually bounded below, so
+`π^{(t)}(a|s) A^{(t)}(s,a) → 0` forces `A^{(t)}(s,a) → 0`, i.e. `A^{π̄}(s,a) = 0`.
+This is the "on-support" half; it holds with equality. -/
+theorem advInf_eq_zero_on_support (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) (hsupp : 0 < (πbar s) a) :
+    advInf M πbar s a = 0 := by
+  have hprod := tendsto_pi_adv_zero M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep s a
+  have hpi : Filter.Tendsto (fun t => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds ((πbar s) a)) := by
+    have h1 := (tendsto_pi_nhds.mp hlim) s
+    exact (tendsto_pi_nhds.mp h1) a
+  have hA := tendsto_adv_traj M F hr hγ₀ hγ₁ θ πbar hlim s a
+  have hlimprod : Filter.Tendsto
+      (fun t => (F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a)
+      Filter.atTop (nhds ((πbar s) a * advInf M πbar s a)) := hpi.mul hA
+  have heq : (πbar s) a * advInf M πbar s a = 0 :=
+    tendsto_nhds_unique hlimprod hprod
+  rcases mul_eq_zero.mp heq with h | h
+  · exact absurd h (ne_of_gt hsupp)
+  · exact h
+
 end Resid
 
 end Proofs
