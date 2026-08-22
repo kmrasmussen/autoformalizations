@@ -5,6 +5,7 @@ import PolicyGradient.Target
 import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G1Agg
 import PolicyGradient.Proofs.G1b
+import PolicyGradient.Proofs.G1c
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
@@ -19,7 +20,6 @@ import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
-import PolicyGradient.Proofs.G1c
 
 /-!
 # Proofs/Extra.lean — additional proof modules

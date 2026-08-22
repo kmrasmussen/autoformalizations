@@ -582,17 +582,43 @@ rational search found in minutes what the sweep could not.
 
 What is true, and what G1 actually needs, is stated below. -/
 
-/-- **The aggregate Łojasiewicz bound** — what `g1_lojasiewicz` reduces to.
+/-! ### The aggregate bound, restated at the right selector
 
-`Proofs.g1_lojasiewicz_of_aggregate` is the frozen G1 statement plus exactly
-this hypothesis, so proving it closes G1. Unlike the refuted per-state and
-cross-state forms this one is **true** (30 000 randomized MDPs, max violation
-`2.4e-15`) and **tight** (`lhs/rhs` reaches `0.99999`) — which is precisely why
-no weaker factorization survives.
+Refuted **twice** at `astar` (`Proofs.advantage_cross_state_general_false`,
+`Proofs.g1_aggregate_bound_general_false`, `Proofs.g1c_aggregate_bound_general_false`).
+The second refutation survived the `hastar` repair, and the reason is precise:
 
-Routes ruled out numerically, with their violations: `ℓ¹` over all coordinates
-(true but needs `√(|S||A|)`, not `√|S|`), the positive-part form (`1.7e-2`), the
-`d^{a*}` route (gap `2.7e10`), and the per-state form (`1.1e-2`). -/
+**`hastar : 0 < πstar(astar s | s)` puts `astar` IN the support, not at the TOP
+of it.** `hstar` makes `πstar` optimal everywhere, so `optimal_support_greedy`
+forces `Q*(s,a) = V*(s)` for *every* `a ∈ supp πstar` — the support is a set of
+`Q*`-tied actions, and `hastar` only says `astar` is one of them. On the witness,
+`supp πstar` at state 1 is `{1,3}` with `A^π(1,1) = 7/932` against
+`A^π(1,3) = 107/466` — thirty times larger — and `πstar` puts `5/6` of its mass
+on `3` (`Proofs.cc_tie_gap`).
+
+**The repair is not another hypothesis on `astar`.**
+`Proofs.g1_lojasiewicz_of_selector` shows `sum_abs_adv_le_norm` never uses
+`hastar` at all — it needs only that ONE action is picked per state, which is
+what makes the test vector's norm `√|S|`. So `g1_lojasiewicz` follows from the
+aggregate bound at **any** selector `b : S → A`, and the old reduction was just
+its `b = astar` instance.
+
+So state it at the selector that works: `b(s) = argmax_a π(a|s)·A^π(s,a)`. That
+form held over 75 000 tie-seeded MDPs (max violation `1.7e-13`) and is **tight**
+— `lhs/rhs` reaches `0.9999999999`. It cannot be broken by a `Q*` tie because
+`b` is read off `π` and `A^π` directly rather than routed through `πstar`. -/
+
+/-- **The aggregate Łojasiewicz bound at the maximizing selector.**
+
+`Proofs.g1_lojasiewicz_of_selector` turns this into `g1_lojasiewicz`, so proving
+it closes Mei Lemma 8.
+
+Still genuinely cross-state: the per-state form fails by up to `0.59`. Three
+other survivors were mapped and all are cross-state too (per-state `ℓ²` over
+actions plus Cauchy–Schwarz over `S`; `‖∇‖₁`, which only buys `√(|S||A|)`; and
+`sub ≤ mism·∑ d^π_μ(s)·max_a A^π(s,a)`, whose per-state form is provable but
+whose chain to the gradient then loses `c`). That is the remaining research
+gap. -/
 @[infra "G1-aggregate"]
 theorem g1_aggregate_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -601,12 +627,16 @@ theorem g1_aggregate_bound (M : FiniteMDP S A)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
     (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
-    (θ : EuclideanSpace ℝ (S × A)) :
+    (θ : EuclideanSpace ℝ (S × A))
+    -- the maximizing selector, read off `π` and `A^π` rather than `πstar`
+    (b : S → A)
+    (hb : ∀ s a, (F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a
+            ≤ (F.toPolicy θ s) (b s) * advInf M (F.toPolicy θ) s (b s)) :
     (⨅ s : S, (F.toPolicy θ s) (astar s))
         * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
       ≤ mismatchCoeff M πstar μ
           * ∑ s, |dinfDist M (F.toPolicy θ) μ s
-              * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))| := sorry
+              * ((F.toPolicy θ s) (b s) * advInf M (F.toPolicy θ) s (b s))| := sorry
 
 /-! ## G2 proper — AKM Lemma 4.1 with the gradient in it
 
