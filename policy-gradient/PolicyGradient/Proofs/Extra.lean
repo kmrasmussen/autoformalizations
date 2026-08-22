@@ -21,7 +21,7 @@ import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
-import PolicyGradient.Proofs.ResidAsm
+import PolicyGradient.Proofs.ResidFinal
 
 /-!
 # Proofs/Extra.lean — additional proof modules
