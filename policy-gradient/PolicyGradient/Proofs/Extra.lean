@@ -10,6 +10,7 @@ import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
 import PolicyGradient.Proofs.G9b
+import PolicyGradient.Proofs.G9c
 import PolicyGradient.Proofs.Mei4
 import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.VecStep
