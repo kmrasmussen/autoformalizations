@@ -55,6 +55,12 @@ by `πstar` between two actions, with the trajectory currently preferring the on
 `astar` did not pick, violates `(†)` — the same tie structure that refuted the
 earlier `g9_c_positive` statement (`Proofs.g9_c_positive_frozen_is_false`).
 
+**This is now machine-checked, not asserted**: `Proofs.hdom_not_implied` in
+`PolicyGradient/Proofs/Mei4DRef.lean` exhibits a two-state, three-action MDP with
+`γ = 1/2` where `hr`, `0 ≤ γ`, `γ < 1`, `hstar` and `hastar` all hold and `(†)`
+nevertheless fails — `advGapInf = 9/4 > 3/2 = advInf (astar s₀)`.  So `(†)` is a
+genuinely new hypothesis, not a provable side condition.
+
 `(†)` is discharged automatically in the case the paper actually intends:
 `astar_compat_of_det` shows that if `πstar` is deterministic on `astar`
 (`πstar s (astar s) = 1` — which Mei's own strict-gap `Δ*(s) > 0` forces, via
