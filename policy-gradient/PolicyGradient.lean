@@ -15,3 +15,4 @@ import PolicyGradient.AKM
 import PolicyGradient.Smoothness
 import PolicyGradient.SecondDeriv
 import PolicyGradient.Mei
+import PolicyGradient.Goal

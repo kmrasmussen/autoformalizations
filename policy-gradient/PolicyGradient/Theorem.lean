@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Chain
+import PolicyGradient.Meta.Paper
 
 /-!
 # The policy gradient theorem, finite horizon
@@ -186,6 +187,7 @@ Note what is *not* on the right-hand side: any derivative of `visit`. The state
 visitation depends on `θ`, yet its derivative cancels. That cancellation is the
 content of the theorem, and here it is a consequence of the induction rather
 than an assumption. -/
+@[paper "Sutton1999" "Policy Gradient Theorem"]
 theorem policy_gradient (m : ℕ) (s₀ : S) :
     HasDerivAt (fun t => V M (PF.toPolicy t) m s₀) (pgSum M PF θ m s₀) θ := by
   have key : ∀ m s, dV M PF θ m s = pgSum M PF θ m s := by

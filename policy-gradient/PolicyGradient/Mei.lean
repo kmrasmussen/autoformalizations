@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.SecondDeriv
 import PolicyGradient.AKM
+import PolicyGradient.Meta.Paper
 
 /-!
 # Mei, Xiao, Szepesvári & Schuurmans (ICML 2020)
@@ -193,6 +194,7 @@ from converting the per-coordinate Łojasiewicz bound into a norm bound.
 `ℝ → ℝ` and `γ` a free real; nothing ties either to an MDP, and `hloja` — Mei's
 Lemma 8 — is assumed. This is the rate *skeleton*, correctly proved; it is not
 Mei's Theorem 4. -/
+@[paper_tool "Mei2020" "Theorem 4"]
 theorem smooth_loja_rate {f f' : ℝ → ℝ} {c fstar : ℝ} (γ : ℝ)
     (hγ₀ : 0 ≤ γ) (hγ₁ : γ < 1) (hc : 0 < c)
     (hs : SmoothAt f f' (8 / (1 - γ) ^ 3))
@@ -288,6 +290,7 @@ Contrast with `smooth_loja_rate`: there the recursion is `δ_{t+1} ≤ δ_t - K�
 giving `O(1/t)` with a non-explicit constant. Here the recursion is linear,
 giving a geometric rate with an explicit constant — the trade the entropy term
 buys. -/
+@[paper_tool "Mei2020" "Theorem 6"]
 theorem geometric_rate {K : ℝ} (hK₀ : 0 ≤ 1 - K) (hK₁ : 1 - K < 1)
     (δ : ℕ → ℝ) (hnn : ∀ t, 0 ≤ δ t)
     (hstep : ∀ t, δ (t + 1) ≤ (1 - K) * δ t) :

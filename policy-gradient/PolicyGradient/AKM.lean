@@ -3,6 +3,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.GradientDomination
 import PolicyGradient.Rate
+import PolicyGradient.Meta.Paper
 
 /-!
 # Agarwal–Kakade–Lee–Mahajan: the ascent machinery
@@ -101,6 +102,7 @@ optimized by gradient ascent with stepsize `1/β`, has suboptimality at most
 This is the shape of AKM Theorem 4.1 and Corollary 5.1. The constants there are
 instantiations: `β` from the smoothness of the value function and `c` from the
 distribution-mismatch coefficient. -/
+@[paper_tool "AKM2021" "Theorem 4.1"]
 theorem domination_rate_abstract {f f' : ℝ → ℝ} {β c fstar : ℝ}
     (hβ : 0 < β) (hc : 0 < c) (hs : SmoothAt f f' β)
     (x : ℕ → ℝ) (hx : ∀ t, x (t + 1) = x t + (1 / β) * f' (x t))

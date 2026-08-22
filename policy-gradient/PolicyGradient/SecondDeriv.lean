@@ -4,6 +4,7 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 import PolicyGradient.Smoothness
 import Mathlib.Analysis.Calculus.MeanValue
 import Mathlib.Analysis.Calculus.Deriv.MeanValue
+import PolicyGradient.Meta.Paper
 
 /-!
 # The second derivative of the value function
@@ -593,6 +594,7 @@ instantiated here, so AKM Theorem 4.1 is **not** currently instantiated for any
 concrete MDP. And `hdloc` is undischarged (**G7**) while `hscore` is about the
 abstract field `PF.dπ`, with no Lean-level link to `sum_abs_score_le_one`
 (**G6**) — no concrete softmax `C2Policy` exists. -/
+@[paper "AKM2021" "Lemma E.4"]
 theorem smoothAt_V_final (m : ℕ) (s : S)
     (hdloc : ∀ (t : ℝ) (j : ℕ) (s' : S), |dLocalTerm M PF t j s'| ≤ 3 / (1 - M.γ))
     (hscore : ∀ θ' s', ∑ a, |PF.dπ θ' s' a| ≤ 1)

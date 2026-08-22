@@ -28,6 +28,13 @@ syntax (name := paperAttr) "paper" str str : attr
 /-- `@[paper_tool "Mei2020" "Theorem 4"]`: machinery supporting that result. -/
 syntax (name := paperToolAttr) "paper_tool" str str : attr
 
+/-- `@[infra "G5"]`: an infrastructure goal — an object that must be *built*.
+
+Not a paper result, so the grounding check does not apply: its conclusion is an
+existence claim, which is precisely why it cannot be weakened by adding
+hypotheses (the payload is the object). Tracked separately in the census. -/
+syntax (name := infraAttr) "infra" str : attr
+
 /-- A recorded paper claim: declaration, paper key, result name. -/
 structure PaperClaim where
   decl : Name
@@ -35,6 +42,8 @@ structure PaperClaim where
   result : String
   /-- `true` for `@[paper]`, `false` for `@[paper_tool]`. -/
   isFull : Bool
+  /-- `true` for `@[infra]`: an object-construction goal, exempt from grounding. -/
+  isInfra : Bool := false
   deriving Inhabited
 
 initialize paperExt :
@@ -50,7 +59,15 @@ initialize registerBuiltinAttribute {
   add := fun decl stx _ => do
     let paper := stx[1].isStrLit?.getD ""
     let result := stx[2].isStrLit?.getD ""
-    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, true⟩)
+    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, true, false⟩)
+}
+
+initialize registerBuiltinAttribute {
+  name := `infraAttr
+  descr := "an infrastructure goal: an object that must be constructed"
+  add := fun decl stx _ => do
+    let result := stx[1].isStrLit?.getD ""
+    modifyEnv (paperExt.addEntry · ⟨decl, "Infrastructure", result, false, true⟩)
 }
 
 initialize registerBuiltinAttribute {
@@ -59,5 +76,5 @@ initialize registerBuiltinAttribute {
   add := fun decl stx _ => do
     let paper := stx[1].isStrLit?.getD ""
     let result := stx[2].isStrLit?.getD ""
-    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, false⟩)
+    modifyEnv (paperExt.addEntry · ⟨decl, paper, result, false, false⟩)
 }

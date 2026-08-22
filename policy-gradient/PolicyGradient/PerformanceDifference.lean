@@ -2,6 +2,7 @@
 Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Theorem
+import PolicyGradient.Meta.Paper
 
 /-!
 # The performance difference lemma, finite horizon
@@ -134,6 +135,7 @@ Kakade & Langford (2002); Agarwal-Kakade-Lee-Mahajan (JMLR 2021) Lemma 3.2.
 
 The advantage is that of `π'`, but averaged under `π`'s state visitation --
 that asymmetry is the whole content of the lemma. -/
+@[paper "Kakade2002" "Performance Difference Lemma"]
 theorem performance_difference (π π' : Policy S A) (m : ℕ) (s₀ : S) :
     V M π m s₀ - V M π' m s₀ = pdSum M π π' m s₀ := by
   induction m generalizing s₀ with
