@@ -466,6 +466,119 @@ theorem Vinf_error_eq (M : FiniteMDP S A)
   rw [hL, ← Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
   refine Finset.sum_congr rfl fun s _ => by ring
 
+/-- **`Vinf` is Fréchet differentiable in `θ`, with the policy-gradient
+derivative `dVinf`.** -/
+theorem hasFDerivAt_Vinf (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : E S A) (s₀ : S) :
+    HasFDerivAt (fun t => Vinf M (F.toPolicy t) s₀) (dVinf M (F.toPolicy θ) θ s₀) θ := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  classical
+  set q : S → A → ℝ := fun s a => advInf M (F.toPolicy θ) s a with hq
+  -- Term 2 is little-o: a finite sum of little-o's.
+  have hT2 : (fun t : E S A => ∑ s, dinf M (F.toPolicy θ) s₀ s
+      * ((g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)
+        - dg (S:=S) (A:=A) s (q s) θ (t - θ)))
+      =o[nhds θ] (fun t => t - θ) := by
+    have hone : ∀ s : S, (fun t : E S A =>
+        (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)
+          - dg (S:=S) (A:=A) s (q s) θ (t - θ)) =o[nhds θ] (fun t => t - θ) := by
+      intro s
+      have := (hasFDeriv_g (S:=S) (A:=A) s (q s) θ).isLittleO
+      simpa using this
+    have hsum := Asymptotics.IsLittleO.sum (s := (univ : Finset S))
+      (fun s (_ : s ∈ (univ : Finset S)) =>
+        (hone s).const_mul_left (dinf M (F.toPolicy θ) s₀ s))
+    refine hsum.congr_left (fun t => ?_)
+    simp [Finset.sum_apply]
+  -- Term 1 is O(‖t-θ‖²), hence little-o.
+  have hT1 : (fun t : E S A => ∑ s, (dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+      * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ))
+      =o[nhds θ] (fun t => t - θ) := by
+    -- constants
+    set K : ℝ := 2 * (Fintype.card A) with hK
+    set c1 : ℝ := M.γ * K / (1 - M.γ) / (1 - M.γ) with hc1
+    set c2 : ℝ := 2 * (2 / (1 - M.γ)) with hc2
+    have hKnn : 0 ≤ K := by positivity
+    have hbound : ∀ t : E S A,
+        ‖∑ s, (dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+          * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)‖
+        ≤ ((Fintype.card S) * (c1 * c2)) * ‖t - θ‖ * ‖t - θ‖ := by
+      intro t
+      have hstep : ∀ x, ∑ s', |step M (F.toPolicy t) x s' - step M (F.toPolicy θ) x s'|
+          ≤ K * ‖t - θ‖ := by
+        intro x
+        have := step_diff_le M F hF θ t x
+        rw [hK]; linarith [this]
+      have hd : ∀ s, |dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s|
+          ≤ c1 * ‖t - θ‖ := by
+        intro s
+        have h := dinf_diff_le M (F.toPolicy θ) (F.toPolicy t) hγ₀ hγ₁
+          (K * ‖t - θ‖) (by positivity) hstep s₀ s
+        rw [hc1]
+        calc |dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s|
+            ≤ M.γ * (K * ‖t - θ‖) / (1 - M.γ) / (1 - M.γ) := h
+          _ = M.γ * K / (1 - M.γ) / (1 - M.γ) * ‖t - θ‖ := by ring
+      have hgd : ∀ s, |g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ|
+          ≤ c2 * ‖t - θ‖ := by
+        intro s
+        have hqb : ∀ a, |q s a| ≤ 2 / (1 - M.γ) :=
+          fun a => abs_advInf_le M (F.toPolicy θ) hr hγ₀ hγ₁ s a
+        have := g_lipschitz (S:=S) (A:=A) s (q s) (2 / (1 - M.γ)) hqb t θ
+        rw [hc2]; exact this
+      rw [Real.norm_eq_abs]
+      calc |∑ s, (dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+              * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)|
+          ≤ ∑ s, |(dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+              * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)| :=
+            Finset.abs_sum_le_sum_abs _ _
+        _ ≤ ∑ _s : S, (c1 * ‖t - θ‖) * (c2 * ‖t - θ‖) := by
+            refine Finset.sum_le_sum fun s _ => ?_
+            rw [abs_mul]
+            exact mul_le_mul (hd s) (hgd s) (abs_nonneg _) (by positivity)
+        _ = ((Fintype.card S) * (c1 * c2)) * ‖t - θ‖ * ‖t - θ‖ := by
+            rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]; ring
+    -- O(‖h‖²) is o(‖h‖)
+    have hbig : (fun t : E S A => ∑ s, (dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+        * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ))
+        =O[nhds θ] (fun t => ‖t - θ‖ * ‖t - θ‖) := by
+      refine Asymptotics.isBigO_of_le' (c := (Fintype.card S) * (c1 * c2)) _ (fun t => ?_)
+      have hn : ‖‖t - θ‖ * ‖t - θ‖‖ = ‖t - θ‖ * ‖t - θ‖ := by
+        rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+      rw [hn]
+      have := hbound t
+      calc ‖∑ s, (dinf M (F.toPolicy t) s₀ s - dinf M (F.toPolicy θ) s₀ s)
+              * (g (S:=S) (A:=A) s (q s) t - g (S:=S) (A:=A) s (q s) θ)‖
+          ≤ ((Fintype.card S) * (c1 * c2)) * ‖t - θ‖ * ‖t - θ‖ := this
+        _ = ((Fintype.card S) * (c1 * c2)) * (‖t - θ‖ * ‖t - θ‖) := by ring
+    refine hbig.trans_isLittleO ?_
+    -- ‖t-θ‖² = o(t-θ): directly from the ε-definition, taking ‖t-θ‖ < ε.
+    rw [Asymptotics.isLittleO_iff]
+    intro ε hε
+    have hball : ∀ᶠ t : E S A in nhds θ, ‖t - θ‖ < ε := by
+      have hc : Continuous (fun t : E S A => t - θ) :=
+        continuous_id.sub continuous_const
+      have htend : Filter.Tendsto (fun t : E S A => ‖t - θ‖) (nhds θ) (nhds 0) := by
+        have := (hc.tendsto θ).norm
+        simpa using this
+      exact htend.eventually (eventually_lt_nhds hε) |>.mono (fun t ht => by
+        simpa using ht)
+    refine hball.mono (fun t ht => ?_)
+    have hnn : (0:ℝ) ≤ ‖t - θ‖ := norm_nonneg _
+    have hn : ‖‖t - θ‖ * ‖t - θ‖‖ = ‖t - θ‖ * ‖t - θ‖ := by
+      rw [Real.norm_eq_abs, abs_of_nonneg (by positivity)]
+    rw [hn]
+    calc ‖t - θ‖ * ‖t - θ‖ ≤ ε * ‖t - θ‖ :=
+          mul_le_mul_of_nonneg_right ht.le hnn
+      _ = ε * ‖t - θ‖ := rfl
+
+  -- assemble
+  rw [hasFDerivAt_iff_isLittleO]
+  refine (hT1.add hT2).congr_left (fun t => ?_)
+  exact (Vinf_error_eq M F hF hr hγ₀ hγ₁ θ t s₀).symm
+
 end G1
 
 end Proofs
