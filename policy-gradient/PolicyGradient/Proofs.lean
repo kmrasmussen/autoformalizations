@@ -450,6 +450,222 @@ theorem optimal_support_greedy_proof (M : FiniteMDP S A)
 
 end Bellman
 
+/-! ## The distribution-mismatch coefficient (`Mismatch-bound`, `Mismatch-pos`)
+
+**Finding: `mismatch_bound` as frozen in `Goal.lean` is FALSE.**
+`mismatch_pos` is true and is proved below as `mismatch_pos_proof`.
+
+`mismatch_bound` reads
+
+```lean
+dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s
+```
+
+with **no full-support hypothesis on `μ`**. That omission is fatal. Take any `s`
+with `μ s = 0` that is reachable from the support of `μ`:
+
+* the right-hand side is `mismatchCoeff M π μ * 0 = 0` — `mismatchCoeff` is a
+  `ciSup` over the `Fintype` `S`, hence a finite real, never `⊤`; and the `s`-th
+  term of that `ciSup` is `dinfDist M π μ s / 0 = 0` by Lean's junk-value
+  convention for division, so `s` contributes nothing that could rescue it;
+* the left-hand side is `∑ s₀, μ s₀ * dinf M π s₀ s > 0`, because occupancy
+  flows into `s` from the states that *do* carry mass.
+
+So the claim reduces to `0 < LHS ≤ 0`. The refutation is machine-checked in
+`counterexMDP` below: a two-state MDP where every transition lands in state `1`,
+with `μ = δ₀`. There `dinfDist = 1` while `mismatchCoeff * μ 1 = 0`.
+
+This is the *mirror* of the defect the goal was written to repair. The
+superseded version was too weak (a free existential constant); pinning the
+coefficient by definition fixed that, but bounding against `μ s` without
+requiring `μ s > 0` made the statement too strong — the same "floating quantity
+is a defect in both directions" failure `CONTRIBUTING.md` records for
+`mei_theorem4`. AKM state the mismatch bound for a full-support `μ` precisely
+because `d^π_μ / μ` is meaningless where `μ` vanishes; `mismatch_pos` already
+carries `hμ`, and `mismatch_bound` needs it too.
+
+**No lemma named `mismatch_bound_proof` with the frozen type is supplied, and
+none can be.** What is supplied is `mismatch_bound_proof_of_support`: the same
+conclusion under the missing hypothesis. If the orchestrator adds `hμ` to the
+frozen statement, that lemma discharges it as-is. -/
+
+section Mismatch
+
+/-- `dinf` is nonnegative: a `tsum` of nonnegative terms. -/
+theorem dinf_nonneg (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ)
+    (π : Policy S A) (s₀ s : S) : 0 ≤ dinf M π s₀ s := by
+  rw [dinf]
+  exact tsum_nonneg fun t => mul_nonneg (pow_nonneg hγ₀ t) (visit_nonneg M π t s₀ s)
+
+/-- The `t = 0` term of `dinf` is the point mass at the start state, so
+`dinf M π s₀ s ≥ [s = s₀]`. -/
+theorem dinf_ge_point (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s₀ s : S) :
+    (if s = s₀ then (1:ℝ) else 0) ≤ dinf M π s₀ s := by
+  rw [dinf_eq M π hγ₀ hγ₁ s₀ s]
+  have : 0 ≤ M.γ * ∑ s', step M π s₀ s' * dinf M π s' s := by
+    refine mul_nonneg hγ₀ (Finset.sum_nonneg fun s' _ =>
+      mul_nonneg ?_ (dinf_nonneg M hγ₀ π s' s))
+    unfold step
+    exact Finset.sum_nonneg fun a _ =>
+      mul_nonneg ((π s₀).nonneg a) ((M.P s₀ a).nonneg s')
+  linarith
+
+theorem dinfDist_nonneg (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ)
+    (π : Policy S A) (μ : Dist S) (s : S) : 0 ≤ dinfDist M π μ s :=
+  Finset.sum_nonneg fun s₀ _ => mul_nonneg (μ.nonneg s₀) (dinf_nonneg M hγ₀ π s₀ s)
+
+/-- **`μ s ≤ d^π_μ(s)`**: the occupancy from a distribution is at least the
+distribution itself, because the `s₀ = s` summand already contributes
+`μ s · dinf M π s s ≥ μ s · 1`. This is what makes the mismatch ratio `≥ 1`
+everywhere and hence `mismatchCoeff ≥ 1 > 0`. -/
+theorem mu_le_dinfDist (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (μ : Dist S) (s : S) : μ s ≤ dinfDist M π μ s := by
+  unfold dinfDist
+  have key : ∀ s₀ ∈ (Finset.univ : Finset S),
+      (if s₀ = s then μ s₀ else 0) ≤ μ s₀ * dinf M π s₀ s := by
+    intro s₀ _
+    by_cases h : s₀ = s
+    · subst h
+      have hd : (1:ℝ) ≤ dinf M π s₀ s₀ := by
+        have := dinf_ge_point M hγ₀ hγ₁ π s₀ s₀
+        simpa using this
+      have : μ s₀ * 1 ≤ μ s₀ * dinf M π s₀ s₀ :=
+        mul_le_mul_of_nonneg_left hd (μ.nonneg s₀)
+      simpa using this
+    · simp only [if_neg h]
+      exact mul_nonneg (μ.nonneg s₀) (dinf_nonneg M hγ₀ π s₀ s)
+  simpa using Finset.sum_le_sum key
+
+/-- The mismatch family is bounded above: `S` is a `Fintype`, so `ciSup` is a
+genuine maximum and not the `0` junk value. -/
+theorem bddAbove_mismatch (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) :
+    BddAbove (Set.range fun s : S => dinfDist M π μ s / μ s) :=
+  Finite.bddAbove_range _
+
+/-- **`Mismatch-pos` — discharges the frozen goal `mismatch_pos`.**
+
+With full support every ratio `d^π_μ(s)/μ(s)` is at least `1` (by
+`mu_le_dinfDist`), and `S` is nonempty and finite so the `ciSup` attains at
+least one of them. -/
+theorem mismatch_pos_proof (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S)
+    (hμ : ∀ s, 0 < μ s) :
+    0 < mismatchCoeff M π μ := by
+  obtain ⟨s⟩ := ‹Nonempty S›
+  have h1 : (1:ℝ) ≤ dinfDist M π μ s / μ s := by
+    rw [le_div_iff₀ (hμ s), one_mul]
+    exact mu_le_dinfDist M hγ₀ hγ₁ π μ s
+  have h2 := le_ciSup (bddAbove_mismatch M π μ) s
+  unfold mismatchCoeff
+  linarith
+
+/-- **The repaired `Mismatch-bound`.**
+
+The frozen `mismatch_bound` is false (see `counterexMDP` below); this is the
+statement that is true — identical except for the full-support hypothesis `hμ`
+that `mismatch_pos` already carries. `le_ciSup` gives
+`dinfDist s / μ s ≤ mismatchCoeff`, and multiplying by `μ s > 0` clears the
+division. -/
+theorem mismatch_bound_proof_of_support (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : Dist S)
+    (hμ : ∀ s, 0 < μ s) (s : S) :
+    dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s := by
+  have h := le_ciSup (bddAbove_mismatch M π μ) s
+  rw [div_le_iff₀ (hμ s)] at h
+  exact h
+
+end Mismatch
+
+/-! ### The counterexample refuting the frozen `mismatch_bound`
+
+Machine-checked, so the finding cannot rot into prose. Two states, two actions,
+`γ = 1/2`; **every** transition lands in state `1`; `μ = δ₀`. Then
+`d^π_μ(1) = γ/(1-γ) = 1` but `μ 1 = 0`, so the frozen bound asserts `1 ≤ 0`. -/
+
+section Counterexample
+
+/-- The point mass on state `1` of `Fin 2`. -/
+noncomputable def cxToOne : Dist (Fin 2) where
+  prob i := if i = 1 then 1 else 0
+  nonneg i := by by_cases h : i = 1 <;> simp [h]
+  sum_eq_one := by simp
+
+/-- Two states, two actions, `γ = 1/2`, every transition into state `1`. -/
+noncomputable def counterexMDP : FiniteMDP (Fin 2) (Fin 2) where
+  P := fun _ _ => cxToOne
+  r := fun _ _ => 0
+  γ := 1/2
+
+/-- The start distribution `δ₀` — mass `1` on state `0`, **`0` on state `1`**. -/
+noncomputable def cxMu : Dist (Fin 2) where
+  prob i := if i = 0 then 1 else 0
+  nonneg i := by by_cases h : i = 0 <;> simp [h]
+  sum_eq_one := by simp
+
+noncomputable def cxPi : Policy (Fin 2) (Fin 2) := fun _ => cxToOne
+
+theorem cxMu_one : cxMu 1 = 0 := by simp [cxMu]
+theorem cxMu_zero : cxMu 0 = 1 := by simp [cxMu]
+theorem cx_gamma_nonneg : (0:ℝ) ≤ counterexMDP.γ := by norm_num [counterexMDP]
+theorem cx_gamma_lt_one : counterexMDP.γ < 1 := by norm_num [counterexMDP]
+
+theorem cx_step (s : Fin 2) : step counterexMDP cxPi s 1 = 1 := by
+  simp [step, counterexMDP, cxPi, cxToOne]
+
+theorem cx_visit_succ (t : ℕ) (s₀ : Fin 2) :
+    visit counterexMDP cxPi (t+1) s₀ 1 = 1 := by
+  induction t generalizing s₀ with
+  | zero => simp [visit_succ, cx_step, Fin.sum_univ_two]
+  | succ t _ =>
+    rw [visit_succ]
+    have h : ∀ s' : Fin 2,
+        visit counterexMDP cxPi (t+1) s₀ s' * step counterexMDP cxPi s' 1
+          = visit counterexMDP cxPi (t+1) s₀ s' := fun s' => by rw [cx_step, mul_one]
+    rw [Finset.sum_congr rfl (fun s' _ => h s'), visit_sum_eq_one]
+
+/-- `d^π(0, 1) = ∑_{t ≥ 1} γᵗ = γ/(1-γ) = 1`. -/
+theorem cx_dinf : dinf counterexMDP cxPi 0 1 = 1 := by
+  have hs := summable_dvisit counterexMDP cxPi cx_gamma_nonneg cx_gamma_lt_one 0 1
+  unfold dinf
+  rw [Summable.tsum_eq_zero_add hs]
+  have h0 : counterexMDP.γ ^ 0 * visit counterexMDP cxPi 0 0 1 = 0 := by simp
+  rw [h0, zero_add]
+  have h : ∀ t : ℕ, counterexMDP.γ ^ (t+1) * visit counterexMDP cxPi (t+1) 0 1
+      = (1/2:ℝ) * (1/2:ℝ)^t := by
+    intro t; rw [cx_visit_succ]; simp [counterexMDP]; ring
+  rw [tsum_congr h, tsum_mul_left,
+      tsum_geometric_of_lt_one (by norm_num) (by norm_num)]
+  norm_num
+
+theorem cx_dinfDist : dinfDist counterexMDP cxPi cxMu 1 = 1 := by
+  unfold dinfDist
+  rw [Fin.sum_univ_two, cxMu_zero, cxMu_one, cx_dinf]
+  ring
+
+/-- **The frozen `mismatch_bound` fails at this instance**: `1 ≤ 0`. -/
+theorem cx_refutes_instance :
+    ¬ (dinfDist counterexMDP cxPi cxMu 1
+        ≤ mismatchCoeff counterexMDP cxPi cxMu * cxMu 1) := by
+  rw [cx_dinfDist, cxMu_one, mul_zero]
+  norm_num
+
+/-- **`mismatch_bound` as frozen in `Goal.lean` implies `False`.**
+
+The hypothesis below is the frozen statement verbatim (universally closed over
+its binders). No lemma of that type can exist, so the goal cannot be
+discharged — it must be repaired by adding `hμ`, after which
+`mismatch_bound_proof_of_support` discharges it. -/
+theorem mismatch_bound_is_false
+    (h : ∀ {S A : Type} [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A]
+           [Nonempty S] [Nonempty A]
+           (M : FiniteMDP S A), (0 ≤ M.γ) → (M.γ < 1) → ∀ (π : Policy S A)
+           (μ : Dist S) (s : S), dinfDist M π μ s ≤ mismatchCoeff M π μ * μ s) :
+    False :=
+  cx_refutes_instance (h counterexMDP cx_gamma_nonneg cx_gamma_lt_one cxPi cxMu 1)
+
+end Counterexample
+
 
 end Proofs
 end PolicyGradient
