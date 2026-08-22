@@ -155,10 +155,6 @@ bites. Contrapositive: if a full-support policy is optimal at `μ`, greediness
 of its support gives `Q*(s,a) = V*(s)` for *all* `a` at every reachable `s`, so
 every policy is optimal and `hnondeg` fails. -/
 
-/-- The optimal action-value `Q*(s,a)`: reward now, then optimal value after. -/
-noncomputable def Qstar (M : FiniteMDP S A) (s : S) (a : A) : ℝ :=
-  M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s'
-
 /-- **Bellman optimality.** `V*(s) = maxₐ Q*(s,a)`.
 
 The characterization `g3` turns on. Note it needs `Vstar` to be a genuine
@@ -166,7 +162,8 @@ supremum, which `vstar_upper` and `vstar_le` now provide. -/
 @[infra "Bellman-optimality"]
 theorem vstar_bellman (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
-    Vstar M s = ⨆ a : A, Qstar M s a := sorry
+    Vstar M s = ⨆ a : A, Qstar M s a :=
+  Proofs.vstar_bellman_proof M hr hγ₀ hγ₁ s
 
 /-- **An optimal policy's support is greedy.**
 
@@ -178,7 +175,8 @@ theorem optimal_support_greedy (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (π : Policy S A) (s : S) (hopt : Vinf M π s = Vstar M s)
     (a : A) (hsupp : 0 < (π s) a) :
-    Qstar M s a = Vstar M s := sorry
+    Qstar M s a = Vstar M s :=
+  Proofs.optimal_support_greedy_proof M hr hγ₀ hγ₁ π s hopt a hsupp
 
 /-! ## G3 — strict suboptimality along the trajectory
 

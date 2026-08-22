@@ -69,6 +69,10 @@ noncomputable def VsoftStar (M : FiniteMDP S A) (τ : ℝ) (s₀ : S) : ℝ :=
   ⨆ π : Policy S A, VinfSoft M π τ s₀
 
 
+/-- The optimal action-value `Q*(s,a)`: reward now, then optimal value after. -/
+noncomputable def Qstar (M : FiniteMDP S A) (s : S) (a : A) : ℝ :=
+  M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s'
+
 /-! ### Occupancy from a start *distribution*
 
 `dinf` takes a start state. AKM's distribution-mismatch coefficient is a ratio
