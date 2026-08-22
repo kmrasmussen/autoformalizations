@@ -93,20 +93,42 @@ power and **no** `‖1/μ‖_∞`; the frozen statement has since been corrected
 only remaining discrepancy is the harmless `(1−γ)³ → (1−γ)⁶`.  `Mei4C`'s
 `hconst_is_false` therefore no longer bears on the current frozen statement.
 
-## 3. Status
+## 3. Two independent interface conditions
 
-`mei_theorem4_of_astar_compat` hits the frozen right-hand side **verbatim** and
-is proved from `mei_theorem4`'s own hypotheses plus:
+`hdom` is not the only way across.  Unfolding
+`advGapInf M π πstar s = ∑ a, πstar(a|s) · A^π(s,a)` and applying the selector
+bound termwise instead of at `astar s` alone gives the same collapse from
 
-* `hdom` — the interface condition `(†)` above, and
-* `s₀`/`hnondeg` — non-degeneracy, which `mei4_rho_rate_of_g3` already requires
-  (some state admits some strictly suboptimal policy; without it every policy is
-  optimal, `V* − V^π ≡ 0`, and `g3_strict_suboptimality` has nothing to say).
+```
+hcsupp :  ∀ t s a, 0 < πstar(a|s) → (⨅ x, π_t(astar x|x)) ≤ π_t(a|s)        (‡)
+```
 
-Neither is in the frozen signature, so the frozen `mei_theorem4` is **not**
-closed here.  `mei_theorem4_of_astar_compat` is the precise reduction, and
-`mei_theorem4_of_astar_gap` is the same thing under Mei's own strict-gap
-assumption instead of `hdom`.
+— "the trajectory keeps *every* action of `supp πstar(·|s)` above the constant",
+rather than only the designated `astar`.  `(‡)` is arguably the more faithful
+reading of Mei's Lemma 9 constant `c := inf_{s,t} π_{θ_t}(a*(s)|s)`, which does
+not presuppose a canonical choice inside a tied optimal support.  Neither `(†)`
+nor `(‡)` implies the other, and both coincide with the frozen hypotheses when
+`πstar` is deterministic.  `mei_theorem4_of_supp_bound` is the `(‡)` route.
+
+## 4. Status
+
+`mei_theorem4_of_astar_compat'` and `mei_theorem4_of_supp_bound` each hit the
+frozen right-hand side **verbatim**, from `mei_theorem4`'s own hypotheses plus
+exactly **one** extra binder — `(†)` and `(‡)` respectively.
+
+`hnondeg` (which `mei4_rho_rate_of_g3` requires) is **not** an extra hypothesis:
+it is discharged by a classical case split.  Either some state admits some
+strictly suboptimal policy, or every policy is optimal everywhere and the
+left-hand side is exactly `0` while the right-hand side is a product of
+nonnegative factors.  So `(†)` (or `(‡)`) is the *only* thing separating this
+file from `Goal.mei_theorem4`.
+
+The frozen `mei_theorem4` is therefore **not closed** here.  This is option 2 of
+the brief: `mei_theorem4_of_astar_compat'` is the precise reduction,
+`mei_theorem4_of_supp_bound` its alternative, and `mei_theorem4_of_astar_gap`
+the corollary under Mei's own strict-gap assumption, which needs **no** extra
+binder at all beyond `hgap` (a hypothesis the frozen `g9_c_positive` in the same
+file already carries).
 -/
 
 open Finset
@@ -371,36 +393,134 @@ theorem mei_theorem4_of_astar_compat (M : FiniteMDP S A)
       astar hastar hcbound hloja s₀ hnondeg T hT) ?_
   exact rate_const_le M hγ₀ hγ₁ μ hμ πstar c hc T hT
 
-set_option linter.unusedVariables false in
-/-- **`Goal.mei_theorem4` under Mei's own optimal-value-gap assumption.**
+/-! ## A second, independent interface condition: `hcbound` on all of `supp πstar`
 
-`hgap` is `Δ*(s) > 0`, the hypothesis Mei's Lemma 9 proof opens with (and which
-the frozen `g9_c_positive` already carries).  It implies the interface condition
-`(†)` outright (`astar_compat_of_gap`), so the only hypothesis beyond the frozen
-ones is non-degeneracy. -/
-theorem mei_theorem4_of_astar_gap (M : FiniteMDP S A)
+`hdom` is not the only way across the gap.  Unfolding
+`advGapInf M π πstar s = ∑ a, πstar(a|s) · A^π(s,a)` and applying the selector
+bound `hb` *termwise* rather than at `astar s` alone gives the same per-state
+collapse, provided the trajectory keeps **every** action of `supp πstar(·|s)`
+above `c` — not just `astar s`.
+
+This is arguably the more faithful reading of Mei's Lemma 9, whose constant is
+`c := inf_{s,t} π_{θ_t}(a*(s)|s)` for a *fixed optimal policy's* `a*`; when
+`πstar` is deterministic the two conditions coincide, and when it is not, this
+one asks for a uniform lower bound across the whole optimal support.  Neither
+condition implies the other in general.  Both are recorded so that whichever is
+added to the frozen statement, the composition is available. -/
+
+/-- `iInf_mul_advGapInf_le_sel` from a support-wide lower bound instead of `hmax`. -/
+theorem iInf_mul_advGapInf_le_sel_of_supp (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π πstar : Policy S A) (astar : S → A)
+    (b : S → A)
+    (hb : ∀ s a, (π s) a * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s))
+    (hsupp : ∀ s a, 0 < (πstar s) a → (⨅ x : S, (π x) (astar x)) ≤ (π s) a)
+    (s : S) :
+    (⨅ x : S, (π x) (astar x)) * advGapInf M π πstar s
+      ≤ (π s) (b s) * advInf M π s (b s) := by
+  classical
+  set c : ℝ := ⨅ x : S, (π x) (astar x) with hc
+  have hc0 : 0 ≤ c := le_ciInf fun x => (π x).nonneg _
+  have hm0 : 0 ≤ (π s) (b s) * advInf M π s (b s) := sel_nonneg M hr hγ₀ hγ₁ π b hb s
+  -- termwise: `c · πstar(a) · A(a) ≤ πstar(a) · (π(b) · A(b))`
+  have hterm : ∀ a : A,
+      c * ((πstar s) a * advInf M π s a)
+        ≤ (πstar s) a * ((π s) (b s) * advInf M π s (b s)) := by
+    intro a
+    rcases lt_or_eq_of_le ((πstar s).nonneg a) with hpa | hpa
+    · -- `a` is in the support, so `c ≤ π(a|s)`
+      have hca : c ≤ (π s) a := hsupp s a hpa
+      rcases le_or_gt (advInf M π s a) 0 with hA | hA
+      · have h1 : c * advInf M π s a ≤ 0 := mul_nonpos_of_nonneg_of_nonpos hc0 hA
+        have h2 : (πstar s) a * (c * advInf M π s a) ≤ 0 :=
+          mul_nonpos_of_nonneg_of_nonpos hpa.le h1
+        have h3 : 0 ≤ (πstar s) a * ((π s) (b s) * advInf M π s (b s)) :=
+          mul_nonneg hpa.le hm0
+        calc c * ((πstar s) a * advInf M π s a)
+            = (πstar s) a * (c * advInf M π s a) := by ring
+          _ ≤ 0 := h2
+          _ ≤ _ := h3
+      · have hstep : c * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s) :=
+          le_trans (mul_le_mul_of_nonneg_right hca hA.le) (hb s a)
+        calc c * ((πstar s) a * advInf M π s a)
+            = (πstar s) a * (c * advInf M π s a) := by ring
+          _ ≤ (πstar s) a * ((π s) (b s) * advInf M π s (b s)) :=
+              mul_le_mul_of_nonneg_left hstep hpa.le
+    · rw [← hpa]; simp
+  calc c * advGapInf M π πstar s
+      = ∑ a, c * ((πstar s) a * advInf M π s a) := by
+        unfold advGapInf; rw [Finset.mul_sum]
+    _ ≤ ∑ a, (πstar s) a * ((π s) (b s) * advInf M π s (b s)) :=
+        Finset.sum_le_sum fun a _ => hterm a
+    _ = (π s) (b s) * advInf M π s (b s) := by
+        rw [← Finset.sum_mul, (πstar s).sum_eq_one, one_mul]
+
+/-- `g1_aggregate_bound_at_argmax` from the support-wide lower bound. -/
+theorem g1_aggregate_bound_of_supp (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (π πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (astar : S → A)
+    (b : S → A)
+    (hb : ∀ s a, (π s) a * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s))
+    (hsupp : ∀ s a, 0 < (πstar s) a → (⨅ x : S, (π x) (astar x)) ≤ (π s) a) :
+    (⨅ s : S, (π s) (astar s)) * (VstarDist M μ - VinfDist M π μ)
+      ≤ mismatchCoeff M πstar μ
+          * ∑ s, |dinfDist M π μ s * ((π s) (b s) * advInf M π s (b s))| := by
+  classical
+  set c : ℝ := ⨅ x : S, (π x) (astar x) with hc
+  set mism : ℝ := mismatchCoeff M πstar μ with hmism
+  set m : S → ℝ := fun s => (π s) (b s) * advInf M π s (b s) with hm
+  have hm0 : ∀ s, 0 ≤ m s := fun s => sel_nonneg M hr hγ₀ hγ₁ π b hb s
+  have hmism0 : 0 < mism := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+  have hdstar0 : ∀ s, 0 ≤ dinfDist M πstar μ s := fun s => by
+    unfold dinfDist
+    exact Finset.sum_nonneg fun s₀ _ =>
+      mul_nonneg (μ.nonneg s₀) (dinf_nonneg M hγ₀ πstar s₀ s)
+  rw [sel_rhs_eq M hr hγ₀ hγ₁ π μ b hb,
+    VstarDist_sub_VinfDist_eq M π πstar hr hγ₀ hγ₁ hstar μ]
+  have step1 : c * ∑ s, dinfDist M πstar μ s * advGapInf M π πstar s
+      ≤ ∑ s, dinfDist M πstar μ s * m s := by
+    rw [Finset.mul_sum]
+    refine Finset.sum_le_sum fun s _ => ?_
+    have h := iInf_mul_advGapInf_le_sel_of_supp M hr hγ₀ hγ₁ π πstar astar b hb hsupp s
+    calc c * (dinfDist M πstar μ s * advGapInf M π πstar s)
+        = dinfDist M πstar μ s * (c * advGapInf M π πstar s) := by ring
+      _ ≤ dinfDist M πstar μ s * m s := mul_le_mul_of_nonneg_left h (hdstar0 s)
+  have step2 : ∑ s, dinfDist M πstar μ s * m s
+      ≤ mism * ∑ s, dinfDist M π μ s * m s := by
+    rw [Finset.mul_sum]
+    refine Finset.sum_le_sum fun s _ => ?_
+    have h1 : dinfDist M πstar μ s ≤ mism * μ s :=
+      mismatch_bound_proof_of_support M hγ₀ hγ₁ πstar μ hμ s
+    have h2 : μ s ≤ dinfDist M π μ s := mu_le_dinfDist M hγ₀ hγ₁ π μ s
+    have h3 : dinfDist M πstar μ s ≤ mism * dinfDist M π μ s :=
+      le_trans h1 (mul_le_mul_of_nonneg_left h2 hmism0.le)
+    calc dinfDist M πstar μ s * m s
+        ≤ (mism * dinfDist M π μ s) * m s := mul_le_mul_of_nonneg_right h3 (hm0 s)
+      _ = mism * (dinfDist M π μ s * m s) := by ring
+  exact le_trans step1 step2
+
+/-- **Mei Lemma 8 at a given `astar`, from the support-wide lower bound.** -/
+theorem g1_lojasiewicz_at_astar_of_supp (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
-    (ρ : Dist S)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
-    (θ : ℕ → EuclideanSpace ℝ (S × A))
-    (hstep : ∀ t, θ (t + 1)
-      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
-    (c : ℝ) (hc : 0 < c)
     (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
-    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
-    (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s))
-    (s₀ : S) (hnondeg : ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀) :
-    ∀ T : ℕ, 1 ≤ T →
-      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
-        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
-            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ :=
-  mei_theorem4_of_astar_compat M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc
-    astar hastar hcbound
-    (fun t s => astar_compat_of_gap M hr hγ₀ hγ₁ πstar hstar astar hastar hgap
-      (F.toPolicy (θ t)) s) s₀ hnondeg
+    (θ : EuclideanSpace ℝ (S × A))
+    (hsupp : ∀ s a, 0 < (πstar s) a →
+      (⨅ x : S, (F.toPolicy θ x) (astar x)) ≤ (F.toPolicy θ s) a) :
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := by
+  classical
+  obtain ⟨b, hb⟩ := exists_prod_argmax_selector M (F.toPolicy θ)
+  exact g1_lojasiewicz_of_selector M F hF hr hγ₀ hγ₁ μ hμ πstar hstar astar hastar θ b
+    (g1_aggregate_bound_of_supp M hr hγ₀ hγ₁ μ hμ (F.toPolicy θ) πstar hstar astar
+      b hb hsupp)
 
 /-! ## Removing `hnondeg`
 
@@ -467,6 +587,103 @@ theorem mei_theorem4_of_astar_compat' (M : FiniteMDP S A)
     have h6 : (0:ℝ) < (1 - M.γ) ^ 6 := pow_pos hpos 6
     positivity
 
+set_option linter.unusedVariables false in
+/-- **`Goal.mei_theorem4` from the support-wide lower bound instead of `hdom`.**
+
+`hcsupp` strengthens `hcbound` from "`c` bounds the given `astar` below" to
+"`c` bounds *every action of `supp πstar(·|s)`* below" — the reading of Mei's
+Lemma 9 constant that does not presuppose a canonical choice inside a tied
+optimal support.  Under it, `hdom` is unnecessary: the selector bound applies
+termwise across the support.
+
+Like `mei_theorem4_of_astar_compat'`, `hnondeg` is discharged by a case split,
+so `hcsupp` is the only hypothesis beyond the frozen ones. -/
+theorem mei_theorem4_of_supp_bound (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    -- THE SUPPORT-WIDE INTERFACE CONDITION.
+    (hcsupp : ∀ t s a, 0 < (πstar s) a →
+      (⨅ x : S, (F.toPolicy (θ t) x) (astar x)) ≤ (F.toPolicy (θ t) s) a) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ := by
+  classical
+  intro T hT
+  have hloja : ∀ t, (⨅ s : S, (F.toPolicy (θ t) s) (astar s))
+      / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+      * (VstarDist M μ - VinfDist M (F.toPolicy (θ t)) μ)
+    ≤ ‖fderiv ℝ (fun w => VinfDist M (F.toPolicy w) μ) (θ t)‖ := fun t =>
+    g1_lojasiewicz_at_astar_of_supp M F hF hr hγ₀ hγ₁ μ hμ πstar hstar astar hastar
+      (θ t) (hcsupp t)
+  by_cases hnd : ∃ s₀ : S, ∃ π : Policy S A, Vinf M π s₀ < Vstar M s₀
+  · obtain ⟨s₀, hs₀⟩ := hnd
+    refine le_trans
+      (mei4_rho_rate_of_g3 M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc
+        astar hastar hcbound hloja s₀ hs₀ T hT) ?_
+    exact rate_const_le M hγ₀ hγ₁ μ hμ πstar c hc T hT
+  · push_neg at hnd
+    have hzero : VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ = 0 := by
+      have heq : ∀ s, Vinf M (F.toPolicy (θ T)) s = Vstar M s := fun s =>
+        le_antisymm (vstar_upper_proof M hr hγ₀ hγ₁ (F.toPolicy (θ T)) s)
+          (hnd s (F.toPolicy (θ T)))
+      unfold VstarDist VinfDist
+      rw [← Finset.sum_sub_distrib]
+      exact Finset.sum_eq_zero fun s _ => by rw [heq s]; ring
+    rw [hzero]
+    have hpos : 0 < 1 - M.γ := by linarith
+    have hiv : 0 < invMuSup μ := invMuSup_pos μ hμ
+    have hm : 0 < mismatchCoeff M πstar μ := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+    have hScard : (0:ℝ) < (Fintype.card S : ℝ) := by
+      have := Fintype.card_pos_iff.mpr ‹Nonempty S›
+      exact_mod_cast this
+    have hTpos : (0:ℝ) < (T : ℝ) := by
+      exact_mod_cast Nat.lt_of_lt_of_le Nat.zero_lt_one hT
+    have h6 : (0:ℝ) < (1 - M.γ) ^ 6 := pow_pos hpos 6
+    positivity
+
+
+set_option linter.unusedVariables false in
+/-- **`Goal.mei_theorem4` under Mei's own optimal-value-gap assumption.**
+
+`hgap` is `Δ*(s) > 0`, the hypothesis Mei's Lemma 9 proof opens with (and which
+the frozen `g9_c_positive` already carries).  It implies the interface condition
+`(†)` outright (`astar_compat_of_gap`), and `hnondeg` is discharged by the case
+split inside `mei_theorem4_of_astar_compat'`.  So `hgap` is the **only** hypothesis
+beyond the frozen ones — and it is one the paper itself assumes, and one the
+frozen `g9_c_positive` in the same `Goal.lean` already carries. -/
+theorem mei_theorem4_of_astar_gap (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (ρ : Dist S)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (c : ℝ) (hc : 0 < c)
+    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    (hgap : ∀ s a, a ≠ astar s → Qstar M s a < Qstar M s (astar s)) :
+    ∀ T : ℕ, 1 ≤ T →
+      VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+        ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ :=
+  mei_theorem4_of_astar_compat' M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc
+    astar hastar hcbound
+    (fun t s => astar_compat_of_gap M hr hγ₀ hγ₁ πstar hstar astar hastar hgap
+      (F.toPolicy (θ t)) s)
 /-! ## Verification: the conclusion is the frozen one, verbatim
 
 There is deliberately **no** `mei_theorem4_proof` here, and therefore no
@@ -552,6 +769,7 @@ end Verification
 #print axioms mei_theorem4_of_astar_compat
 #print axioms mei_theorem4_of_astar_compat'
 #print axioms mei_theorem4_of_astar_gap
+#print axioms mei_theorem4_of_supp_bound
 
 #print axioms reduction_conclusion_matches
 
