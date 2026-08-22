@@ -203,6 +203,68 @@ theorem g1_aggregate_bound_at_argmax (M : FiniteMDP S A)
       _ = mism * (dinfDist M π μ s * m s) := by ring
   exact le_trans step1 step2
 
+
+/-! ## The argmax selector exists
+
+`supp πstar(·|s)` is a nonempty finite set (`πstar s` sums to `1`), so
+`A^π(s, ·)` attains a maximum on it.  Choosing that maximiser at every state
+produces an `astar` satisfying **both** `hastar` (`0 < πstar(astar s|s)`, the
+frozen hypothesis) and `hmax`, hence one for which
+`g1_aggregate_bound_at_argmax` applies. -/
+
+/-- The support of `πstar(·|s)` is nonempty. -/
+theorem support_pistar_nonempty (πstar : Policy S A) (s : S) :
+    ((univ : Finset A).filter fun a => 0 < (πstar s) a).Nonempty := by
+  classical
+  by_contra hne
+  rw [Finset.not_nonempty_iff_eq_empty, Finset.filter_eq_empty_iff] at hne
+  have hz : ∀ a ∈ (univ : Finset A), (πstar s) a = 0 := by
+    intro a ha
+    exact le_antisymm (not_lt.mp (hne ha)) ((πstar s).nonneg a)
+  have := (πstar s).sum_eq_one
+  rw [Finset.sum_congr rfl hz, Finset.sum_const_zero] at this
+  exact zero_ne_one this
+
+/-- **An admissible argmax selector exists.**  There is an `astar` that is both
+in the support of `πstar` at every state and an `A^π`-maximiser over that
+support — exactly the two hypotheses `g1_aggregate_bound_at_argmax` consumes. -/
+theorem exists_argmax_selector (M : FiniteMDP S A)
+    (π πstar : Policy S A) :
+    ∃ astar : S → A, (∀ s, 0 < (πstar s) (astar s)) ∧
+      (∀ s a, 0 < (πstar s) a → advInf M π s a ≤ advInf M π s (astar s)) := by
+  classical
+  have hchoice : ∀ s : S, ∃ a : A, 0 < (πstar s) a ∧
+      ∀ a', 0 < (πstar s) a' → advInf M π s a' ≤ advInf M π s a := by
+    intro s
+    obtain ⟨a, ha, hmax⟩ :=
+      Finset.exists_max_image ((univ : Finset A).filter fun a => 0 < (πstar s) a)
+        (fun a => advInf M π s a) (support_pistar_nonempty πstar s)
+    rw [Finset.mem_filter] at ha
+    refine ⟨a, ha.2, fun a' ha' => ?_⟩
+    exact hmax a' (Finset.mem_filter.mpr ⟨mem_univ a', ha'⟩)
+  choose f hf1 hf2 using hchoice
+  exact ⟨f, hf1, fun s a ha => hf2 s a ha⟩
+
+/-- **The frozen conclusion holds for *some* admissible `astar`.**
+
+This is `g1_aggregate_bound` with `astar` quantified **existentially** rather
+than universally.  It is the strongest form the argmax chain gives, and it is
+faithful to Mei Lemma 8, which fixes an optimal `π*` and takes `a*(s)` to be an
+action *that policy* selects. -/
+theorem exists_astar_g1_aggregate_bound (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (π πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (b : S → A)
+    (hb : ∀ s a, (π s) a * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s)) :
+    ∃ astar : S → A, (∀ s, 0 < (πstar s) (astar s)) ∧
+      (⨅ s : S, (π s) (astar s)) * (VstarDist M μ - VinfDist M π μ)
+        ≤ mismatchCoeff M πstar μ
+            * ∑ s, |dinfDist M π μ s * ((π s) (b s) * advInf M π s (b s))| := by
+  obtain ⟨astar, hsupp, hmax⟩ := exists_argmax_selector M π πstar
+  exact ⟨astar, hsupp,
+    g1_aggregate_bound_at_argmax M hr hγ₀ hγ₁ μ hμ π πstar hstar astar hmax b hb⟩
+
 end Cpl
 
 end Proofs
