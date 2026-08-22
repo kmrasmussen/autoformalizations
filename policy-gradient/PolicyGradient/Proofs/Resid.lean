@@ -605,6 +605,93 @@ theorem state_gain (M : FiniteMDP S A)
   have hvsq : 0 ≤ ‖v‖ ^ 2 := sq_nonneg _
   nlinarith [hgain, hzero, hfac, hvsq]
 
+/-- **The objective's per-step gain, in terms of one state's `F_s` gradient.**
+
+Performance difference at start distribution `μ` gives
+`V^{(t+1)}(μ) - V^{(t)}(μ) = ∑_{s'} d^{π^{(t+1)}}_μ(s') ∑_a π^{(t+1)}(a|s') A^{(t)}(s',a)`.
+Every summand is `≥ 0` (`sum_pi_next_adv_nonneg`), so dropping all but `s'=s` and
+using `d^{π^{(t+1)}}_μ(s) ≥ μ(s)` (`mu_le_dinfDist`) with `state_gain` gives the
+claim. -/
+theorem VinfDist_gain (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) :
+    VinfDist M (F.toPolicy θ) μ
+        + μ s * (η * μ s / 5)
+          * ‖gradient (g (S := S) (A := A) s
+                (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2
+      ≤ VinfDist M (F.toPolicy (θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ)) μ := by
+  set θ' : EuclideanSpace ℝ (S × A) :=
+    θ + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) θ with hθ'
+  -- performance difference, averaged over `μ`
+  have hpd : VinfDist M (F.toPolicy θ') μ - VinfDist M (F.toPolicy θ) μ
+      = ∑ s₀, μ s₀ * pdInf M (F.toPolicy θ) (F.toPolicy θ') s₀ := by
+    unfold VinfDist
+    rw [← Finset.sum_sub_distrib]
+    refine Finset.sum_congr rfl fun s₀ _ => ?_
+    rw [← mul_sub, perfDiffInf M (F.toPolicy θ) (F.toPolicy θ') hr hγ₀ hγ₁ s₀]
+  -- reorganize as `∑_{s'} dinfDist(s') * advGapInf(s')`
+  have hswap : ∑ s₀, μ s₀ * pdInf M (F.toPolicy θ) (F.toPolicy θ') s₀
+      = ∑ s', dinfDist M (F.toPolicy θ') μ s'
+          * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s' := by
+    unfold pdInf dinfDist
+    have hL : ∀ s₀ : S, μ s₀ * ∑ s', dinf M (F.toPolicy θ') s₀ s'
+          * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s'
+        = ∑ s', μ s₀ * dinf M (F.toPolicy θ') s₀ s'
+          * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s' := by
+      intro s₀; rw [Finset.mul_sum]
+      exact Finset.sum_congr rfl fun s' _ => by ring
+    rw [Finset.sum_congr rfl (fun s₀ _ => hL s₀), Finset.sum_comm]
+    refine Finset.sum_congr rfl fun s' _ => ?_
+    rw [Finset.sum_mul]
+  -- each term is nonneg; keep only `s'= s`
+  have hterm : ∀ s', 0 ≤ dinfDist M (F.toPolicy θ') μ s'
+      * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s' := by
+    intro s'
+    refine mul_nonneg (dinfDist_nonneg M hγ₀ _ _ _) ?_
+    unfold advGapInf
+    exact sum_pi_next_adv_nonneg M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ s'
+  have hsingle : dinfDist M (F.toPolicy θ') μ s
+        * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s
+      ≤ ∑ s', dinfDist M (F.toPolicy θ') μ s'
+          * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s' :=
+    Finset.single_le_sum (fun s' _ => hterm s') (Finset.mem_univ s)
+  -- lower-bound that single term
+  have hgs : η * μ s / 5
+      * ‖gradient (g (S := S) (A := A) s
+            (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2
+      ≤ advGapInf M (F.toPolicy θ) (F.toPolicy θ') s :=
+    state_gain M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ s
+  have hdμ : μ s ≤ dinfDist M (F.toPolicy θ') μ s := mu_le_dinfDist M hγ₀ hγ₁ _ μ s
+  have hgnn : 0 ≤ η * μ s / 5
+      * ‖gradient (g (S := S) (A := A) s
+            (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2 := by
+    have : 0 ≤ η * μ s / 5 := by
+      have := (hμ s); positivity
+    exact mul_nonneg this (sq_nonneg _)
+  have hlow : μ s * (η * μ s / 5)
+      * ‖gradient (g (S := S) (A := A) s
+            (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2
+      ≤ dinfDist M (F.toPolicy θ') μ s
+        * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s := by
+    have h1 : μ s * (η * μ s / 5
+        * ‖gradient (g (S := S) (A := A) s
+              (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2)
+        ≤ dinfDist M (F.toPolicy θ') μ s
+          * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s :=
+      mul_le_mul hdμ hgs hgnn (dinfDist_nonneg M hγ₀ _ _ _)
+    calc μ s * (η * μ s / 5)
+          * ‖gradient (g (S := S) (A := A) s
+                (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2
+        = μ s * (η * μ s / 5
+            * ‖gradient (g (S := S) (A := A) s
+                  (fun a' => advInf M (F.toPolicy θ) s a')) θ‖ ^ 2) := by ring
+      _ ≤ _ := h1
+  linarith [hpd, hswap, hsingle, hlow]
+
 end Resid
 
 end Proofs
