@@ -1244,6 +1244,41 @@ theorem vec_smooth_loja_rate {E : Type*}
     fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) :=
   Proofs.vec_smooth_loja_rate_proof hβ hc hgrad hsmooth x hx hloja hlt T hT
 
+/-! ### The entropy track: what the papers actually say
+
+Two corrections from reading Mei's text, both of which would have produced
+mislabeled theorems if taken from my paraphrase.
+
+**Lemma 14 is not what I said it was.** Verbatim:
+
+> `ℍ(ρ, π_θ)` is `(4 + 8 log A)/(1−γ)³`-smooth, where `A := |𝒜|`.
+
+It is about the **discounted entropy `ℍ` alone**, not "`Ṽ` is `β`-smooth". The
+constant `(8 + τ(4 + 8 log A))/(1−γ)³` appears only inside the *proof* of Theorem
+6 and is never a numbered lemma. Note it is calibrated in `log A` — so the
+repo's earlier `entropy ≤ |A| − 1` could not state Lemma 14 at all. The sharp
+Gibbs bound `entropy ≤ log |A|` (`Proofs.entropy_le_log_card`) is now proved and
+is what makes the statement expressible.
+
+**The soft performance difference has a term I did not anticipate.** Mei's soft
+advantage (their Eq. 18) is `Ã^π(s,a) = Q̃^π(s,a) − τ log π(a|s) − Ṽ^π(s)`,
+carrying the *inner* policy's log. Averaged under `π'` that produces a
+**cross-entropy**, not `π'`'s own entropy, so an explicit correction term
+`entGap = ∑ₐ π'(a|s)(log π(a|s) − log π'(a|s)) = −D_KL(π'‖π)` is required.
+`Proofs.perfDiffSoft` carries it; `Proofs.sum_advSoft_self` calibrates it
+independently, and `VsoftDisc_zero` checks the `τ = 0` collapse to `Vinf`.
+
+Proved toward Lemma 15: `Proofs.softBackup_softmax` (Mei's Eq. 26 as a
+variational statement rather than an assumed fixed point) and
+`softBackup_sub_eq_KL` — every other policy's shortfall is exactly `τ` times a
+KL, which is the mechanism putting a KL on Lemma 15's right-hand side.
+
+Still missing for the entropy track: the smoothness ladder (the entropy analogue
+of `G7b`, where each rung's reward is *parameter-dependent* unlike the constant
+`r` of the unregularized case), the existence of `π_τ*` as a soft-greedy fixed
+point (a contraction argument absent here), and Mei's Lemma 10 gradient formula.
+Theorem 6 is not restated until those exist. -/
+
 /-! ## G10 — the entropy-regularized track
 
 `geometric_rate` mentions no entropy, no `τ`, no policy and no MDP; its
