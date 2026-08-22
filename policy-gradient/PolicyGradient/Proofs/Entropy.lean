@@ -8,7 +8,40 @@ import PolicyGradient.Proofs.Soft
 
 `Proofs.VsoftDisc` (in `Soft.lean`) is the *soft Bellman fixed point*: entropy is
 collected at every step and discounted along the trajectory, which is Mei et
-al.'s `Ṽ`. This file builds on it.
+al.'s `Ṽ`. This file builds on it, **not** on `Target.VinfSoft` (start-state-only
+entropy), over which Theorem 6 was refuted three ways.
+
+## Contents
+
+1. **`VsoftStarDisc` is well-defined** — `bddAbove_range_VsoftDisc` supplies the
+   side condition without which the `⨆` is Mathlib's junk `0`, plus two-sided
+   bounds pinning it inside a genuine interval.
+2. **`perfDiffSoft`** — the soft performance difference identity, the general
+   two-policy statement underlying Mei's Lemma 26.
+3. **`entropy_le_log_card` / `discEntropy`** — the sharp `H ≤ log|A|` bound (the
+   repo previously had only `H ≤ |A|-1`) and Mei's discounted entropy `ℍ`, the
+   object Lemma 14 is actually about.
+4. **`softBackup_*`** — the soft variational identity: the soft Bellman backup is
+   a `logsumexp`, maximized by the soft-greedy policy, with every other policy's
+   shortfall an exact KL. This is the engine of Lemma 26 and hence of Lemma 15.
+
+## What is NOT proved here, and why
+
+**Lemma 14 (smoothness) is not proved.** Its constant is calibrated in `log A`,
+which `entropy_le_log_card` now supplies, but the proof needs the entropy
+analogue of the entire `G7b` finite-horizon derivative ladder (`W`/`DW`,
+`hasFDeriv_W`, `DW_lipschitz`, `Ginf_lipschitz`) — ~1000 lines whose per-rung
+reward is *parameter-dependent* in the entropy case, unlike the constant `r` of
+the unregularized ladder. Not attempted rather than approximated.
+
+**Lemma 15 (soft Łojasiewicz) is not proved.** Beyond Lemma 14 it needs (a) the
+existence of `π_τ^*` as a fixed point of the soft-greedy map — a contraction
+argument not yet in this repo — and (b) the gradient formula for `Ṽ` under the
+tabular softmax (Mei's Lemma 10). The state-local half of its engine *is* proved
+(`VsoftDisc_softBellman_gap`); the trajectory half is `perfDiffSoft`.
+
+Each numbered section quotes the paper verbatim before stating anything, and
+flags every departure from the quote.
 -/
 
 open Finset
