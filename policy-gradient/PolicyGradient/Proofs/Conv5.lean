@@ -199,6 +199,25 @@ This is the honest statement of what remains.  Given a state `s₀` that is the
 every hypothesis of `hlead` is discharged **at that state**.  The residual
 content is that such an `s₀` exists at all. -/
 
+/-- **`hlead` is free at a state with no genuine tie.**  If the zero-advantage
+set `Z` is a subsingleton, its unique element leads vacuously and every gap
+condition is trivial: there is no second action to shrink a gap against.  So a
+route need only supply the leader hypothesis at states where `Z` has at least
+two elements. -/
+theorem lead_of_subsingleton (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (s : S) (Z : Finset A) (hZ : Z.Nonempty) (hcard : Z.card ≤ 1) :
+    ∃ a₀ ∈ Z, ∃ T : ℕ, (∀ b ∈ Z, (θ T) (s, b) ≤ (θ T) (s, a₀)) ∧
+      (∀ b ∈ Z, ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) →
+        (θ t) (s, a₀) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a₀) - (θ (t + 1)) (s, b)) := by
+  classical
+  obtain ⟨a₀, ha₀⟩ := hZ
+  have huniq : ∀ b ∈ Z, b = a₀ := by
+    intro b hb
+    exact Finset.card_le_one.mp hcard b hb a₀ ha₀
+  refine ⟨a₀, ha₀, 0, ?_, ?_⟩
+  · intro b hb; rw [huniq b hb]
+  · intro b hb t _ _; rw [huniq b hb]; simp
+
 /-- **At an eventually-maximising state, `hlead` holds.**  If `s` maximises the
 value gap for every `t ≥ T₀`, then any leader chosen at time `T₀` from the tied
 set has never-shrinking gaps to every other tied action, provided the tied
@@ -232,7 +251,11 @@ theorem lead_at_eventual_argmax (M : FiniteMDP S A)
 advantage order.**  This is `softmax_policy_converges_of_leader` with `hlead`
 repackaged into the per-state form that the argmax analysis produces: at each
 state, from some time on, the tied advantages are nonnegative and admit a
-maximum consistent with the logit order. -/
+maximum consistent with the logit order.
+
+`hstable` is demanded **only at states whose zero-advantage set has at least two
+elements** — `lead_of_subsingleton` discharges the rest outright — so the
+residual content is confined to genuine ties. -/
 theorem softmax_policy_converges_of_argmax_stable (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
@@ -244,6 +267,7 @@ theorem softmax_policy_converges_of_argmax_stable (M : FiniteMDP S A)
       = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
     (hstable : ∀ (s : S) (Z : Finset A),
       (∀ a, a ∈ Z ↔ Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) atTop (nhds 0)) →
+      2 ≤ Z.card →
       ∃ T₀ : ℕ,
         (∀ b ∈ Z, ∀ t, T₀ ≤ t → 0 ≤ advInf M (F.toPolicy (θ t)) s b) ∧
         (∀ a ∈ Z, ∀ b ∈ Z, ∀ t, T₀ ≤ t →
@@ -272,8 +296,11 @@ theorem softmax_policy_converges_of_argmax_stable (M : FiniteMDP S A)
     rw [hemp] at hmass
     simp only [Finset.sum_empty] at hmass
     exact absurd (tendsto_nhds_unique tendsto_const_nhds hmass) (by norm_num)
-  obtain ⟨T₀, hnn, hdom⟩ := hstable s Z hchar
-  exact lead_at_eventual_argmax M F hF hr hγ₀ hγ₁ μ η hη₀ θ hstep s Z hZ T₀ hdom hnn
+  -- a state with no genuine tie needs no hypothesis at all
+  by_cases hcard : 2 ≤ Z.card
+  · obtain ⟨T₀, hnn, hdom⟩ := hstable s Z hchar hcard
+    exact lead_at_eventual_argmax M F hF hr hγ₀ hγ₁ μ η hη₀ θ hstep s Z hZ T₀ hdom hnn
+  · exact lead_of_subsingleton θ s Z hZ (by omega)
 
 end Conv5
 
