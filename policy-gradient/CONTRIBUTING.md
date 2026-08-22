@@ -130,6 +130,17 @@ unconstrained makes a goal too weak, universal makes it too strong.
 > **A hypothesis is a promise. A theorem with no callers is a promise nobody
 > ever pays. Prefer a visible `sorry` to an invisible hypothesis.**
 
+## One file per work item
+
+New proofs go in `PolicyGradient/Proofs/<Topic>.lean`, never appended to
+`Proofs.lean`. Two agents appending before the same `end Proofs` produced this
+repo's first merge conflict, then its second and third — the shared anchor is
+the problem, not the volume of work. Separate files make the collision
+structurally impossible.
+
+Add `import PolicyGradient.Proofs.<Topic>` to `Proofs/Extra.lean` and put the
+mathematics in your own file.
+
 ## The flow
 
 Agents work in their own git worktree on a branch, and the orchestrator gates

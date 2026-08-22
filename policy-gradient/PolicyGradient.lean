@@ -18,4 +18,5 @@ import PolicyGradient.Mei
 import PolicyGradient.Target
 import PolicyGradient.Goal
 import PolicyGradient.Proofs
+import PolicyGradient.Proofs.Extra
 import PolicyGradient.Witness
