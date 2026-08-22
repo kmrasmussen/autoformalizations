@@ -15,6 +15,7 @@ import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
+import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Greedy2
 
 /-!
