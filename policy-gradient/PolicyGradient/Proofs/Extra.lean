@@ -14,6 +14,7 @@ import PolicyGradient.Proofs.AKM51
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
+import PolicyGradient.Proofs.Greedy
 
 /-!
 # Proofs/Extra.lean — additional proof modules
