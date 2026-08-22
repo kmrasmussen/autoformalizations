@@ -676,6 +676,50 @@ theorem dg_single (s x : S) (a : A) (q : A → ℝ) (t : E S A) :
       intro b hb; exact hx (congrArg Prod.fst hb)
     simp [hall, hx]
 
+/-- **The tabular softmax policy gradient at one coordinate.**
+
+`∂ VinfDist / ∂θ(s,a) = d^π_μ(s) · π(a|s) · A^π(s,a)`. -/
+theorem dVinfDist_single (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (θ : E S A) (s : S) (a : A) :
+    dVinfDist M (F.toPolicy θ) μ θ (EuclideanSpace.single (s, a) (1:ℝ))
+      = dinfDist M (F.toPolicy θ) μ s
+        * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a) := by
+  classical
+  unfold dVinfDist
+  rw [ContinuousLinearMap.sum_apply]
+  have hterm : ∀ x : S,
+      (dinfDist M (F.toPolicy θ) μ x
+        • dg (S:=S) (A:=A) x (fun a' => Qinf M (F.toPolicy θ) x a') θ)
+          (EuclideanSpace.single (s, a) (1:ℝ))
+      = if x = s then
+          dinfDist M (F.toPolicy θ) μ s
+            * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a)
+        else 0 := by
+    intro x
+    rw [ContinuousLinearMap.smul_apply, smul_eq_mul, ← dg_advInf_eq,
+      dg_single s x a (fun a' => advInf M (F.toPolicy θ) x a') θ]
+    by_cases hx : x = s
+    · subst hx
+      have hzero : ∑ a', (softmax (fun a'' => θ (x,a''))) a' * advInf M (F.toPolicy θ) x a'
+          = 0 := by
+        have h := advGapInf_self M (F.toPolicy θ) hr hγ₀ hγ₁ x
+        unfold advGapInf at h
+        rw [Finset.sum_congr rfl (fun a' _ => by rw [hF θ x a'] :
+          ∀ a' ∈ (univ : Finset A),
+            (F.toPolicy θ x) a' * advInf M (F.toPolicy θ) x a'
+              = (softmax (fun a'' => θ (x,a''))) a' * advInf M (F.toPolicy θ) x a')] at h
+        exact h
+      rw [if_pos rfl, hzero, hF θ x a]
+      simp
+    · simp [hx]
+  rw [Finset.sum_congr rfl (fun x _ => hterm x)]
+  rw [Finset.sum_ite_eq' univ s (fun _ => dinfDist M (F.toPolicy θ) μ s
+    * ((F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a))]
+  simp
+
 end G1
 
 end Proofs
