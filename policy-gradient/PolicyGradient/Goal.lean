@@ -1187,6 +1187,30 @@ theorem dirac_gradient_domination (M : FiniteMDP S A)
       = (∑ s, dinf M πstar μ s * ∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a) :=
   Proofs.dirac_gradient_domination_eq M F hr hγ₀ hγ₁ πstar hstar μ θ
 
+/-- **The vector-parameter rate recursion** — what `mei_theorem4` composes with.
+
+`Mei.smooth_loja_rate` proves exactly this shape but for `f : ℝ → ℝ`, a *scalar*
+derivative. The goals step by `gradient` in `EuclideanSpace ℝ (S × A)`, so the
+recursion has to be redone there. `vec_ascent_step` (proved) is the per-step
+half; this is the `1/T` accumulation on top of it.
+
+Stated abstractly on purpose: it is a fact about smooth Łojasiewicz ascent, not
+about MDPs, and keeping it that way is what let the scalar version be reused
+across `Mei.lean` and `AKM.lean`. Instantiating it at
+`f = VinfDist M (F.toPolicy ·) μ` is then `mei_theorem4`'s remaining work,
+together with `g1_lojasiewicz` for `hloja` and `g9_c_positive` for `c`. -/
+@[infra "Vector-rate"]
+theorem vec_smooth_loja_rate {E : Type*}
+    [NormedAddCommGroup E] [InnerProductSpace ℝ E] [CompleteSpace E]
+    {f : E → ℝ} {c fstar β : ℝ} (hβ : 0 < β) (hc : 0 < c)
+    (hgrad : ∀ x, HasGradientAt f (gradient f x) x)
+    (hsmooth : ∀ x y, ‖gradient f x - gradient f y‖ ≤ β * ‖x - y‖)
+    (x : ℕ → E) (hx : ∀ t, x (t + 1) = x t + (1 / β) • gradient f (x t))
+    (hloja : ∀ t, c * (fstar - f (x t)) ≤ ‖gradient f (x t)‖)
+    (hlt : ∀ t, f (x t) < fstar)
+    (T : ℕ) (hT : 1 ≤ T) :
+    fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) := sorry
+
 /-! ## G10 — the entropy-regularized track
 
 `geometric_rate` mentions no entropy, no `τ`, no policy and no MDP; its
