@@ -722,29 +722,34 @@ theorem dVinfDist_single (M : FiniteMDP S A)
 
 /-! ### The test vector
 
-`v = ∑_s single (s, a*(s))` picks the optimal-action coordinate at each state.
-The coordinates `(s, a*(s))` are pairwise distinct (they differ in the first
-component), so `‖v‖ = √|S|`. -/
+`v = ∑_s σ_s • single (s, a*(s))` picks the optimal-action coordinate at each
+state, with a per-state sign `σ_s ∈ {-1, 1}`. The coordinates `(s, a*(s))` are
+pairwise distinct (they differ in the first component), so `‖v‖ = √|S|`
+regardless of the signs. The signs are what let the test extract the sum of
+*absolute values* of the per-state gradient entries: without them the signed sum
+can be far smaller (indeed negative), since `a*(s)` need not maximise `A^π(s,·)`
+when `Q*` has ties. -/
 
-/-- `ofLp` of a sum of coordinate vectors, split termwise. -/
-theorem testVec_sum_apply (astar : S → A) (x : S) (b : A) (u : Finset S) :
-    ((∑ s ∈ u, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
-      = ∑ s ∈ u, (if (x,b) = ((s, astar s) : S × A) then (1:ℝ) else 0) := by
+/-- `ofLp` of a signed sum of coordinate vectors, split termwise. -/
+theorem testVec_sum_apply (astar : S → A) (σ : S → ℝ) (x : S) (b : A) (u : Finset S) :
+    ((∑ s ∈ u, σ s • EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
+      = ∑ s ∈ u, (if (x,b) = ((s, astar s) : S × A) then σ s else 0) := by
   classical
   induction u using Finset.induction with
   | empty => simp
   | insert c t hc ih =>
       rw [Finset.sum_insert hc, Finset.sum_insert hc, ← ih]
-      simp [PiLp.add_apply]
+      by_cases h : ((x, b) : S × A) = (c, astar c) <;>
+        simp [PiLp.add_apply, PiLp.smul_apply, h]
 
 /-- The coordinates of the test vector. -/
-theorem testVec_apply (astar : S → A) (x : S) (b : A) :
-    ((∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
-      = if b = astar x then (1:ℝ) else 0 := by
+theorem testVec_apply (astar : S → A) (σ : S → ℝ) (x : S) (b : A) :
+    ((∑ s : S, σ s • EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) (x, b)
+      = if b = astar x then σ x else 0 := by
   classical
-  rw [testVec_sum_apply astar x b univ]
-  have hterm : ∀ c : S, (if ((x, b) : S × A) = (c, astar c) then (1:ℝ) else 0)
-      = if c = x ∧ b = astar x then (1:ℝ) else 0 := by
+  rw [testVec_sum_apply astar σ x b univ]
+  have hterm : ∀ c : S, (if ((x, b) : S × A) = (c, astar c) then σ c else 0)
+      = if c = x ∧ b = astar x then σ x else 0 := by
     intro c
     by_cases h : ((x, b) : S × A) = (c, astar c)
     · have h1 : x = c := congrArg Prod.fst h
@@ -758,19 +763,23 @@ theorem testVec_apply (astar : S → A) (x : S) (b : A) :
   · simp [hb]
   · simp [hb]
 
-/-- **The test vector has norm `√|S|`.** -/
-theorem norm_testVec (astar : S → A) :
-    ‖(∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)‖
+/-- **The test vector has norm `√|S|`** when every sign has modulus one. -/
+theorem norm_testVec (astar : S → A) (σ : S → ℝ) (hσ : ∀ s, |σ s| = 1) :
+    ‖(∑ s : S, σ s • EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)‖
       = Real.sqrt (Fintype.card S) := by
   classical
   rw [EuclideanSpace.norm_eq]
   congr 1
   have hcoord : ∀ p : S × A,
-      ‖((∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) p‖ ^ 2
+      ‖((∑ s : S, σ s • EuclideanSpace.single (s, astar s) (1:ℝ) : E S A)) p‖ ^ 2
       = if p.2 = astar p.1 then (1:ℝ) else 0 := by
     rintro ⟨x, b⟩
-    rw [testVec_apply astar x b]
-    by_cases hb : b = astar x <;> simp [hb]
+    rw [testVec_apply astar σ x b]
+    by_cases hb : b = astar x
+    · simp only [hb, if_pos rfl, Real.norm_eq_abs]
+      rw [← abs_pow, ← hσ x]
+      simp [sq_abs, abs_of_nonneg, hσ x]
+    · simp [hb]
   rw [Finset.sum_congr rfl (fun p _ => hcoord p)]
   rw [Fintype.sum_prod_type]
   simp
@@ -781,35 +790,58 @@ theorem dVinfDist_testVec (M : FiniteMDP S A)
     (F : VecPolicy S A (E S A))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
-    (μ : Dist S) (θ : E S A) (astar : S → A) :
+    (μ : Dist S) (θ : E S A) (astar : S → A) (σ : S → ℝ) :
     dVinfDist M (F.toPolicy θ) μ θ
-        (∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ))
-      = ∑ s : S, dinfDist M (F.toPolicy θ) μ s
-          * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s)) := by
+        (∑ s : S, σ s • EuclideanSpace.single (s, astar s) (1:ℝ))
+      = ∑ s : S, σ s * (dinfDist M (F.toPolicy θ) μ s
+          * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))) := by
   rw [map_sum]
-  exact Finset.sum_congr rfl fun s _ =>
-    dVinfDist_single M F hF hr hγ₀ hγ₁ μ θ s (astar s)
+  refine Finset.sum_congr rfl fun s _ => ?_
+  rw [map_smul, smul_eq_mul, dVinfDist_single M F hF hr hγ₀ hγ₁ μ θ s (astar s)]
 
-/-- Consequently the weighted optimal-action advantage sum is bounded by
-`√|S| · ‖∇ VinfDist‖`. -/
-theorem sum_adv_le_norm (M : FiniteMDP S A)
+/-- **The sum of absolute per-state optimal-action gradient entries is bounded by
+`√|S| · ‖∇ VinfDist‖`.**
+
+The per-state signs are chosen to align every term, so what is extracted is the
+`ℓ¹` sum of `|d^π_μ(s)·π(a*(s)|s)·A^π(s,a*(s))|` rather than its signed version.
+That matters: `a*(s)` need not maximise `A^π(s,·)` when `Q*` ties, so individual
+terms can be negative and the signed sum is too weak to carry the argument. -/
+theorem sum_abs_adv_le_norm (M : FiniteMDP S A)
     (F : VecPolicy S A (E S A))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : Dist S) (θ : E S A) (astar : S → A) :
-    |∑ s : S, dinfDist M (F.toPolicy θ) μ s
+    ∑ s : S, |dinfDist M (F.toPolicy θ) μ s
         * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))|
       ≤ Real.sqrt (Fintype.card S)
           * ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := by
+  classical
+  set w : S → ℝ := fun s => dinfDist M (F.toPolicy θ) μ s
+      * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s)) with hw
+  set σ : S → ℝ := fun s => if 0 ≤ w s then 1 else -1 with hσdef
+  have hσ : ∀ s, |σ s| = 1 := by
+    intro s; rw [hσdef]; by_cases h : 0 ≤ w s <;> simp [h]
+  have hσw : ∀ s, σ s * w s = |w s| := by
+    intro s
+    rw [hσdef]
+    by_cases h : 0 ≤ w s
+    · simp [h, abs_of_nonneg h]
+    · push_neg at h
+      simp [not_le.mpr h, abs_of_neg h]
   have hfd := hasFDerivAt_VinfDist M F hF hr hγ₀ hγ₁ μ θ
   have hfe : fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ
       = dVinfDist M (F.toPolicy θ) μ θ := hfd.fderiv
-  rw [hfe, ← dVinfDist_testVec M F hF hr hγ₀ hγ₁ μ θ astar]
+  rw [hfe]
   set L := dVinfDist M (F.toPolicy θ) μ θ with hL
-  set v : E S A := ∑ s : S, EuclideanSpace.single (s, astar s) (1:ℝ) with hv
-  calc |L v| = ‖L v‖ := (Real.norm_eq_abs _).symm
+  set v : E S A := ∑ s : S, σ s • EuclideanSpace.single (s, astar s) (1:ℝ) with hv
+  have hLv : L v = ∑ s : S, |w s| := by
+    rw [hL, hv, dVinfDist_testVec M F hF hr hγ₀ hγ₁ μ θ astar σ]
+    exact Finset.sum_congr rfl fun s _ => hσw s
+  calc ∑ s : S, |w s| = L v := hLv.symm
+    _ ≤ |L v| := le_abs_self _
+    _ = ‖L v‖ := (Real.norm_eq_abs _).symm
     _ ≤ ‖L‖ * ‖v‖ := L.le_opNorm v
-    _ = ‖L‖ * Real.sqrt (Fintype.card S) := by rw [hv, norm_testVec]
+    _ = ‖L‖ * Real.sqrt (Fintype.card S) := by rw [hv, norm_testVec astar σ hσ]
     _ = Real.sqrt (Fintype.card S) * ‖L‖ := by ring
 
 end G1
