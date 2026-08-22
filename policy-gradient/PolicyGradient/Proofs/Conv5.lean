@@ -168,6 +168,7 @@ theorem adv_dominates_at_argmax_of_gap_zero (M : FiniteMDP S A)
 
 /-! ## Pigeonhole: some state is the `δ_t`-maximiser infinitely often -/
 
+omit [DecidableEq S] [DecidableEq A] [Nonempty A] in
 /-- For each `t` there is a state maximising `f t`. -/
 theorem exists_argmax_pointwise (f : ℕ → S → ℝ) (t : ℕ) :
     ∃ s : S, ∀ s', f t s' ≤ f t s := by
@@ -175,13 +176,14 @@ theorem exists_argmax_pointwise (f : ℕ → S → ℝ) (t : ℕ) :
     Finset.exists_max_image (Finset.univ : Finset S) (f t) Finset.univ_nonempty
   exact ⟨s, fun s' => hs s' (Finset.mem_univ s')⟩
 
+omit [DecidableEq S] [DecidableEq A] [Nonempty A] in
 /-- **Pigeonhole on a finite state space.**  Some state maximises `f t`
 for infinitely many `t`. -/
 theorem exists_frequently_argmax (f : ℕ → S → ℝ) :
     ∃ s : S, ∃ᶠ t in atTop, ∀ s', f t s' ≤ f t s := by
   classical
   by_contra hcon
-  push_neg at hcon
+  push Not at hcon
   -- for each `s` the maximiser property holds only up to some time `T s`
   have hev : ∀ s : S, ∀ᶠ t in atTop, ¬ (∀ s', f t s' ≤ f t s) := by
     intro s
@@ -199,6 +201,7 @@ This is the honest statement of what remains.  Given a state `s₀` that is the
 every hypothesis of `hlead` is discharged **at that state**.  The residual
 content is that such an `s₀` exists at all. -/
 
+omit [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in
 /-- **`hlead` is free at a state with no genuine tie.**  If the zero-advantage
 set `Z` is a subsingleton, its unique element leads vacuously and every gap
 condition is trivial: there is no second action to shrink a gap against.  So a
@@ -410,15 +413,31 @@ theorem argmax_not_eventually_stable :
       refine ⟨2 * T + 1, by omega, ?_⟩
       intro hmax
       have h1 := hmax 1
-      simp only [h, if_pos rfl] at h1
+      simp only [h] at h1
       rw [if_neg (by decide : ¬((1 : Fin 2) = 0))] at h1
       exact absurd h1 (not_le.mpr (stairA_lt_stairB_odd T))
     · -- `stairB` is strictly beaten at the even time `2(T+1)`
       refine ⟨2 * (T + 1), by omega, ?_⟩
       intro hmax
       have h0 := hmax 0
-      simp only [if_neg h, if_pos rfl] at h0
+      simp only [if_neg h] at h0
       exact absurd h0 (not_le.mpr (stairB_lt_stairA_even (T + 1)))
+
+/-! ## Axiom / type audit -/
+
+section Audit
+
+#print axioms adv_ge_one_sub_gamma_mul_gap
+#print axioms adv_le_gap
+#print axioms adv_nonneg_at_argmax
+#print axioms adv_dominates_at_argmax_of_gap_zero
+#print axioms exists_frequently_argmax
+#print axioms lead_of_subsingleton
+#print axioms lead_at_eventual_argmax
+#print axioms softmax_policy_converges_of_argmax_stable
+#print axioms argmax_not_eventually_stable
+
+end Audit
 
 end Conv5
 
