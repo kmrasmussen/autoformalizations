@@ -316,6 +316,46 @@ theorem mei_theorem4 (M : FiniteMDP S A)
       Vstar M μ - Vinf M (F.toPolicy (θ T)) μ
         ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T) := sorry
 
+/-! ## The remaining soft spot in the vacuity defence
+
+`Witness.lean` shows the *MDP and logit* hypotheses are jointly satisfiable by a
+concrete two-state MDP. It does not cover the trajectory hypotheses: `hstep`
+*defines* `θ` by recursion, and `mismatch` is a free positive real. Those are
+satisfiable in a cheap sense, so a consistency witness cannot certify that the
+conclusions are non-vacuous there.
+
+The honest fix is a goal, not a note: show the ascent recursion actually admits
+a solution, and that the mismatch coefficient is a real quantity rather than an
+arbitrary constant the caller supplies. -/
+
+/-- **The gradient-ascent trajectory exists.**
+
+`hstep` in `mei_theorem4` and `mei_theorem6` constrains `θ` by a recursion. That
+is only meaningful if some sequence satisfies it — otherwise those theorems are
+vacuously true for lack of any `θ`. -/
+@[infra "Trajectory-exists"]
+theorem ascent_trajectory_exists (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (μ : S) (θ₀ : EuclideanSpace ℝ (S × A)) :
+    ∃ θ : ℕ → EuclideanSpace ℝ (S × A), θ 0 = θ₀ ∧ ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) (θ t) := sorry
+
+/-- **The distribution-mismatch coefficient is a real quantity.**
+
+`g1_lojasiewicz` and `g2_gradient_domination` take `mismatch` as a free positive
+real, which lets a caller pick a convenient value. It should be *defined* from
+the occupancy measures — `‖d^{π*}_μ / μ‖_∞` — and proved positive, exactly as
+`Vstar` is defined rather than chosen.
+
+Stating it needs the occupancy-measure ratio, which `dinf` supports. Until this
+is discharged, the two Łojasiewicz goals carry a caller-chosen constant, which
+is the same defect `mei_theorem4` had. -/
+@[infra "Mismatch-defined"]
+theorem mismatch_positive (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (π : Policy S A) (μ : S) :
+    ∃ mismatch : ℝ, 0 < mismatch ∧
+      ∀ s : S, dinf M π μ s ≤ mismatch * (1 / (1 - M.γ)) := sorry
+
 /-! ## G10 — the entropy-regularized track
 
 `geometric_rate` mentions no entropy, no `τ`, no policy and no MDP; its
