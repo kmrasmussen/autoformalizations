@@ -335,7 +335,8 @@ theorem g7b_smoothness (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
     ‖fderiv ℝ (fun t => fderiv ℝ (fun u => Vinf M (F.toPolicy u) s₀) t) θ‖
-      ≤ 8 / (1 - M.γ) ^ 3 := sorry
+      ≤ 8 / (1 - M.γ) ^ 3 :=
+  Proofs.g7b_smoothness_proof M F hF hr hγ₀ hγ₁ θ s₀
 
 /-- **The tabular softmax family is twice differentiable.**
 

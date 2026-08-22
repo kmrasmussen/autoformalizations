@@ -274,9 +274,72 @@ def runPaperLint : CoreM Bool := do
     IO.println "  ✓ every proved goal consumes all of its named hypotheses."
   IO.println ""
 
-  -- ── Check 5: summary ──────────────────────────────────────────────────
+  -- ── Check 5: inhabitation ─────────────────────────────────────────────
+  -- A theorem whose hypotheses can never hold is true and useless -- "every
+  -- unicorn is friendly". The dangerous version is not a single goal with
+  -- clashing hypotheses (that one is inert: it cannot be APPLIED anywhere,
+  -- since a caller would have to supply the impossible hypotheses). It is a
+  -- STRUCTURE that cannot be built: then every goal quantifying over it is
+  -- vacuous at once, and no individual goal looks wrong -- its binder just
+  -- reads `(F : VecPolicy ...)`.
+  --
+  -- So the obligation is per TYPE, not per goal, and the list is DERIVED from
+  -- the goals rather than maintained by hand: whatever a frozen goal quantifies
+  -- over must be demonstrably inhabited.
+  IO.println "── CHECK 5: inhabitation of quantified types ──────────────────"
+  IO.println ""
+  let mut quantified : Array Name := #[]
+  for c in all do
+    let some ci := env.find? c.decl | continue
+    let found ← MetaM.run' (forallTelescopeReducing ci.type fun xs _ => do
+      let mut r : Array Name := #[]
+      for x in xs do
+        let ty ← inferType x
+        if !(← isProp ty) then
+          if let .const n _ := ty.getAppFn then
+            if (`PolicyGradient).isPrefixOf n then r := r.push n
+      return r)
+    for n in found do
+      if !quantified.contains n then quantified := quantified.push n
+  let mut uninhabited : Nat := 0
+  for n in quantified do
+    -- Ask Lean itself: can `Nonempty n ..` be synthesized at the witness types
+    -- from `Witness.lean` (Fin 2 states/actions)? Instance search is the right
+    -- oracle here -- a name-convention scan misses real instances and reports
+    -- false alarms (it did, on `Policy`, which has `instNonemptyPolicy`).
+    -- Elaborate `Nonempty (n (Fin 2) (Fin 2))` from syntax rather than
+    -- assembling the application by hand. The structures carry instance
+    -- arguments that hand-assembly leaves as unfilled metavariables, which
+    -- makes synthesis fail on types that genuinely ARE inhabited (`Policy`
+    -- has `instNonemptyPolicy`, and a hand-built call still reported it as
+    -- uninhabited).
+    let ok ← MetaM.run' (Term.TermElabM.run' (do
+      let mut found := false
+      for arity in [2, 1] do
+        if found then continue
+        try
+          let args := (List.replicate arity (← `(Fin 2))).toArray
+          let head := mkIdent n
+          let tyStx ← `(Nonempty ($head $args*))
+          let e ← Term.elabTerm tyStx none
+          let e ← instantiateMVars e
+          if !e.hasExprMVar then
+            let _ ← synthInstance e
+            found := true
+        catch _ => pure ()
+      return found))
+    if ok then
+      IO.println s!"  [INHABITED]   {n}"
+    else
+      uninhabited := uninhabited + 1
+      IO.println s!"  [UNINHABITED] {n}"
+      IO.println "                no Nonempty instance synthesizable -- every"
+      IO.println "                goal quantifying over this type may be vacuous."
+  IO.println ""
+
+  -- ── Check 6: summary ──────────────────────────────────────────────────
   let grounded := full.size - ungrounded.size
-  IO.println "── CHECK 5: summary ───────────────────────────────────────────"
+  IO.println "── CHECK 6: summary ───────────────────────────────────────────"
   IO.println ""
   IO.println "  ┌─────────────────────────────────────────────┬───────┐"
   IO.println s!"  │ total claims                                │ {leftPad (toString all.size) 5} │"
@@ -291,6 +354,7 @@ def runPaperLint : CoreM Bool := do
   IO.println s!"  │   of which UNWITNESSED (vacuity risk)       │ {leftPad (toString unwitnessed) 5} │"
   IO.println s!"  │ OPEN frozen goals (sorry -- the frontier)   │ {leftPad (toString openGoals) 5} │"
   IO.println s!"  │ goals with UNUSED hypotheses (drift risk)   │ {leftPad (toString drifted) 5} │"
+  IO.println s!"  │ UNINHABITED quantified types (vacuity risk) │ {leftPad (toString uninhabited) 5} │"
   IO.println "  └─────────────────────────────────────────────┴───────┘"
   IO.println ""
   IO.println "  The debt number counts assumptions grounded theorems take about"
