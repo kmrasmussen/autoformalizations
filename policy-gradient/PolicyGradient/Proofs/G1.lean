@@ -386,6 +386,86 @@ theorem step_diff_le (M : FiniteMDP S A)
         rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
         ring
 
+/-! ### `Vinf` is Fréchet differentiable, with the policy-gradient derivative
+
+Assemble: the performance difference lemma linearizes `Vinf` exactly, `dg` is the
+derivative of each local `g`, and `dinf_diff_le` controls the occupancy drift.
+The occupancy-drift term is `O(‖h‖²)`, hence `o(‖h‖)`. -/
+
+/-- The advantage is bounded by `2/(1-γ)`. -/
+theorem abs_advInf_le (M : FiniteMDP S A) (π : Policy S A) (hr : ∀ s a, |M.r s a| ≤ 1)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) (a : A) :
+    |advInf M π s a| ≤ 2 / (1 - M.γ) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  rw [advInf_eq]
+  calc |Qinf M π s a - Vinf M π s| ≤ |Qinf M π s a| + |Vinf M π s| := abs_sub _ _
+    _ ≤ 1 / (1 - M.γ) + 1 / (1 - M.γ) :=
+        add_le_add (abs_Qinf_le M π hr hγ₀ hγ₁ s a)
+          (abs_Vinf_le M π 1 zero_le_one hr hγ₀ hγ₁ s)
+    _ = 2 / (1 - M.γ) := by ring
+
+/-- `dg` is invariant under adding a constant to `q`: it subtracts the mean, so a
+uniform shift cancels. This is why the `Qinf` and `advInf` forms of the
+derivative agree. -/
+theorem dg_sub_const (s : S) (q : A → ℝ) (c : ℝ) (t : E S A) :
+    dg (S:=S) (A:=A) s (fun a => q a - c) t = dg (S:=S) (A:=A) s q t := by
+  unfold dg
+  refine Finset.sum_congr rfl fun b _ => ?_
+  congr 1
+  set P : Dist A := softmax (fun a' => t (s,a')) with hP
+  have hsum : ∑ a, P a * (q a - c) = (∑ a, P a * q a) - c := by
+    rw [Finset.sum_congr rfl (fun a _ => by ring :
+      ∀ a ∈ (univ : Finset A), P a * (q a - c) = P a * q a - P a * c),
+      Finset.sum_sub_distrib, ← Finset.sum_mul, P.sum_eq_one, one_mul]
+  rw [hsum]
+  ring
+
+/-- `dg` at the advantage equals `dg` at the action-value. -/
+theorem dg_advInf_eq (M : FiniteMDP S A) (π : Policy S A) (s : S) (t : E S A) :
+    dg (S:=S) (A:=A) s (fun a => advInf M π s a) t
+      = dg (S:=S) (A:=A) s (fun a => Qinf M π s a) t := by
+  have : (fun a => advInf M π s a) = fun a => Qinf M π s a - Vinf M π s := by
+    funext a; exact advInf_eq M π s a
+  rw [this]
+  exact dg_sub_const s (fun a => Qinf M π s a) (Vinf M π s) t
+
+/-- The exact error decomposition supplied by the performance difference lemma. -/
+theorem Vinf_error_eq (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ θ' : E S A) (s₀ : S) :
+    Vinf M (F.toPolicy θ') s₀ - Vinf M (F.toPolicy θ) s₀
+        - dVinf M (F.toPolicy θ) θ s₀ (θ' - θ)
+      = (∑ s, (dinf M (F.toPolicy θ') s₀ s - dinf M (F.toPolicy θ) s₀ s)
+            * (g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ'
+              - g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ))
+        + ∑ s, dinf M (F.toPolicy θ) s₀ s
+            * ((g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ'
+                - g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ)
+              - dg (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ (θ' - θ)) := by
+  have hpd := perfDiffInf M (F.toPolicy θ) (F.toPolicy θ') hr hγ₀ hγ₁ s₀
+  have hbridge : ∀ s, advGapInf M (F.toPolicy θ) (F.toPolicy θ') s
+      = g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ'
+        - g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ :=
+    fun s => advGapInf_eq_g_sub M F hF hr hγ₀ hγ₁ θ θ' s
+  have hL : dVinf M (F.toPolicy θ) θ s₀ (θ' - θ)
+      = ∑ s, dinf M (F.toPolicy θ) s₀ s
+          * dg (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ (θ' - θ) := by
+    unfold dVinf
+    rw [ContinuousLinearMap.sum_apply]
+    refine Finset.sum_congr rfl fun s _ => ?_
+    rw [ContinuousLinearMap.smul_apply, smul_eq_mul, dg_advInf_eq]
+  rw [hpd]
+  unfold pdInf
+  rw [Finset.sum_congr rfl (fun s _ => by rw [hbridge s] :
+    ∀ s ∈ (univ : Finset S), dinf M (F.toPolicy θ') s₀ s * advGapInf M (F.toPolicy θ) (F.toPolicy θ') s
+      = dinf M (F.toPolicy θ') s₀ s
+        * (g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ'
+          - g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ))]
+  rw [hL, ← Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl fun s _ => by ring
+
 end G1
 
 end Proofs
