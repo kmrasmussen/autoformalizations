@@ -67,6 +67,39 @@ So `mism` must be used as a **supremum coupled to the whole sum** — the state
 states carrying the mass of `∑_s d^{πstar}_μ(s)·X⁺(s)` — and the repo has no
 lemma of that shape. That is the precise remaining research gap.
 
+## What the obstruction reduces to
+
+`iInf_mul_advInf_astar_le_sel` proves, unconditionally and with no reference to
+`Q*` ties, the step the frozen `astar` version always needed:
+
+```
+c · A^π(s, astar s) ≤ m(s)        whenever  A^π(s, astar s) ≥ 0
+```
+
+(`c ≤ π(astar s|s)` by `ciInf_le`, then `hb` at `a = astar s`). Verified over
+1.2·10⁵ tie-seeded MDPs with max violation `8e-17` — it is an identity-grade
+step, not a numerical near-miss.
+
+Consequently `g1_aggregate_bound_of_tie` derives the **full frozen goal** from
+the single extra hypothesis
+
+```
+htie : ∀ s, ∑_a πstar(a|s)·A^π(s,a) ≤ A^π(s, astar s)
+```
+
+and nothing else. So the entire residual difficulty is the **tie gap**
+`X(s) − A^π(s, astar s)`, which is `0` wherever `πstar` is deterministic at `s`
+and can reach `4.47` at a `Q*`-tie state. `htie` is precisely the per-state
+comparison that `G1.lean` names as the one step that does not follow from the
+frozen hypotheses, and that `g1c_aggregate_bound_general_false` refutes when
+imposed as a *conclusion* about the frozen `astar`.
+
+The value of the restatement at `b` is therefore sharply delimited: it makes the
+RHS absolute value vacuous (`sel_nonneg`) and it makes the `c`-extraction step
+unconditional (`iInf_mul_advInf_astar_le_sel`), but it does **not** by itself
+close the tie gap, because `astar` remains free to sit on the `Q*`-tied action
+carrying the smaller `A^π`.
+
 The tight cases (ratio `0.9947`, approached but never crossed) all have the same
 anatomy: a single state `s₁` carries essentially all of `d^{πstar}_μ`, `πstar`
 is effectively deterministic there, `c = π(astar s₁|s₁)`, and
@@ -208,6 +241,81 @@ theorem g1_aggregate_bound_reduce (M : FiniteMDP S A)
 #print axioms sel_rhs_eq
 #print axioms sum_dinfDistStar_sel_le
 #print axioms g1_aggregate_bound_reduce
+
+/-- **The Łojasiewicz coefficient is extracted at `astar`, per state.**
+
+`c ≤ π(astar s|s)` and `hb` at `a = astar s` give
+`c·A^π(s, astar s) ≤ π(astar s|s)·A^π(s, astar s) ≤ m(s)` whenever the advantage
+at `astar s` is nonnegative.
+
+This is the step the frozen `astar` version needed and got: it holds
+*unconditionally*, with no reference to `Q*` ties. Together with `sel_nonneg` it
+isolates the whole remaining difficulty into the **tie gap**
+`X(s) − A^π(s, astar s)`, which vanishes wherever `πstar` is deterministic. -/
+theorem iInf_mul_advInf_astar_le_sel (M : FiniteMDP S A)
+    (π : Policy S A) (astar b : S → A)
+    (hb : ∀ s a, (π s) a * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s))
+    (s : S) (hA : 0 ≤ advInf M π s (astar s)) :
+    (⨅ x : S, (π x) (astar x)) * advInf M π s (astar s)
+      ≤ (π s) (b s) * advInf M π s (b s) := by
+  have hc : (⨅ x : S, (π x) (astar x)) ≤ (π s) (astar s) :=
+    ciInf_le (Finite.bddBelow_range _) s
+  calc (⨅ x : S, (π x) (astar x)) * advInf M π s (astar s)
+      ≤ (π s) (astar s) * advInf M π s (astar s) := mul_le_mul_of_nonneg_right hc hA
+    _ ≤ (π s) (b s) * advInf M π s (b s) := hb s (astar s)
+
+/-- **The obstruction, isolated to the tie gap.**
+
+If at every state the `πstar`-averaged advantage is dominated by the advantage at
+`astar` — `X(s) ≤ A^π(s, astar s)`, which is exactly the condition that fails
+only when `Q*` ties — then the frozen goal follows.
+
+This is the honest statement of what is left: `htie` is the *sole* remaining
+hypothesis, and it is discharged automatically wherever `πstar` is deterministic
+(then `X(s) = A^π(s, astar s)` for `astar s` the unique supported action). -/
+theorem g1_aggregate_bound_of_tie (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (astar b : S → A)
+    (hb : ∀ s a, (π s) a * advInf M π s a ≤ (π s) (b s) * advInf M π s (b s))
+    (htie : ∀ s, advGapInf M π πstar s ≤ advInf M π s (astar s)) :
+    (⨅ s : S, (π s) (astar s)) * (VstarDist M μ - VinfDist M π μ)
+      ≤ mismatchCoeff M πstar μ
+          * ∑ s, |dinfDist M π μ s * ((π s) (b s) * advInf M π s (b s))| := by
+  classical
+  rw [g1_aggregate_bound_reduce M hr hγ₀ hγ₁ π πstar hstar μ astar b hb]
+  set c : ℝ := ⨅ x : S, (π x) (astar x) with hc
+  have hc0 : 0 ≤ c := le_ciInf fun x => (π x).nonneg _
+  have hm0 : 0 < mismatchCoeff M πstar μ := mismatch_pos_proof M hγ₀ hγ₁ πstar μ hμ
+  have hdst : ∀ s, 0 ≤ dinfDist M πstar μ s := fun s => by
+    unfold dinfDist
+    exact Finset.sum_nonneg fun s₀ _ => mul_nonneg (μ.nonneg s₀) (dinf_nonneg M hγ₀ πstar s₀ s)
+  -- Step 1: termwise, `c · d^{πstar}(s) · X(s) ≤ d^{πstar}(s) · m(s)`.
+  have step1 : c * ∑ s, dinfDist M πstar μ s * advGapInf M π πstar s
+      ≤ ∑ s, dinfDist M πstar μ s * ((π s) (b s) * advInf M π s (b s)) := by
+    rw [Finset.mul_sum]
+    refine Finset.sum_le_sum fun s _ => ?_
+    have hmnn : 0 ≤ (π s) (b s) * advInf M π s (b s) := sel_nonneg M hr hγ₀ hγ₁ π b hb s
+    rcases le_or_gt (advGapInf M π πstar s) 0 with hX | hX
+    · have : c * (dinfDist M πstar μ s * advGapInf M π πstar s) ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos hc0 (mul_nonpos_of_nonneg_of_nonpos (hdst s) hX)
+      exact le_trans this (mul_nonneg (hdst s) hmnn)
+    · -- positive case: route through `astar` via `htie`, then `hb`.
+      have hAnn : 0 ≤ advInf M π s (astar s) := le_trans hX.le (htie s)
+      have hkey : c * advGapInf M π πstar s ≤ (π s) (b s) * advInf M π s (b s) := by
+        calc c * advGapInf M π πstar s
+            ≤ c * advInf M π s (astar s) := mul_le_mul_of_nonneg_left (htie s) hc0
+          _ ≤ (π s) (b s) * advInf M π s (b s) :=
+              iInf_mul_advInf_astar_le_sel M π astar b hb s hAnn
+      calc c * (dinfDist M πstar μ s * advGapInf M π πstar s)
+          = dinfDist M πstar μ s * (c * advGapInf M π πstar s) := by ring
+        _ ≤ dinfDist M πstar μ s * ((π s) (b s) * advInf M π s (b s)) :=
+            mul_le_mul_of_nonneg_left hkey (hdst s)
+  -- Step 2: change of measure `d^{πstar} → mism · d^π` (`sum_dinfDistStar_sel_le`).
+  exact le_trans step1 (sum_dinfDistStar_sel_le M hr hγ₀ hγ₁ π πstar μ hμ b hb)
+
+#print axioms iInf_mul_advInf_astar_le_sel
+#print axioms g1_aggregate_bound_of_tie
 
 end Sel
 
