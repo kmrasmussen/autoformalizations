@@ -621,6 +621,61 @@ theorem hasFDerivAt_VinfDist (M : FiniteMDP S A)
   rw [Finset.sum_mul]
   refine Finset.sum_congr rfl fun s₀ _ => by ring
 
+/-! ### Lower-bounding the operator norm
+
+`‖L‖ ≥ |L v|` for any `v` with `‖v‖ ≤ 1`. Applying `dVinfDist` to a coordinate
+vector extracts the tabular softmax policy gradient at that coordinate. -/
+
+/-- Testing a functional against a vector of norm at most one. -/
+theorem le_norm_apply (L : E S A →L[ℝ] ℝ) (v : E S A) (hv : ‖v‖ ≤ 1) :
+    |L v| ≤ ‖L‖ := by
+  calc |L v| = ‖L v‖ := (Real.norm_eq_abs _).symm
+    _ ≤ ‖L‖ * ‖v‖ := L.le_opNorm v
+    _ ≤ ‖L‖ * 1 := mul_le_mul_of_nonneg_left hv (norm_nonneg _)
+    _ = ‖L‖ := mul_one _
+
+/-- `dg` applied to a coordinate vector extracts one coefficient. -/
+theorem dg_single (s x : S) (a : A) (q : A → ℝ) (t : E S A) :
+    dg (S:=S) (A:=A) x q t (EuclideanSpace.single (s, a) (1:ℝ))
+      = if x = s then
+          (softmax (fun a' => t (x,a'))) a * (q a - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a')
+        else 0 := by
+  classical
+  unfold dg
+  rw [ContinuousLinearMap.sum_apply]
+  have hterm : ∀ b : A,
+      (((softmax (fun a' => t (x,a'))) b
+        * (q b - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a'))
+        • (pr (S:=S) (A:=A) (x,b))) (EuclideanSpace.single (s, a) (1:ℝ))
+      = if (x, b) = (s, a) then
+          (softmax (fun a' => t (x,a'))) b
+            * (q b - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a')
+        else 0 := by
+    intro b
+    rw [ContinuousLinearMap.smul_apply, smul_eq_mul]
+    have hp : (pr (S:=S) (A:=A) (x,b)) (EuclideanSpace.single (s, a) (1:ℝ))
+        = if (x,b) = (s,a) then (1:ℝ) else 0 := by simp [pr]
+    rw [hp]
+    by_cases h : (x, b) = (s, a) <;> simp [h]
+  rw [Finset.sum_congr rfl (fun b _ => hterm b)]
+  by_cases hx : x = s
+  · subst hx
+    rw [Finset.sum_congr rfl (fun b _ => by simp : ∀ b ∈ (univ : Finset A),
+      (if (x, b) = (x, a) then
+        (softmax (fun a' => t (x,a'))) b
+          * (q b - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a')
+       else 0)
+      = (if b = a then
+        (softmax (fun a' => t (x,a'))) b
+          * (q b - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a')
+       else 0))]
+    rw [Finset.sum_ite_eq' univ a (fun b => (softmax (fun a' => t (x,a'))) b
+      * (q b - ∑ a', (softmax (fun a' => t (x,a'))) a' * q a'))]
+    simp
+  · have hall : ∀ b : A, ¬ ((x, b) = (s, a)) := by
+      intro b hb; exact hx (congrArg Prod.fst hb)
+    simp [hall, hx]
+
 end G1
 
 end Proofs
