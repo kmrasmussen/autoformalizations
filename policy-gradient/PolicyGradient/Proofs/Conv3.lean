@@ -398,6 +398,69 @@ theorem vbar_bellman_of_adv_limit_zero (M : FiniteMDP S A)
   have := tendsto_nhds_unique hA hlim
   linarith
 
+/-! ## The general `γ`, reduced to one leader hypothesis
+
+`softmax_policy_converges_of_leader` below is the sharpest πbar-free reduction
+this file reaches: the frozen goal follows from `hlead`, which asks, at each
+state, for **one** action of the tied set to lead the others with gaps that never
+shrink.  Everything else — that the tied set is nonempty, that every untied
+coordinate dies, that the tied coordinates then assemble into a limit — is
+discharged.
+
+`hlead` is implied by `gap_monotone_of_adv_dominates` as soon as the tied
+advantages are eventually nonnegative and comparable, which `(‡)` shows holds
+automatically at `γ = 0` and fails for `γ > 0`. -/
+
+/-- **The frozen goal, given a leading tied action at each state.** -/
+theorem softmax_policy_converges_of_leader (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (hlead : ∀ (s : S) (Z : Finset A),
+      (∀ a, a ∈ Z ↔ Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) atTop (nhds 0)) →
+      ∃ a₀ ∈ Z, ∃ T : ℕ, (∀ b ∈ Z, (θ T) (s, b) ≤ (θ T) (s, a₀)) ∧
+        (∀ b ∈ Z, ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) →
+          (θ t) (s, a₀) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a₀) - (θ (t + 1)) (s, b))) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (F.toPolicy (θ t) s) a) atTop
+        (nhds (fun s a => (πbar s) a)) := by
+  classical
+  refine exists_policy_limit_of_coord_tendsto (fun t => F.toPolicy (θ t)) ?_
+  choose Abar hAbar using exists_adv_tendsto M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep
+  intro s
+  set Z : Finset A := {a | Abar s a = 0} with hZdef
+  have hmemZ : ∀ a, a ∈ Z ↔ Abar s a = 0 := by intro a; simp [hZdef]
+  have hout : ∀ b ∉ Z, Tendsto (fun t => (F.toPolicy (θ t) s) b) atTop (nhds 0) := by
+    intro b hb
+    exact tendsto_pi_zero_of_adv_limit_ne M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+      s b (Abar s b) (fun h => hb ((hmemZ b).mpr h)) (hAbar s b)
+  have hchar : ∀ a, a ∈ Z ↔
+      Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) atTop (nhds 0) := by
+    intro a
+    constructor
+    · intro ha; have := hAbar s a; rwa [(hmemZ a).mp ha] at this
+    · intro ha
+      exact (hmemZ a).mpr (tendsto_nhds_unique (hAbar s a) ha)
+  obtain ⟨a₀, ha₀, T, hT, hgap⟩ := hlead s Z hchar
+  exact coord_tendsto_of_leader F hF θ s Z a₀ ha₀ T hT hgap hout
+
+/-! ## Axiom / type audit -/
+
+section Audit
+
+#print axioms softmax_policy_converges_gamma_zero
+#print axioms softmax_policy_converges_of_leader
+#print axioms coord_tendsto_of_leader
+#print axioms gap_monotone_of_adv_dominates
+#print axioms adv_eq_value_gap_of_zero_limit
+
+end Audit
+
 end Conv3
 
 end Proofs
