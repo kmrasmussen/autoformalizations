@@ -375,3 +375,163 @@ theorem VsoftDisc_zero (M : FiniteMDP S A) (π : Policy S A) (s₀ : S) :
   refine tsum_congr fun t => ?_
   unfold softStepReward stepReward softRbar
   simp
+
+/-! ## 3. Toward Mei's Lemma 14 — the discounted entropy
+
+**Verbatim, Mei et al. (arXiv:2005.06392), Eq. (16)** (the object):
+
+> $\mathbb{H}(\rho,\pi)\coloneqq\mathbb{E}_{s_0\sim\rho,\,a_t\sim\pi(\cdot|s_t),\,
+>   s_{t+1}\sim\mathcal P(\cdot|s_t,a_t)}
+>   \left[\sum_{t=0}^{\infty}-\gamma^{t}\log\pi(a_t|s_t)\right]$
+
+**Verbatim, Lemma 14 (Smoothness)**:
+
+> $\mathbb{H}(\rho,\pi_{\theta})$ is $(4+8\log{A})/(1-\gamma)^{3}$-smooth, where
+> $A\coloneqq|\mathcal{A}|$ is the total number of actions.
+
+**Correction to the task brief.** Lemma 14 is *not* "`Ṽ` is `β`-smooth". It is
+about the discounted entropy `ℍ` alone. The constant `(8+τ(4+8\log A))/(1-γ)³`
+does exist in the paper, but only inside the **proof of Theorem 6**, never as a
+numbered lemma:
+
+> According to Lemmas 7 and 14, $V^{\pi_{\theta}}(\mu)$ is $8/(1-\gamma)^{3}$-smooth,
+> and $\mathbb{H}(\mu,\pi_{\theta})$ is $(4+8\log{A})/(1-\gamma)^{3}$-smooth.
+> Therefore, $\tilde{V}^{\pi_{\theta}}(\mu)=V^{\pi_{\theta}}(\mu)+\tau\cdot
+> \mathbb{H}(\mu,\pi_{\theta})$ is $\beta$-smooth with
+> $\beta=(8+\tau(4+8\log{A}))/(1-\gamma)^{3}$.
+
+`ℍ` is exactly `VsoftDisc` at `r ≡ 0`, `τ = 1` — see `VsoftDisc_zero_reward_eq`
+below. Note Mei's `ℍ` carries **no** `(1-γ)` normalization, matching our
+unnormalized convention.
+
+### The sharp entropy bound `H ≤ log |A|`
+
+Lemma 14's constant is stated in terms of `log A`, so the repo's existing
+`entropy_le_card` (`H ≤ |A| - 1`, adequate for `BddAbove` but not sharp) is not
+enough to state it. The sharp bound is proved here. -/
+
+/-- **`H(d) ≤ log |A|`** — the sharp entropy bound (Gibbs' inequality against the
+uniform distribution).
+
+`entropy_le_card` gives only `H ≤ |A| - 1`, which suffices for `BddAbove` but is
+loose (for `|A| = 10` it is `9` versus `log 10 ≈ 2.30`). Mei's Lemma 14 constant
+`(4 + 8 log A)/(1-γ)³` is stated in terms of `log A`, so the sharp form is what
+that statement needs.
+
+Proof: `H(d) - log n = ∑ₐ dₐ · log(1/(n·dₐ))`, and `log x ≤ x - 1` bounds each
+summand by `dₐ·(1/(n dₐ) - 1) = 1/n - dₐ`, which sums to `0`. The `dₐ = 0` terms
+contribute `0` on both sides. -/
+theorem entropy_le_log_card {A : Type*} [Fintype A] [Nonempty A] (d : Dist A) :
+    entropy d ≤ Real.log (Fintype.card A) := by
+  set n : ℕ := Fintype.card A with hn
+  have hn0 : 0 < (n : ℝ) := by
+    have : 0 < n := Fintype.card_pos
+    exact_mod_cast this
+  -- Per-action: `-dₐ log dₐ - dₐ log n ≤ 1/n - dₐ`.
+  have hterm : ∀ a : A,
+      -(d a * Real.log (d a)) - d a * Real.log n ≤ 1 / n - d a := by
+    intro a
+    rcases eq_or_lt_of_le (d.nonneg a) with h0 | h0
+    · -- `d a = 0`: LHS is `0`, RHS is `1/n ≥ 0`.
+      rw [← h0]
+      simp
+    · -- `d a > 0`: use `log x ≤ x - 1` at `x = 1/(n · d a)`.
+      have hx : (0:ℝ) < 1 / (n * d a) := by positivity
+      have hlog := Real.log_le_sub_one_of_pos hx
+      have hexpand : Real.log (1 / (n * d a))
+          = -Real.log n - Real.log (d a) := by
+        rw [Real.log_div one_ne_zero (by positivity), Real.log_one,
+          Real.log_mul (by positivity) (ne_of_gt h0)]
+        ring
+      rw [hexpand] at hlog
+      -- `-log n - log dₐ ≤ 1/(n dₐ) - 1`; multiply by `dₐ > 0`.
+      have hmul := mul_le_mul_of_nonneg_left hlog h0.le
+      have hrw : d a * (1 / ((n:ℝ) * d a) - 1) = 1 / n - d a := by
+        field_simp
+      rw [hrw] at hmul
+      calc -(d a * Real.log (d a)) - d a * Real.log n
+          = d a * (-Real.log n - Real.log (d a)) := by ring
+        _ ≤ 1 / n - d a := hmul
+  have hsum : entropy d - Real.log n ≤ ∑ _a : A, (1:ℝ) / n - ∑ a, d a := by
+    rw [entropy, ← Finset.sum_neg_distrib]
+    have hlhs : (∑ a, -(d a * Real.log (d a))) - Real.log n
+        = ∑ a, (-(d a * Real.log (d a)) - d a * Real.log n) := by
+      rw [Finset.sum_sub_distrib, ← Finset.sum_mul, d.sum_eq_one, one_mul]
+    rw [hlhs, ← Finset.sum_sub_distrib]
+    exact Finset.sum_le_sum fun a _ => hterm a
+  rw [d.sum_eq_one, Finset.sum_const, Finset.card_univ, ← hn, nsmul_eq_mul] at hsum
+  rw [mul_one_div, div_self (ne_of_gt hn0)] at hsum
+  linarith
+
+/-- **Mei's discounted entropy `ℍ(s₀, π_θ)`**, his Eq. (16), quoted verbatim in
+the section docstring.
+
+Defined as the zero-reward, `τ = 1` soft value: `softRbar M π 1 s = H(π(·|s))`
+when `r ≡ 0`, and `E_{a∼π}[-log π(a|s)] = H(π(·|s))` is exactly that. Like Mei's,
+this is unnormalized (no `(1-γ)` prefactor). -/
+noncomputable def discEntropy (M : FiniteMDP S A) (π : Policy S A) (s₀ : S) : ℝ :=
+  ∑' t, M.γ ^ t * ∑ s, visit M π t s₀ s * entropy (π s)
+
+/-- `ℍ` is the soft value of the zero-reward MDP at `τ = 1`. -/
+theorem discEntropy_eq_VsoftDisc (M : FiniteMDP S A) (π : Policy S A) (s₀ : S) :
+    discEntropy M π s₀
+      = VsoftDisc { P := M.P, r := fun _ _ => 0, γ := M.γ } π 1 s₀ := by
+  -- `visit` depends on the MDP only through `P`, which is unchanged.
+  have hvisit : ∀ (t : ℕ) (x s : S),
+      visit M π t x s = visit { P := M.P, r := fun _ _ => 0, γ := M.γ } π t x s := by
+    intro t
+    induction t with
+    | zero => intro x s; rfl
+    | succ k ih =>
+      intro x s
+      simp only [visit_succ, step]
+      exact Finset.sum_congr rfl fun s' _ => by rw [ih x s']
+  unfold discEntropy VsoftDisc
+  refine tsum_congr fun t => ?_
+  unfold softStepReward softRbar
+  simp only []
+  refine congrArg (fun z => M.γ ^ t * z) ?_
+  refine Finset.sum_congr rfl fun s _ => ?_
+  rw [hvisit t s₀ s]
+  simp
+
+/-- **`0 ≤ ℍ(s₀,π) ≤ log|A| / (1-γ)`.**
+
+The bound Lemma 14's constant is calibrated against: each step contributes an
+entropy in `[0, log|A|]` (`entropy_nonneg`, `entropy_le_log_card`) and the
+geometric series sums to `1/(1-γ)`. Mei's own Theorem 6 bound carries
+`(1+τ log A)/(1-γ)²`, whose `log A/(1-γ)` factor is this. -/
+theorem discEntropy_bounds (M : FiniteMDP S A) (π : Policy S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s₀ : S) :
+    0 ≤ discEntropy M π s₀
+      ∧ discEntropy M π s₀ ≤ Real.log (Fintype.card A) / (1 - M.γ) := by
+  set L : ℝ := Real.log (Fintype.card A) with hL
+  have hL0 : 0 ≤ L := by
+    rw [hL]
+    exact Real.log_nonneg (by exact_mod_cast Fintype.card_pos)
+  have hHb : ∀ s, 0 ≤ entropy (π s) ∧ entropy (π s) ≤ L :=
+    fun s => ⟨entropy_nonneg (π s) (fun a => Dist.le_one (π s) a),
+      entropy_le_log_card (π s)⟩
+  have hterm : ∀ t : ℕ,
+      0 ≤ M.γ ^ t * ∑ s, visit M π t s₀ s * entropy (π s)
+      ∧ M.γ ^ t * ∑ s, visit M π t s₀ s * entropy (π s) ≤ M.γ ^ t * L := by
+    intro t
+    have hlo : 0 ≤ ∑ s, visit M π t s₀ s * entropy (π s) :=
+      Finset.sum_nonneg fun s _ => mul_nonneg (visit_nonneg M π t s₀ s) (hHb s).1
+    have hhi : (∑ s, visit M π t s₀ s * entropy (π s)) ≤ L := by
+      calc ∑ s, visit M π t s₀ s * entropy (π s)
+          ≤ ∑ s, visit M π t s₀ s * L :=
+            Finset.sum_le_sum fun s _ =>
+              mul_le_mul_of_nonneg_left (hHb s).2 (visit_nonneg M π t s₀ s)
+        _ = L := by rw [← Finset.sum_mul, visit_sum_eq_one, one_mul]
+    exact ⟨mul_nonneg (pow_nonneg hγ₀ t) hlo,
+      mul_le_mul_of_nonneg_left hhi (pow_nonneg hγ₀ t)⟩
+  have hsummable : Summable (fun t => M.γ ^ t * ∑ s, visit M π t s₀ s * entropy (π s)) := by
+    refine Summable.of_nonneg_of_le (fun t => (hterm t).1) (fun t => (hterm t).2)
+      ((summable_geometric_of_lt_one hγ₀ hγ₁).mul_right L)
+  refine ⟨tsum_nonneg fun t => (hterm t).1, ?_⟩
+  have hgeo : HasSum (fun t : ℕ => M.γ ^ t * L) (L / (1 - M.γ)) := by
+    have h := (hasSum_geometric_of_lt_one hγ₀ hγ₁).mul_right L
+    simpa [div_eq_inv_mul, mul_comm] using h
+  refine (Summable.tsum_le_tsum (fun t => (hterm t).2) hsummable hgeo.summable).trans ?_
+  rw [hgeo.tsum_eq]
