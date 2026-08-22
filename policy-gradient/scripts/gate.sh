@@ -133,8 +133,17 @@ else
   echo "  ⚠ SPEC changes need a stated justification and human approval."
   added=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean | grep -c '^+@\[' || true)
   removed=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Goal.lean | grep -c '^-@\[' || true)
-  defs=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Target.lean | grep -cE '^[+-]\s*(noncomputable )?def |^[+-]\s*structure ' || true)
-  (( defs > 0 )) && echo "  ⚠ DEFINITIONS changed in Target.lean ($defs lines) -- this silently changes what every goal MEANS. Review with care."
+  # Any change to Target.lean matters, not just `def` lines: a definition BODY
+  # is where the meaning lives (`mismatchCoeff := 999999` touches no `def` line).
+  defs=$(git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Target.lean \
+         | grep -cE '^[+-][^+-]' || true)
+  if (( defs > 0 )); then
+    echo "  ⚠ Target.lean CHANGED ($defs lines) -- definitions are the vocabulary every"
+    echo "    frozen statement is phrased in. Changing one silently changes what the"
+    echo "    goals MEAN, with no sorry appearing anywhere. Review against the paper."
+    git diff "$BASE" HEAD -- policy-gradient/PolicyGradient/Target.lean \
+      | grep -E '^[+-][^+-]' | head -20 | sed 's/^/      /'
+  fi
   echo "  ⚠ goals added: $added   goals removed: $removed"
   (( removed > 0 )) && echo "  ⚠ REMOVAL detected -- always requires explicit sign-off."
 fi
