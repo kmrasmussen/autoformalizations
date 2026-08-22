@@ -188,6 +188,53 @@ theorem perfDiffInf (M : FiniteMDP S A) (π π' : Policy S A)
   simp only [] at this
   linarith
 
+/-! ### The policy gradient theorem, Fréchet form
+
+The candidate derivative of `θ ↦ Vinf M (F.toPolicy θ) s₀` is
+
+`L s₀ = ∑_s d^π(s₀,s) • dg s (Qinf π s ·) θ`,
+
+with `dg` the softmax value-weighting derivative from `Proofs.G7a`. -/
+
+/-- The candidate derivative of `Vinf` at a start state. -/
+noncomputable def dVinf (M : FiniteMDP S A) (π : Policy S A) (θ : E S A) (s₀ : S) :
+    E S A →L[ℝ] ℝ :=
+  ∑ s : S, dinf M π s₀ s • dg (S:=S) (A:=A) s (fun a => Qinf M π s a) θ
+
+/-- A policy has no advantage over itself: `∑_a π(a|s)·A^π(s,a) = 0`. -/
+theorem advGapInf_self (M : FiniteMDP S A) (π : Policy S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    advGapInf M π π s = 0 := by
+  unfold advGapInf
+  have h : ∀ a, (π s) a * advInf M π s a
+      = (π s) a * Qinf M π s a - (π s) a * Vinf M π s := by
+    intro a; rw [advInf_eq]; ring
+  rw [Finset.sum_congr rfl (fun a _ => h a), Finset.sum_sub_distrib,
+    ← Finset.sum_mul, (π s).sum_eq_one, one_mul,
+    ← Vinf_eq_rbar_add M π 1 zero_le_one hr hγ₀ hγ₁ s]
+  ring
+
+/-- The `π'`-averaged advantage of `π` equals the `g`-difference at `s`:
+`∑_a π'(a|s)·A^π(s,a) = g s A^π θ' - g s A^π θ` when `π = π_θ`, `π' = π_θ'`. -/
+theorem advGapInf_eq_g_sub (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ θ' : E S A) (s : S) :
+    advGapInf M (F.toPolicy θ) (F.toPolicy θ') s
+      = g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ'
+        - g (S:=S) (A:=A) s (fun a => advInf M (F.toPolicy θ) s a) θ := by
+  have hzero := advGapInf_self M (F.toPolicy θ) hr hγ₀ hγ₁ s
+  unfold g advGapInf at *
+  rw [Finset.sum_congr rfl (fun a _ => by rw [hF θ' s a] :
+    ∀ a ∈ (univ : Finset A), (F.toPolicy θ' s) a * advInf M (F.toPolicy θ) s a
+      = softmax (fun a' => θ' (s, a')) a * advInf M (F.toPolicy θ) s a)] at *
+  rw [Finset.sum_congr rfl (fun a _ => by rw [hF θ s a] :
+    ∀ a ∈ (univ : Finset A), (F.toPolicy θ s) a * advInf M (F.toPolicy θ) s a
+      = softmax (fun a' => θ (s, a')) a * advInf M (F.toPolicy θ) s a)] at hzero
+  rw [hzero]
+  ring
+
 end G1
 
 end Proofs
