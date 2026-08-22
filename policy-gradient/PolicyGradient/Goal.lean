@@ -506,7 +506,8 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
       (⨅ s : S, (F.toPolicy θ s) (astar s))
           / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
           * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
-        ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := sorry
+        ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ :=
+  Proofs.g1_lojasiewicz_proof M F hF hr hγ₀ hγ₁ μ hμ πstar hstar θ
 
 /-- **G2 — AKM Lemma 4.1, gradient domination.**
 
@@ -1290,6 +1291,57 @@ theorem vec_smooth_loja_rate {E : Type*}
     (T : ℕ) (hT : 1 ≤ T) :
     fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) :=
   Proofs.vec_smooth_loja_rate_proof hβ hc hgrad hsmooth x hx hloja hlt T hT
+
+/-- **Mei Theorem 6 — the entropy-regularized geometric rate.**
+
+VERBATIM, Mei et al. (arXiv:2005.06392) Theorem 6:
+
+> **Theorem 6.** Suppose `μ(s) > 0` for all state `s`. Using Algorithm 1 with the
+> entropy regularized objective and softmax parametrization and
+> `η = (1−γ)³/(8 + τ(4 + 8 log A))`, **there exists a constant `C > 0`** such
+> that for all `t ≥ 1`,
+> ```
+> Ṽ^{π*_τ}(ρ) − Ṽ^{π_θt}(ρ) ≤ (‖1/μ‖_∞) · ((1 + τ log A)/(1−γ)²) · e^{−C(t−1)}
+> ```
+
+Restated 2026-08-22 over `VsoftDisc`, the soft Bellman fixed point, after the
+earlier version was refuted three ways. Three things the refuted version got
+wrong, all visible in the quote above:
+
+1. **`C` is existential**, not a free universal `K`. The old form let the caller
+   pick `K` near 1 and force near-instant convergence.
+2. **`η` is pinned** to `(1−γ)³/(8 + τ(4 + 8 log A))`, not free. A step size that
+   is too large diverges — `Proofs.mei6_false_tabular` refutes the free-`η` form
+   with `η = 10` on a one-state MDP, where the objective *decreases*.
+3. **The objective is the discounted-entropy `Ṽ`**, not `Target.VinfSoft`, which
+   adds entropy at the start state only. `Proofs.VsoftDisc` is the right object;
+   `Proofs.VsoftStarDisc` is its supremum, well-defined via
+   `bddAbove_range_VsoftDisc`.
+
+Note the constant is calibrated in `log A`, which is why the sharp Gibbs bound
+`Proofs.entropy_le_log_card` was needed — the earlier `entropy ≤ |A| − 1` could
+not state this at all.
+
+Still missing for a proof: Mei's Lemma 14 (smoothness of the discounted entropy,
+`(4 + 8 log A)/(1−γ)³`), Lemma 15 (soft Łojasiewicz), and the existence of `π*_τ`
+as a soft-greedy fixed point. `Proofs.softBackup_softmax` and
+`softBackup_sub_eq_KL` are the variational identities underneath Lemma 15. -/
+@[paper "Mei2020" "Theorem 6"]
+theorem mei_theorem6 (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (τ : ℝ) (hτ : 0 < τ)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s) (ρ : Dist S)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / (8 + τ * (4 + 8 * Real.log (Fintype.card A))))
+          • gradient (fun w => ∑ s, μ s * Proofs.VsoftDisc M (F.toPolicy w) τ s) (θ t)) :
+    ∃ C : ℝ, 0 < C ∧ ∀ t : ℕ, 1 ≤ t →
+      (∑ s, ρ s * Proofs.VsoftStarDisc M τ s)
+          - (∑ s, ρ s * Proofs.VsoftDisc M (F.toPolicy (θ t)) τ s)
+        ≤ Proofs.invMuSup μ * ((1 + τ * Real.log (Fintype.card A)) / (1 - M.γ) ^ 2)
+            * Real.exp (-C * (t - 1)) := sorry
 
 /-! ### The entropy track: what the papers actually say
 
