@@ -115,6 +115,68 @@ theorem adv_nonneg_of_zero_limit_gamma_zero (M : FiniteMDP S A) (hγ : M.γ = 0)
   -- an antitone sequence with limit `0` is `≥ 0`
   exact le_of_tendsto ha (Filter.eventually_atTop.mpr ⟨t, fun n hn => hanti hn⟩)
 
+/-! ## Assembling a state from a monotone top action
+
+The abstract engine: at a state `s`, suppose the actions in a set `Z` are led by
+`a₀ ∈ Z` at time `T`, that each gap `θ(s,a₀) - θ(s,b)` (`b ∈ Z`) never shrinks
+while it is nonnegative, and that every action outside `Z` loses all its mass.
+Then **every** coordinate at `s` converges.
+
+The mechanism is `softmax_ratio`: `π_t(b|s) = exp(θ_t(s,b) - θ_t(s,a₀)) π_t(a₀|s)`,
+and the exponential factor is a nonincreasing sequence in `(0,1]`, hence
+convergent.  Summing over `Z` and using `∑_{b ∈ Z} π_t(b|s) → 1` pins
+`π_t(a₀|s)` down, and every other coordinate follows. -/
+
+/-- The gaps to a leading action are nonnegative and nondecreasing from `T` on. -/
+theorem gap_nonneg_of_step (θ : ℕ → EuclideanSpace ℝ (S × A)) (s : S) (a₀ b : A)
+    (T : ℕ) (hT : (θ T) (s, b) ≤ (θ T) (s, a₀))
+    (hstepgap : ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) →
+      (θ t) (s, a₀) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a₀) - (θ (t + 1)) (s, b)) :
+    ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) ∧
+      (θ T) (s, a₀) - (θ T) (s, b) ≤ (θ t) (s, a₀) - (θ t) (s, b) := by
+  intro t ht
+  induction t, ht using Nat.le_induction with
+  | base => exact ⟨hT, le_refl _⟩
+  | succ n hn ih =>
+      obtain ⟨hle, hgap⟩ := ih
+      have h := hstepgap n hn hle
+      exact ⟨by linarith, by linarith⟩
+
+/-- The gap sequence is monotone from `T` on, hence the ratio
+`exp(θ_t(s,b) - θ_t(s,a₀))` is antitone in `(0,1]` and converges. -/
+theorem exists_ratio_limit (θ : ℕ → EuclideanSpace ℝ (S × A)) (s : S) (a₀ b : A)
+    (T : ℕ) (hT : (θ T) (s, b) ≤ (θ T) (s, a₀))
+    (hstepgap : ∀ t, T ≤ t → (θ t) (s, b) ≤ (θ t) (s, a₀) →
+      (θ t) (s, a₀) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a₀) - (θ (t + 1)) (s, b)) :
+    ∃ ρ : ℝ, 0 ≤ ρ ∧ ρ ≤ 1 ∧
+      Tendsto (fun t => Real.exp ((θ t) (s, b) - (θ t) (s, a₀))) atTop (nhds ρ) := by
+  have hord := gap_nonneg_of_step θ s a₀ b T hT hstepgap
+  -- the exponential is bounded in `(0, 1]` from `T` on, and antitone there
+  set f : ℕ → ℝ := fun t => Real.exp ((θ t) (s, b) - (θ t) (s, a₀)) with hf
+  have hpos : ∀ t, 0 < f t := fun t => Real.exp_pos _
+  have hanti : ∀ t, T ≤ t → f (t + 1) ≤ f t := by
+    intro t ht
+    have hle := (hord t ht).1
+    have h := hstepgap t ht hle
+    exact Real.exp_le_exp.mpr (by linarith)
+  -- shift to `T` so the sequence is antitone outright
+  set g : ℕ → ℝ := fun k => f (T + k) with hg
+  have hganti : Antitone g := by
+    refine antitone_nat_of_succ_le fun k => ?_
+    have := hanti (T + k) (Nat.le_add_right T k)
+    simpa [hg, ← Nat.add_assoc] using this
+  have hgbdd : BddBelow (Set.range g) := ⟨0, by rintro x ⟨k, rfl⟩; exact (hpos _).le⟩
+  obtain ⟨ρ, hρg⟩ : ∃ ρ : ℝ, Tendsto g atTop (nhds ρ) :=
+    ⟨_, tendsto_atTop_ciInf hganti hgbdd⟩
+  have hρ : Tendsto f atTop (nhds ρ) :=
+    (Filter.tendsto_add_atTop_iff_nat (f := f) T).mp (by simpa [hg, add_comm] using hρg)
+  refine ⟨ρ, ge_of_tendsto hρ (Filter.Eventually.of_forall (fun t => (hpos t).le)), ?_, hρ⟩
+  have hb1 : ∀ t, T ≤ t → f t ≤ 1 := by
+    intro t ht
+    exact Real.exp_le_one_iff.mpr (by linarith [(hord t ht).1])
+  exact le_of_tendsto hρ (Filter.eventually_atTop.mpr ⟨T, hb1⟩)
+
+
 end Conv3
 
 end Proofs
