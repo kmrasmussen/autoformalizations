@@ -240,6 +240,85 @@ theorem coord_tendsto_of_leader
     exact ((hρlim a haZ).mul ha₀lim).congr (fun t => (hid t a).symm)
   · exact ⟨0, hout a haZ⟩
 
+/-! ## `γ = 0`: the frozen goal, unconditionally
+
+At `γ = 0` every hypothesis of `coord_tendsto_of_leader` is available:
+
+* `Z s := {a | A^{(t)}(s,a) → 0}` — `exists_adv_tendsto` gives the limits, and
+  `tendsto_pi_zero_of_adv_limit_ne` sends every coordinate outside `Z s` to `0`;
+* actions in `Z s` are **exactly tied at every finite time**
+  (`adv_eq_of_both_zero_limit_gamma_zero`) with **nonnegative** common advantage
+  (`adv_nonneg_of_zero_limit_gamma_zero`, from monotonicity of `V^{(t)}(s)`);
+* so `gap_monotone_of_adv_dominates` applies to any pair in `Z s`, in particular
+  to a leader `a₀` chosen to maximise `θ_T(s,·)` over `Z s` at any fixed `T`.
+-/
+
+/-- Choice of a leader: a maximiser of a real function over a nonempty finset. -/
+theorem exists_leader (Z : Finset A) (hZ : Z.Nonempty) (f : A → ℝ) :
+    ∃ a₀ ∈ Z, ∀ b ∈ Z, f b ≤ f a₀ := by
+  obtain ⟨a₀, ha₀, hmax⟩ := Z.exists_max_image f hZ
+  exact ⟨a₀, ha₀, hmax⟩
+
+/-- **`Goal.softmax_policy_converges` for `γ = 0`, unconditionally.** -/
+theorem softmax_policy_converges_gamma_zero (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ : M.γ = 0)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (F.toPolicy (θ t) s) a) atTop
+        (nhds (fun s a => (πbar s) a)) := by
+  classical
+  have hγ₀ : 0 ≤ M.γ := hγ.ge
+  have hγ₁ : M.γ < 1 := by rw [hγ]; norm_num
+  refine exists_policy_limit_of_coord_tendsto (fun t => F.toPolicy (θ t)) ?_
+  -- limits of the advantages
+  choose Abar hAbar using exists_adv_tendsto M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep
+  intro s
+  set Z : Finset A := {a | Abar s a = 0} with hZdef
+  have hmemZ : ∀ a, a ∈ Z ↔ Abar s a = 0 := by intro a; simp [hZdef]
+  -- outside `Z`, the coordinate dies
+  have hout : ∀ b ∉ Z, Tendsto (fun t => (F.toPolicy (θ t) s) b) atTop (nhds 0) := by
+    intro b hb
+    exact tendsto_pi_zero_of_adv_limit_ne M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+      s b (Abar s b) (fun h => hb ((hmemZ b).mpr h)) (hAbar s b)
+  -- inside `Z`: advantages vanish in the limit
+  have hzero : ∀ b ∈ Z, Tendsto (fun t => advInf M (F.toPolicy (θ t)) s b) atTop (nhds 0) := by
+    intro b hb
+    have := hAbar s b
+    rwa [(hmemZ b).mp hb] at this
+  -- `Z` is nonempty: otherwise all coordinates die, contradicting the mass identity
+  have hZne : Z.Nonempty := by
+    by_contra hemp
+    rw [Finset.not_nonempty_iff_eq_empty] at hemp
+    have hmass := tendsto_mass_on_zero_set (fun t => F.toPolicy (θ t)) s Z
+      (fun b hb => hout b hb)
+    rw [hemp] at hmass
+    simp only [Finset.sum_empty] at hmass
+    exact absurd (tendsto_nhds_unique tendsto_const_nhds hmass) (by norm_num)
+  -- the exact tie and its nonnegativity
+  have hVmono : ∀ s', Monotone (fun t => Vinf M (F.toPolicy (θ t)) s') :=
+    fun s' => exists_Vinf_limit M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep s'
+  have hnn : ∀ b ∈ Z, ∀ t, 0 ≤ advInf M (F.toPolicy (θ t)) s b := by
+    intro b hb
+    exact adv_nonneg_of_zero_limit_gamma_zero M hγ (fun t => F.toPolicy (θ t)) s b
+      (hVmono s) (hzero b hb)
+  have htie : ∀ a ∈ Z, ∀ b ∈ Z, ∀ t,
+      advInf M (F.toPolicy (θ t)) s a = advInf M (F.toPolicy (θ t)) s b := by
+    intro a ha b hb
+    exact adv_eq_of_both_zero_limit_gamma_zero M hγ (fun t => F.toPolicy (θ t)) s a b
+      (hzero a ha) (hzero b hb)
+  -- pick the leader at time `0`
+  obtain ⟨a₀, ha₀, hmax⟩ := exists_leader Z hZne (fun a => (θ 0) (s, a))
+  refine coord_tendsto_of_leader F hF θ s Z a₀ ha₀ 0 hmax ?_ hout
+  intro b hb t _ hle
+  refine gap_monotone_of_adv_dominates M F hF hr hγ₀ hγ₁ μ η hη₀ θ hstep s a₀ b t
+    (le_of_eq (htie b hb a₀ ha₀ t)) (hnn b hb t) hle
+
 end Conv3
 
 end Proofs
