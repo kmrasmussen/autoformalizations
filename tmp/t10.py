@@ -1,40 +1,44 @@
-import numpy as np
-from mdp import make_instance, policy_eval, occupancy
-rng = np.random.default_rng(7)
-modes=['rand','grid','coarse','bin']; opts=['uniform_argmax','rand_argmax']
-N=30000
-# The DANGER: (G) uses mism = max_s d^{pistar}/mu with the GIVEN pistar.
-# If we swap to d^{astar}, mism grows -> chain gives a WEAKER statement than (G).
-# So test: does the termwise ineq hold with d^{astar} but the ORIGINAL mism?
-w=-1e18; wit=None; nbad=0
-for i in range(N):
-    I=make_instance(rng,mode=modes[i%4],astar_mode=['min','max','rand'][i%3],opt_mode=opts[i%2])
-    S=I['S'];A=I['A'];gamma=I['gamma'];r=I['r'];P=I['P'];pi=I['pi'];supp=I['supp']
-    aidx=np.empty(S,dtype=int)
-    for s in range(S):
-        idx=np.flatnonzero(supp[s]); aidx[s]=idx[np.argmin(np.abs(pi[s,idx]-I['cvec'][s]))]
-    ph=np.zeros((S,A)); ph[np.arange(S),aidx]=1.0
-    Vh,Qh,Pph=policy_eval(S,A,gamma,r,P,ph)
-    dh=occupancy(S,gamma,Pph,I['mu'])
-    Adv=I['Adv']; m=I['m']; c=I['c']
-    Aa=Adv[np.arange(S),aidx]
-    v=np.max(c*dh*Aa - I['mism']*I['dpi']*m)
-    if v>1e-9: nbad+=1
-    if v>w: w=v; wit=(I,dh,aidx)
-print("max termwise viol using d^astar but ORIGINAL mism:",w,"nbad",nbad,"/",N)
-# And the SUMMED version (what actually matters for G):
-rng2=np.random.default_rng(8); w2=-1e18; nb2=0
-for i in range(N):
-    I=make_instance(rng2,mode=modes[i%4],astar_mode=['min','max','rand'][i%3],opt_mode=opts[i%2])
-    S=I['S'];A=I['A'];gamma=I['gamma'];r=I['r'];P=I['P'];pi=I['pi'];supp=I['supp']
-    aidx=np.empty(S,dtype=int)
-    for s in range(S):
-        idx=np.flatnonzero(supp[s]); aidx[s]=idx[np.argmin(np.abs(pi[s,idx]-I['cvec'][s]))]
-    ph=np.zeros((S,A)); ph[np.arange(S),aidx]=1.0
-    Vh,Qh,Pph=policy_eval(S,A,gamma,r,P,ph)
-    dh=occupancy(S,gamma,Pph,I['mu'])
-    Aa=I['Adv'][np.arange(S),aidx]
-    lhs=I['c']*np.sum(dh*Aa); rhs=I['mism']*np.sum(I['dpi']*I['m'])
-    if lhs-rhs>1e-9: nb2+=1
-    w2=max(w2,lhs-rhs)
-print("max SUMMED viol (c*sum d^astar*A(astar) - mism*sum dpi*m):",w2,"nbad",nb2,"/",N)
+import math,random
+# 2-state MDP, gamma>0, so ties in Abar need NOT have A_t equal at finite t.
+# state s in {0,1}, actions n. P[s][a] -> distribution over s'. r[s][a].
+def solveV(P,r,g,pi,nS,nA,iters=400):
+    V=[0.0]*nS
+    for _ in range(iters):
+        V=[sum(pi[s][a]*(r[s][a]+g*sum(P[s][a][sp]*V[sp] for sp in range(nS))) for a in range(nA)) for s in range(nS)]
+    return V
+def run(P,r,g,nS,nA,T,eta,seed,mu=None):
+    random.seed(seed)
+    th=[[random.gauss(0,1.5) for _ in range(nA)] for _ in range(nS)]
+    mu=mu or [1.0/nS]*nS
+    diffhist=[]
+    flips=0; lastsgn=0
+    prevd=None
+    for t in range(T):
+        pi=[]
+        for s in range(nS):
+            m=max(th[s]); e=[math.exp(x-m) for x in th[s]]; Z=sum(e); pi.append([x/Z for x in e])
+        V=solveV(P,r,g,pi,nS,nA,120)
+        Q=[[r[s][a]+g*sum(P[s][a][sp]*V[sp] for sp in range(nS)) for a in range(nA)] for s in range(nS)]
+        A=[[Q[s][a]-V[s] for a in range(nA)] for s in range(nS)]
+        # occupancy d (approx): use mu-weighted discounted visitation
+        d=[[0.0]*nS for _ in range(nS)]
+        dv=[mu[s] for s in range(nS)]
+        occ=[0.0]*nS
+        cur=mu[:]
+        for k in range(200):
+            for s in range(nS): occ[s]+=cur[s]*(g**k if g>0 else (1 if k==0 else 0))
+            nxt=[0.0]*nS
+            for s in range(nS):
+                for a in range(nA):
+                    for sp in range(nS): nxt[sp]+=cur[s]*pi[s][a]*P[s][a][sp]
+            cur=nxt
+        for s in range(nS):
+            for a in range(nA): th[s][a]+=eta*occ[s]*pi[s][a]*A[s][a]
+        if t%(T//8)==0: diffhist.append((t,[round(x,5) for x in pi[0]],[round(x,6) for x in A[0]]))
+    return diffhist
+nS,nA=2,3
+P=[[[1.0,0.0],[1.0,0.0],[0.0,1.0]],[[0.0,1.0],[0.0,1.0],[0.0,1.0]]]
+r=[[1.0,1.0,0.0],[0.2,0.2,0.2]]
+for seed in [1,2]:
+    print("seed",seed)
+    for row in run(P,r,0.5,nS,nA,4000,0.2,seed): print("  ",row)

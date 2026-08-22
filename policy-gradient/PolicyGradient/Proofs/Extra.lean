@@ -6,6 +6,7 @@ import PolicyGradient.Proofs.AKM51
 import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Bridge
 import PolicyGradient.Proofs.Conv
+import PolicyGradient.Proofs.Conv2
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Entropy
@@ -57,6 +58,7 @@ retroactively carved up while agents hold branches against it.
 
 namespace PolicyGradient
 namespace Proofs
+
 
 /-! No modules yet — add `import PolicyGradient.Proofs.<Topic>` above as they
 land. -/

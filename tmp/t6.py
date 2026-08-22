@@ -1,20 +1,13 @@
-import numpy as np
-from mdp import make_instance
-rng = np.random.default_rng(3)
-modes=['rand','grid','coarse','bin']; astars=['min','max','rand']; opts=['uniform_argmax','rand_argmax','single']
-N=30000
-# How often does sum_a pistar A exceed A(s,astar)? and is it bounded by m/c anyway?
-cnt=0; tot=0
-wE=-1e18
-for i in range(N):
-    I=make_instance(rng,mode=modes[i%4],astar_mode=astars[i%3],opt_mode=opts[i%3])
-    Adv=I['Adv']; pi=I['pi']; supp=I['supp']; S=I['S']; c=I['c']; m=I['m']
-    Aastar=np.empty(S)
-    for s in range(S):
-        idx=np.flatnonzero(supp[s]); j=idx[np.argmin(np.abs(pi[s,idx]-I['cvec'][s]))]
-        Aastar[s]=Adv[s,j]
-    tgt=np.sum(I['pistar']*Adv,axis=1)
-    tot+=S; cnt+=np.sum(tgt>Aastar+1e-12)
-    wE=max(wE,np.max(tgt-Aastar))
-print("frac states where sum pistar A > A(s,astar):",cnt/tot,"max excess",wE)
-# CRUCIAL: is A(s,a) for a in supp(pistar) all EQUAL? Q* ties -> Qpi differs though.
+import math,random
+def run(r,T=500000,eta=0.2,seed=0):
+    n=len(r); random.seed(seed); th=[random.gauss(0,3) for _ in range(n)]
+    for t in range(T):
+        m=max(th); e=[math.exp(x-m) for x in th]; Z=sum(e); p=[x/Z for x in e]
+        vb=sum(p[i]*r[i] for i in range(n)); A=[r[i]-vb for i in range(n)]
+        for i in range(n): th[i]+=eta*p[i]*A[i]
+    return p,A
+for s in [3,25,26,30,37,7,11]:
+    random.seed(s); n=random.choice([3,4,5]); r=[random.choice([0,0.3,0.5,1.0]) for _ in range(n)]
+    p,A=run(r,seed=s+100)
+    zeroA=[i for i in range(len(A)) if abs(A[i])<1e-6]
+    print(s,r,"p",[round(x,4) for x in p],"Abar",[round(x,5) for x in A],"#Abar=0:",len(zeroA))
