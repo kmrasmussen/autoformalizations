@@ -141,7 +141,29 @@ does not rescue majorisation; it identifies the divergent quantity precisely.
 The first piece is the cancellation that must be kept, and it is sign-definite
 exactly under clause 3.
 
-## 6. Routes disproved elsewhere — do not retrace
+## 6. What `Conv5.argmax_not_eventually_stable` does and does **not** refute
+
+`Conv5.argmax_not_eventually_stable` exhibits two nonnegative antitone null
+sequences whose maximiser alternates forever, and concludes that eventual
+stability of the `δ_t`-argmax does not follow from *those three properties*.
+That refutation stands, and it applies to `Conv5`'s `hstable` as stated.
+
+It does **not** refute clause 3 of `softmax_policy_converges_of_tied_argmax_stable`.
+The staircase pair is a bare sequence in `ℝ²`; it is not the gap vector of any
+policy trajectory, and `(★)` is an extra constraint that any genuine `δ_t` must
+satisfy — `δ_t = (I - γ P^{π_t})⁻¹ c_t` with `c_t` an explicit nonnegative
+combination of the abandoned masses.  So the counterexample says the residual is
+not a consequence of *order* properties of `δ_t` alone; it leaves open that it
+follows once `δ_t` is coupled back to the dynamics through `(★)`.  **That
+coupling is the one route this file did not close and did not refute**, and it is
+the recommended next attack: use `(★)` and the sandwich to control the direction
+`δ_t/‖δ_t‖_∞` in terms of `c_t/‖c_t‖_∞`, and then control `c_t`'s direction from
+the logit dynamics of the abandoned actions (whose gaps *are* eventually monotone
+by `Conv2.theta_eventually_monotone_of_adv_ne`, since their advantage limits are
+nonzero — the one part of the trajectory whose order **is** already known to
+stabilise).
+
+## 7. Routes disproved elsewhere — do not retrace
 
 `∑‖θ_{t+1} - θ_t‖ < ∞` (`Conv2` §1, closed form).  `∑‖π_{t+1} - π_t‖ < ∞` by
 majorisation (`Conv3` §3).  Connectedness/Ostrowski (`Conv3` §4: the limit set
@@ -470,3 +492,238 @@ theorem exists_tied_adv_nonneg (M : FiniteMDP S A)
     Finset.sum_nonpos fun a _ => hterm a
   rw [hsplit] at hzero
   linarith
+
+/-! ## The reduction: an eventually-constant advantage-maximiser on the tied set
+
+Putting the pieces together.  Fix a state `s` with tied set `Z`.  Suppose
+
+* every action outside `Z` has nonpositive advantage from time `T` on, and
+* one `a₀ ∈ Z` maximises `A^{(t)}(s,·)` over `Z` for every `t ≥ T`, and leads in
+  logits at the single time `T`.
+
+Then `exists_tied_adv_nonneg` makes `A^{(t)}(s,a₀) ≥ 0` (the maximiser over `Z`
+is nonnegative because the zero-mean identity forces the tied block to carry the
+nonnegative part), `gap_monotone_of_adv_max` makes every gap `θ_t(s,a₀) -
+θ_t(s,b)` nondecreasing, and `Conv3.softmax_policy_converges_of_leader` closes
+the frozen goal.
+
+Compare `Conv5.softmax_policy_converges_of_argmax_stable`, whose `hstable`
+demanded **nonnegativity of every tied advantage** and a comparability clause
+tied to the logit order.  Here nonnegativity is *derived*, and the comparability
+clause is replaced by the single statement that the argmax of `A^{(t)}(s,·)` over
+`Z` is eventually constant — which by `tied_adv_sub` is precisely the statement
+that the *order* of the linear functionals `a ↦ ⟨P(·|s,a), δ_t⟩` on `Z` is
+eventually constant, i.e. a statement about the **direction** of `δ_t` and
+nothing else. -/
+
+/-- **The frozen goal from an eventually-constant tied-advantage maximiser.** -/
+theorem softmax_policy_converges_of_tied_argmax_stable (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (hstable : ∀ (s : S) (Z : Finset A),
+      (∀ a, a ∈ Z ↔ Tendsto (fun t => advInf M (F.toPolicy (θ t)) s a) atTop (nhds 0)) →
+      Z.Nonempty →
+      ∃ a₀ ∈ Z, ∃ T : ℕ,
+        (∀ b ∈ Z, (θ T) (s, b) ≤ (θ T) (s, a₀)) ∧
+        (∀ a ∉ Z, ∀ t, T ≤ t → advInf M (F.toPolicy (θ t)) s a ≤ 0) ∧
+        (∀ b ∈ Z, ∀ t, T ≤ t →
+          advInf M (F.toPolicy (θ t)) s b ≤ advInf M (F.toPolicy (θ t)) s a₀)) :
+    ∃ πbar : Policy S A,
+      Tendsto (fun t s a => (F.toPolicy (θ t) s) a) atTop
+        (nhds (fun s a => (πbar s) a)) := by
+  classical
+  refine softmax_policy_converges_of_leader M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep ?_
+  intro s Z hchar
+  -- `Z` is nonempty: otherwise the mass at `s` would vanish entirely.
+  choose Abar hAbar using exists_adv_tendsto M F hF hr hγ₀ hγ₁ μ η hη₀ hη θ hstep
+  have hout : ∀ b ∉ Z, Tendsto (fun t => (F.toPolicy (θ t) s) b) atTop (nhds 0) := by
+    intro b hb
+    refine tendsto_pi_zero_of_adv_limit_ne M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+      s b (Abar s b) (fun h => hb ((hchar b).mpr ?_)) (hAbar s b)
+    rw [← h]; exact hAbar s b
+  have hZ : Z.Nonempty := by
+    by_contra hemp
+    rw [Finset.not_nonempty_iff_eq_empty] at hemp
+    have hmass := tendsto_mass_on_zero_set (fun t => F.toPolicy (θ t)) s Z
+      (fun b hb => hout b hb)
+    rw [hemp] at hmass
+    simp only [Finset.sum_empty] at hmass
+    exact absurd (tendsto_nhds_unique tendsto_const_nhds hmass) (by norm_num)
+  obtain ⟨a₀, ha₀, T, hTlead, hoffnp, hmaxZ⟩ := hstable s Z hchar hZ
+  refine ⟨a₀, ha₀, T, hTlead, ?_⟩
+  intro b hb t ht hle
+  -- softmax gives every action strictly positive probability at `s`
+  have hpos : ∀ a, 0 < (F.toPolicy (θ t) s) a := by
+    intro a; rw [hF]; exact softmax_pos _ a
+  -- the tied maximiser has nonnegative advantage
+  have hAnn : 0 ≤ advInf M (F.toPolicy (θ t)) s a₀ := by
+    obtain ⟨a₁, ha₁, hA₁⟩ := exists_tied_adv_nonneg M hr hγ₀ hγ₁
+      (F.toPolicy (θ t)) s Z hZ hpos (fun a ha => hoffnp a ha t ht)
+    exact le_trans hA₁ (hmaxZ a₁ ha₁ t ht)
+  exact gap_monotone_of_adv_max M F hF hr hγ₀ hγ₁ μ η hη₀ θ hstep s a₀ b t
+    (hmaxZ b hb t ht) hAnn hle
+
+/-! ## Two unconditional consequences of `(★)`
+
+### The gap vanishes when the source vanishes
+
+`(★)` says `δ = c + γ P^π δ`.  Taking `s` to be a maximiser and then a minimiser
+of `δ` gives `(1-γ)·max δ ≤ max c` and `min c ≤ (1-γ)·min δ`.  With `c ≡ 0` both
+squeeze `δ` to `0`: the value gap is *identically zero* as soon as every action
+is tied at every state.  That closes the "all actions tied everywhere" case of
+the frozen goal outright — every advantage is `0` at every finite time, so no
+logit ever moves. -/
+
+omit [DecidableEq A] [Nonempty A] in
+/-- **`c ≡ 0` forces `δ ≡ 0`.**  If `Vbar` satisfies the Bellman identity for
+*every* action at every state (equivalently, `gapSource` vanishes identically),
+then `Vbar = V^π` for every policy `π`. -/
+theorem gap_eq_zero_of_gapSource_eq_zero (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (Vbar : S → ℝ) (π : Policy S A)
+    (hc : ∀ s, gapSource M Vbar π s = 0) (s : S) :
+    Vbar s = Vinf M π s := by
+  classical
+  obtain ⟨smax, -, hmax⟩ := Finset.exists_max_image (Finset.univ : Finset S)
+    (fun s' => Vbar s' - Vinf M π s') Finset.univ_nonempty
+  obtain ⟨smin, -, hmin⟩ := Finset.exists_min_image (Finset.univ : Finset S)
+    (fun s' => Vbar s' - Vinf M π s') Finset.univ_nonempty
+  have hup : (1 - M.γ) * (Vbar smax - Vinf M π smax) ≤ 0 := by
+    have := one_sub_gamma_mul_gap_le_gapSource M hr hγ₀ hγ₁ Vbar π smax
+      (fun s' => hmax s' (Finset.mem_univ s'))
+    rw [hc smax] at this; exact this
+  have hlo : 0 ≤ (1 - M.γ) * (Vbar smin - Vinf M π smin) := by
+    have := gapSource_le_one_sub_gamma_mul_gap M hr hγ₀ hγ₁ Vbar π smin
+      (fun s' => hmin s' (Finset.mem_univ s'))
+    rw [hc smin] at this; exact this
+  have hγpos : 0 < 1 - M.γ := by linarith
+  have hmaxle : Vbar smax - Vinf M π smax ≤ 0 := nonpos_of_mul_nonpos_left
+    (by linarith) hγpos
+  have hminge : 0 ≤ Vbar smin - Vinf M π smin := nonneg_of_mul_nonneg_right
+    (by linarith) hγpos
+  have h1 : Vbar s - Vinf M π s ≤ 0 :=
+    le_trans (hmax s (Finset.mem_univ s)) hmaxle
+  have h2 : 0 ≤ Vbar s - Vinf M π s :=
+    le_trans hminge (hmin s (Finset.mem_univ s))
+  linarith
+
+/-! ### The logit sum at each state is a conserved quantity
+
+`theta_decrement` gives `θ_{t+1}(s,a) - θ_t(s,a) = η · d^{(t)}(s) · π_t(a|s)
+A^{(t)}(s,a)`.  Summing over `a` and applying the zero-mean identity
+`∑_a π(a|s) A^π(s,a) = 0` makes the total move `0`: softmax policy gradient never
+changes `∑_a θ_t(s,a)`, at any state.  This is an exact invariant of the flow,
+πbar-free and unconditional, and it constrains where the logits can go: the mass
+that the tied block gains in logit terms is exactly what the untied block
+loses. -/
+
+/-- **The logit sum at each state is invariant along the ascent.** -/
+theorem logit_sum_invariant (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (t : ℕ) (s : S) :
+    ∑ a, (θ (t + 1)) (s, a) = ∑ a, (θ t) (s, a) := by
+  classical
+  have hdec : ∀ a : A, (θ t) (s, a) - (θ (t + 1)) (s, a)
+      = η * dinfDist M (F.toPolicy (θ t)) μ s
+          * ((F.toPolicy (θ t) s) a * (- advInf M (F.toPolicy (θ t)) s a)) := by
+    intro a
+    rw [theta_decrement M F hF hr hγ₀ hγ₁ μ η θ hstep t s a]; ring
+  have hzero := sum_pi_advInf_self M hr hγ₀ hγ₁ (F.toPolicy (θ t)) s
+  have hsum : ∑ a, ((θ t) (s, a) - (θ (t + 1)) (s, a)) = 0 := by
+    rw [Finset.sum_congr rfl (fun a (_ : a ∈ Finset.univ) => hdec a),
+      ← Finset.mul_sum]
+    have : ∑ a, (F.toPolicy (θ t) s) a * (- advInf M (F.toPolicy (θ t)) s a)
+        = - ∑ a, (F.toPolicy (θ t) s) a * advInf M (F.toPolicy (θ t)) s a := by
+      rw [← Finset.sum_neg_distrib]
+      exact Finset.sum_congr rfl (fun a _ => by ring)
+    rw [this, hzero, neg_zero, mul_zero]
+  rw [Finset.sum_sub_distrib] at hsum
+  linarith
+
+/-! ## The residual is a statement about the *direction* of `δ_t`, not its rate
+
+`tied_adv_sub` says the tied advantage order at `s` is the reverse of the order
+of the linear forms `a ↦ ⟨P(·|s,a), δ_t⟩` on `Z`.  Those forms are **positively
+homogeneous** in `δ_t`, so the order they induce depends on `δ_t` only through
+its *direction* `δ_t / ‖δ_t‖`.  That is what converts the residual of
+`softmax_policy_converges_of_tied_argmax_stable` from a rate question (how fast
+do the coordinates of `δ_t` decay relative to one another?) into a question about
+a sequence in a **compact** set: the direction vectors live in the simplex-like
+set `{u ≥ 0 : max u = 1}`, which is compact, so directions always have convergent
+subsequences.
+
+What compactness does *not* give is *convergence of the whole* direction
+sequence — and that is exactly the remaining gap, in its sharpest form.  See the
+module header. -/
+
+omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in
+/-- **Positive homogeneity of the tied order.**  Scaling the gap vector by any
+`κ > 0` scales every advantage difference on the tied set by `κ`, hence preserves
+the order (and the argmax) of `A^{(t)}(s,·)` on `Z`.  So the tied argmax is a
+function of the *direction* of `δ_t` alone. -/
+theorem tied_order_pos_homogeneous (M : FiniteMDP S A)
+    (s : S) (a b : A) (δ : S → ℝ) (κ : ℝ) :
+    ((∑ s', (M.P s b) s' * (κ * δ s')) - ∑ s', (M.P s a) s' * (κ * δ s'))
+      = κ * ((∑ s', (M.P s b) s' * δ s') - ∑ s', (M.P s a) s' * δ s') := by
+  classical
+  have h : ∀ x : A, ∑ s', (M.P s x) s' * (κ * δ s') = κ * ∑ s', (M.P s x) s' * δ s' := by
+    intro x
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl (fun s' _ => by ring)
+  rw [h a, h b]; ring
+
+/-- **The tied argmax is the argmin of the transition-weighted gap.**  For
+`a₀, b` both tied at `s`, `A^{(t)}(s,b) ≤ A^{(t)}(s,a₀)` holds exactly when
+`⟨P(·|s,a₀), δ_t⟩ ≤ ⟨P(·|s,b), δ_t⟩`, provided `γ > 0`.  (At `γ = 0` the two
+advantages are equal and both orders are trivial — which is `Conv3`'s `γ = 0`
+closure, recovered.) -/
+theorem tied_adv_le_iff (M : FiniteMDP S A)
+    (π : ℕ → Policy S A) (Vbar : S → ℝ) (s : S) (a₀ b : A) (t : ℕ)
+    (hγ : 0 < M.γ)
+    (hVa : Vbar s = M.r s a₀ + M.γ * (∑ s', (M.P s a₀) s' * Vbar s'))
+    (hVb : Vbar s = M.r s b + M.γ * (∑ s', (M.P s b) s' * Vbar s')) :
+    advInf M (π t) s b ≤ advInf M (π t) s a₀ ↔
+      (∑ s', (M.P s a₀) s' * (Vbar s' - Vinf M (π t) s'))
+        ≤ ∑ s', (M.P s b) s' * (Vbar s' - Vinf M (π t) s') := by
+  have hsub := tied_adv_sub M π Vbar s a₀ b t hVa hVb
+  constructor
+  · intro h; nlinarith [hsub]
+  · intro h; nlinarith [hsub]
+
+/-! ## Axiom / type audit -/
+
+section Audit
+
+#print axioms gap_bellman
+#print axioms one_sub_gamma_mul_gap_le_gapSource
+#print axioms gapSource_le_one_sub_gamma_mul_gap
+#print axioms tied_adv_sub
+#print axioms abs_tied_adv_sub_le
+#print axioms adv_nonneg_of_gap_ge
+#print axioms gap_monotone_of_sign_split
+#print axioms gap_monotone_of_adv_max
+#print axioms exists_tied_adv_nonneg
+#print axioms softmax_policy_converges_of_tied_argmax_stable
+#print axioms gap_eq_zero_of_gapSource_eq_zero
+#print axioms logit_sum_invariant
+#print axioms tied_order_pos_homogeneous
+#print axioms tied_adv_le_iff
+
+end Audit
+
+end Conv6
+
+end Proofs
+end PolicyGradient
