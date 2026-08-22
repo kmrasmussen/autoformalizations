@@ -27,8 +27,8 @@ import PolicyGradient.Proofs.ResidC8
 import PolicyGradient.Proofs.ResidC9
 import PolicyGradient.Proofs.ResidFinal
 import PolicyGradient.Proofs.Soft
-import PolicyGradient.Proofs.VecStep
 import PolicyGradient.Proofs.VecRate
+import PolicyGradient.Proofs.VecStep
 
 /-!
 # Proofs/Extra.lean — additional proof modules

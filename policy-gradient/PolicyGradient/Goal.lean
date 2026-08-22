@@ -1209,7 +1209,8 @@ theorem vec_smooth_loja_rate {E : Type*}
     (hloja : ∀ t, c * (fstar - f (x t)) ≤ ‖gradient f (x t)‖)
     (hlt : ∀ t, f (x t) < fstar)
     (T : ℕ) (hT : 1 ≤ T) :
-    fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) := sorry
+    fstar - f (x T) ≤ 1 / (c ^ 2 / (2 * β) * T) :=
+  Proofs.vec_smooth_loja_rate_proof hβ hc hgrad hsmooth x hx hloja hlt T hT
 
 /-! ## G10 — the entropy-regularized track
 
