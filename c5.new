@@ -340,22 +340,17 @@ theorem stairB_antitone : Antitone stairB := by
     (show t / 2 ≤ (t + 1) / 2 by omega)
   linarith
 
-/-- Both half-index maps tend to infinity. -/
-theorem tendsto_half_atTop (c : ℕ) :
-    Tendsto (fun t : ℕ => (t + c) / 2) atTop atTop := by
-  refine Filter.tendsto_atTop_atTop.2 fun n => ⟨2 * n, fun t ht => by omega⟩
-
 theorem stairA_tendsto_zero : Tendsto stairA atTop (nhds 0) := by
   have hb : Tendsto (fun n : ℕ => (1 / 4 : ℝ) ^ n) atTop (nhds 0) :=
     tendsto_pow_atTop_nhds_zero_of_lt_one (by norm_num) (by norm_num)
-  exact hb.comp (tendsto_half_atTop 1)
+  exact hb.comp (Filter.tendsto_atTop_mono (fun t => by omega) tendsto_id)
 
 theorem stairB_tendsto_zero : Tendsto stairB atTop (nhds 0) := by
   have hb : Tendsto (fun n : ℕ => (1 / 4 : ℝ) ^ n) atTop (nhds 0) :=
     tendsto_pow_atTop_nhds_zero_of_lt_one (by norm_num) (by norm_num)
-  have h0 := (hb.comp (tendsto_half_atTop 0)).const_mul (3 / 4 : ℝ)
-  rw [mul_zero] at h0
-  exact h0.congr (fun t => by simp [stairB, Function.comp])
+  have := (hb.comp (Filter.tendsto_atTop_mono (fun t : ℕ => by omega) tendsto_id)).const_mul
+    (3 / 4 : ℝ)
+  simpa [stairB, Function.comp] using this
 
 /-- **At even times `stairA` strictly leads**: `4^-k` against `(3/4)·4^-k`. -/
 theorem stairB_lt_stairA_even (k : ℕ) : stairB (2 * k) < stairA (2 * k) := by
@@ -417,7 +412,7 @@ theorem argmax_not_eventually_stable :
       refine ⟨2 * (T + 1), by omega, ?_⟩
       intro hmax
       have h0 := hmax 0
-      simp only [if_neg h, if_pos rfl] at h0
+      rw [if_neg h, if_pos rfl] at h0
       exact absurd h0 (not_le.mpr (stairB_lt_stairA_even (T + 1)))
 
 end Conv5
