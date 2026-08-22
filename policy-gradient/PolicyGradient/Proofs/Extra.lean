@@ -16,6 +16,7 @@ import PolicyGradient.Proofs.G1Cpl
 import PolicyGradient.Proofs.G1Sel
 import PolicyGradient.Proofs.G1b
 import PolicyGradient.Proofs.G1c
+import PolicyGradient.Proofs.G1Wire
 import PolicyGradient.Proofs.G2
 import PolicyGradient.Proofs.G2b
 import PolicyGradient.Proofs.G7b
