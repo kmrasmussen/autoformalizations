@@ -579,6 +579,48 @@ theorem hasFDerivAt_Vinf (M : FiniteMDP S A)
   refine (hT1.add hT2).congr_left (fun t => ?_)
   exact (Vinf_error_eq M F hF hr hγ₀ hγ₁ θ t s₀).symm
 
+/-! ### The derivative of `VinfDist`
+
+Averaging over the start distribution turns `dinf` into `dinfDist`. -/
+
+/-- The candidate derivative of `VinfDist`. -/
+noncomputable def dVinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) (θ : E S A) :
+    E S A →L[ℝ] ℝ :=
+  ∑ s : S, dinfDist M π μ s • dg (S:=S) (A:=A) s (fun a => Qinf M π s a) θ
+
+/-- **`VinfDist` is Fréchet differentiable, with derivative `dVinfDist`.** -/
+theorem hasFDerivAt_VinfDist (M : FiniteMDP S A)
+    (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (θ : E S A) :
+    HasFDerivAt (fun t => VinfDist M (F.toPolicy t) μ)
+      (dVinfDist M (F.toPolicy θ) μ θ) θ := by
+  have hsum : HasFDerivAt (fun t : E S A => ∑ s₀, μ s₀ * Vinf M (F.toPolicy t) s₀)
+      (∑ s₀ : S, μ s₀ • dVinf M (F.toPolicy θ) θ s₀) θ := by
+    have key : (fun t : E S A => ∑ s₀, μ s₀ * Vinf M (F.toPolicy t) s₀)
+        = ∑ s₀ : S, (fun t : E S A => μ s₀ * Vinf M (F.toPolicy t) s₀) := by
+      funext t; simp [Finset.sum_apply]
+    rw [key]
+    refine HasFDerivAt.sum (fun s₀ _ => ?_)
+    have h := (hasFDerivAt_Vinf M F hF hr hγ₀ hγ₁ θ s₀).const_mul (μ s₀)
+    refine h.congr_fderiv ?_
+    ext v
+    simp
+  have hfun : (fun t : E S A => VinfDist M (F.toPolicy t) μ)
+      = fun t : E S A => ∑ s₀, μ s₀ * Vinf M (F.toPolicy t) s₀ := rfl
+  rw [hfun]
+  refine hsum.congr_fderiv ?_
+  ext v
+  -- swap the order of summation: ∑_{s₀} μ(s₀) ∑_s dinf(s₀,s) = ∑_s dinfDist(s)
+  simp only [dVinfDist, dVinf, ContinuousLinearMap.sum_apply,
+    ContinuousLinearMap.smul_apply, smul_eq_mul, Finset.mul_sum]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun s _ => ?_
+  unfold dinfDist
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl fun s₀ _ => by ring
+
 end G1
 
 end Proofs
