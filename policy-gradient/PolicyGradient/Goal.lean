@@ -770,6 +770,25 @@ VERBATIM, Mei et al. (arXiv:2005.06392) Theorem 4:
 3. **Two measures.** Suboptimality is measured at `ρ`; the gradient and the
    occupancy are taken at `μ`. I had collapsed them.
 
+**Corrected again 2026-08-22: `mismatchCoeff` is SQUARED, and there is a
+`‖1/μ‖_∞` factor.** The full right-hand side is
+
+```
+16·S/(c²(1−γ)⁶·t) · ‖d^{π*}_μ / μ‖²_∞ · ‖1/μ‖_∞
+```
+
+My statement had the coefficient unsquared and omitted `‖1/μ‖_∞` entirely, so it
+was **strictly stronger than the paper** by `m·‖1/μ‖_∞`, both of which are `≥ 1`.
+
+That over-claim was not reachable from the spine, and the gap is machine-checked:
+`Proofs.hconst_is_false` refutes the missing factor with two states, `γ = 0`,
+uniform `μ` — there `m = 1`, `‖1/μ‖_∞ = 2`, so the needed
+`‖1/μ‖_∞ · m · (1−γ)³ ≤ 1` reads `2 ≤ 1`.
+
+With the factors restored, `Proofs.mei4_rho_rate_of_g3` discharges the theorem
+outright from `hloja` and a non-degeneracy condition — and it is in fact
+*stronger* than the paper, carrying `(1−γ)³` where Mei have `(1−γ)⁶`.
+
 `c` is a hypothesis with `hcbound` tying it to the trajectory, exactly as
 `MEI_NOTES.md` in this repo recorded months ago and as Lemma 9 supplies. An
 earlier version took `c` universally with only `0 < c`, which made the statement
@@ -832,7 +851,7 @@ theorem mei_theorem4 (M : FiniteMDP S A)
     ∀ T : ℕ, 1 ≤ T →
       VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
         ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
-            * mismatchCoeff M πstar μ := sorry
+            * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ := sorry
 
 /-! ## The remaining soft spot in the vacuity defence
 
