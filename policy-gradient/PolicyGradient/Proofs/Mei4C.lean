@@ -7,11 +7,82 @@ import PolicyGradient.Proofs.G1
 import PolicyGradient.Proofs.G2
 
 /-!
-# Mei4C — the composition proof for Mei et al. Theorem 4
+# Mei4C — the composition proof for `Goal.mei_theorem4` (Mei et al., Theorem 4)
 
-Work in progress: infrastructure first.
+The rate spine `vec_smooth_loja_rate_proof` instantiated at the actual objective
+`f = fun w => VinfDist M (F.toPolicy w) μ`, with `β = 8/(1-γ)³` from
+`Ginf_lipschitz`.  Everything here is proved; the composition is reduced to
+exactly the two open inputs (`g1_lojasiewicz`, `g9_c_positive`) plus one
+inequality between constants that **the frozen statement gets wrong**.
+
+## What lines up
+
+* **The step size lines up on the nose.**  `mei_theorem4`'s `hstep` uses
+  `(1-γ)³/8`, and with `β = 8/(1-γ)³` that is literally `1/β`, the spine's
+  ascent step.  `hinvβ` in `mei4_mu_rate` is that one-line `field_simp`.
+* **The smoothness input lines up.**  `Ginf_lipschitz` is per start *state*;
+  `GJ_lipschitz` here averages it over `μ`, and because `μ` is a probability
+  distribution the constant `8/(1-γ)³` is unchanged.
+* **`‖fderiv‖` vs `‖gradient‖`.**  `g1_lojasiewicz` concludes in `‖fderiv‖`, the
+  spine wants `‖gradient‖`.  `norm_gradient_Jmu` is the explicit bridge, via the
+  Riesz isometry `InnerProductSpace.toDual`.
+* **`⨅ s, π(a*(s)|s)` vs `c`.**  `loja_of_g1` weakens the former to the latter
+  using `mei_theorem4`'s own `hcbound`.
+
+## What does NOT line up: the constants
+
+With Łojasiewicz coefficient `C = c/(√|S| · m)`, `m := mismatchCoeff M πstar μ`,
+the spine's `1/(C²/(2β)·T)` is
+
+    V*(μ) - V^{π_T}(μ)  ≤  2β/(C²T)  =  16 |S| m² / (c² (1-γ)³ T)        (`mei4_mu_rate`)
+
+and transferring `μ → ρ` costs a factor `‖1/μ‖_∞` (`VstarDist_sub_le_invMu`):
+
+    V*(ρ) - V^{π_T}(ρ)  ≤  ‖1/μ‖_∞ · 16 |S| m² / (c² (1-γ)³ T)          (`mei4_rho_rate`)
+
+`Goal.mei_theorem4` asks instead for
+
+    V*(ρ) - V^{π_T}(ρ)  ≤  16 |S| m  / (c² (1-γ)⁶ T)
+
+so the two differ by the factor `‖1/μ‖_∞ · m · (1-γ)³`, and the frozen bound
+follows only when that factor is `≤ 1` — the hypothesis `hconst` of
+`mei_theorem4_of_loja`.
+
+**`hconst` is false in general.**  Take `γ = 0`, `|S| = 2`, `μ` uniform.  Then
+`dinfDist = μ`, so `m = 1`; `‖1/μ‖_∞ = 2`; `(1-γ)³ = 1`; the left side is `2`
+and the right side is `1`.
+
+**And the frozen statement, not the composition, is what is off.**  Mei's own
+Theorem 4, as transcribed in this repo's `MEI_NOTES.md`, reads
+
+    V*(ρ) - V^{π_t}(ρ)  ≤  16|S|/(c²(1-γ)⁶ t) · ‖d^{π*}_μ/μ‖²_∞ · ‖1/μ‖_∞
+
+— **`m` SQUARED, and a `‖1/μ‖_∞` factor**, neither of which appears in
+`Goal.mei_theorem4`.  So the frozen statement is *strictly stronger than the
+paper's* by exactly the factor `m · ‖1/μ‖_∞` (both `≥ 1`), and the composition
+route reproduces the paper's shape, not the frozen one.  `mei4_rho_rate` is in
+fact **stronger** than the paper's own theorem: it has `(1-γ)³` where the paper
+has `(1-γ)⁶`, and `(1-γ)³ ≤ 1`.
+
+The repair to `Goal.mei_theorem4` is to square the `mismatchCoeff` and multiply
+by `invMuSup μ`; `mei4_rho_rate` then discharges it outright (given the two open
+inputs and `hlt`), with `(1-γ)³` to spare.
+
+## Remaining hypotheses of `mei_theorem4_of_loja`
+
+Beyond the frozen statement's own hypotheses:
+
+* `hloja` — `g1_lojasiewicz`'s conclusion at every `θ t`.  **OPEN.**
+* `hlt`   — `VinfDist M (F.toPolicy (θ t)) μ < VstarDist M μ` for every `t`
+  (`Goal.g3_strict_suboptimality`; its proved form needs a non-degeneracy
+  hypothesis the frozen `mei_theorem4` does not carry, so it stays a
+  hypothesis here).
+* `hconst` — the constant gap above.  **Not provable; a defect in the frozen
+  statement.**
+
+`c` and `hcbound` come from `g9_c_positive` and are already frozen-statement
+hypotheses, so that open input costs nothing extra.
 -/
-
 open Finset
 
 namespace PolicyGradient
@@ -387,12 +458,12 @@ frozen statement asks for `m / (1-γ)⁶`, and Mei's own Theorem 4 produces
 the frozen statement, and `hconst` is exactly what is needed to bridge them.
 It is FALSE in general (γ = 0, |S| = 2, uniform `μ`: LHS `= 2`, RHS `= 1`). -/
 
+set_option linter.unusedVariables false in
 /-- **`Goal.mei_theorem4` reduced to the two open inputs plus the constant gap.**
 
 Every hypothesis of the frozen statement is present, verbatim; the added ones
 are `hloja` (open: `g1_lojasiewicz`), `hlt` (strict suboptimality) and `hconst`
 (the constant reconciliation, which is *not* provable — see above). -/
-set_option linter.unusedVariables false in
 theorem mei_theorem4_of_loja (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
@@ -457,6 +528,77 @@ theorem mei_theorem4_of_loja (M : FiniteMDP S A)
     _ = 16 * Fintype.card S * m / (c ^ 2 * (1 - M.γ) ^ 6 * T) := mul_one _
 
 end Mei4C
+
+/-! ## `hconst` is FALSE — machine-checked
+
+The constant gap of `mei_theorem4_of_loja` is not an artefact of a lossy route:
+the inequality it asks for fails on the simplest possible instance.  Two states,
+`γ = 0`, uniform `μ`.  With `γ = 0` the occupancy `dinf` collapses to its `t = 0`
+term, so `dinfDist M π μ = μ` and `mismatchCoeff = 1`; `‖1/μ‖_∞ = 2`; and
+`(1-γ)³ = 1`.  The left side is `2`, the right side `1`.
+
+This is a statement about the *constants only* — it does not refute
+`Goal.mei_theorem4` itself.  It shows that the frozen constants cannot be
+reached from `vec_smooth_loja_rate` + `g1_lojasiewicz` + the `ρ → μ` transfer,
+and (with `MEI_NOTES.md`'s transcription) that the frozen statement is stronger
+than what Mei et al. actually prove. -/
+
+section HconstFalse
+
+/-- Two states, `γ = 0`, deterministic self-loops. -/
+noncomputable def twoMDP : FiniteMDP Bool Bool where
+  P := fun s _ => ⟨fun x => if x = s then 1 else 0, by intro; positivity, by simp⟩
+  r := fun _ _ => 0
+  γ := 0
+
+/-- The uniform start distribution on two states. -/
+noncomputable def unifMu : Dist Bool where
+  prob := fun _ => 1 / 2
+  nonneg := by intro; norm_num
+  sum_eq_one := by norm_num [Fintype.sum_bool]
+
+theorem unifMu_pos : ∀ s, 0 < unifMu s := by intro; norm_num [unifMu]
+
+/-- With `γ = 0` the occupancy is the start distribution itself. -/
+theorem dinfDist_twoMDP (π : Policy Bool Bool) (s : Bool) :
+    dinfDist twoMDP π unifMu s = unifMu s := by
+  classical
+  have hd : ∀ s₀ : Bool, dinf twoMDP π s₀ s = if s = s₀ then 1 else 0 := by
+    intro s₀
+    unfold dinf
+    rw [tsum_eq_single 0]
+    · simp [twoMDP]
+    · intro t ht
+      have : (twoMDP.γ : ℝ) ^ t = 0 := by simp [twoMDP, zero_pow ht]
+      rw [this, zero_mul]
+  unfold dinfDist
+  simp only [hd]
+  rw [Finset.sum_eq_single s] <;> simp +contextual [eq_comm]
+
+theorem mismatchCoeff_twoMDP (π : Policy Bool Bool) :
+    mismatchCoeff twoMDP π unifMu = 1 := by
+  classical
+  have h : ∀ s : Bool, dinfDist twoMDP π unifMu s / unifMu s = 1 := by
+    intro s
+    rw [dinfDist_twoMDP π s, div_self (ne_of_gt (unifMu_pos s))]
+  unfold mismatchCoeff
+  simp [h]
+
+theorem invMuSup_unifMu : invMuSup unifMu = 2 := by
+  classical
+  have h : (⨅ s : Bool, unifMu s) = 1 / 2 := by
+    have : ∀ s : Bool, unifMu s = 1 / 2 := fun _ => rfl
+    simp [this]
+  rw [invMuSup, h]
+  norm_num
+
+/-- **`hconst` is false.**  On `twoMDP` with uniform `μ`, its left side is `2`. -/
+theorem hconst_is_false (π : Policy Bool Bool) :
+    ¬ (invMuSup unifMu * mismatchCoeff twoMDP π unifMu * (1 - twoMDP.γ) ^ 3 ≤ 1) := by
+  rw [invMuSup_unifMu, mismatchCoeff_twoMDP π]
+  norm_num [twoMDP]
+
+end HconstFalse
 
 end Proofs
 end PolicyGradient
