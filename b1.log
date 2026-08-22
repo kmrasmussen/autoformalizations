@@ -1,0 +1,1715 @@
+⚠ [1987/2014] Replayed PolicyGradient.Chain
+warning: PolicyGradient/Chain.lean:83:0: automatically included section variable(s) unused in theorem `PolicyGradient.step_nonneg`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Chain.lean:89:0: automatically included section variable(s) unused in theorem `PolicyGradient.step_sum_eq_one`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [1988/2014] Replayed PolicyGradient.Bounded
+warning: PolicyGradient/Bounded.lean:22:0: automatically included section variable(s) unused in theorem `PolicyGradient.exists_reward_bound`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Bounded.lean:31:13: Variable name `hC` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hC
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Bounded.lean:45:0: automatically included section variable(s) unused in theorem `PolicyGradient.abs_V_le`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [1990/2014] Replayed PolicyGradient.Theorem
+warning: PolicyGradient/Theorem.lean:76:8: automatically included section variable(s) unused in theorem `PolicyGradient.dV_zero`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Theorem.lean:78:0: automatically included section variable(s) unused in theorem `PolicyGradient.dV_succ`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Theorem.lean:84:0: automatically included section variable(s) unused in theorem `PolicyGradient.hasDerivAt_Q`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [1991/2014] Replayed PolicyGradient.PerformanceDifference
+warning: PolicyGradient/PerformanceDifference.lean:65:0: automatically included section variable(s) unused in theorem `PolicyGradient.step_expect`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/PerformanceDifference.lean:99:29: This simp argument is unused:
+  Finset.sum_sub_distrib
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [Finset.mul_sum, mul_sub, sub_mul, Finset.sum_add_distrib, mul_add, add_mul]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/PerformanceDifference.lean:99:62: This simp argument is unused:
+  sub_mul
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [Finset.mul_sum, Finset.sum_sub_distrib, mul_sub, Finset.sum_add_distrib, mul_add, add_mul]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/PerformanceDifference.lean:100:46: This simp argument is unused:
+  add_mul
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [Finset.mul_sum, Finset.sum_sub_distrib, mul_sub, sub_mul, Finset.sum_add_distrib, mul_add]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/PerformanceDifference.lean:103:23: This simp argument is unused:
+  mul_assoc
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [mul_comm, mul_left_comm]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/PerformanceDifference.lean:238:0: automatically included section variable(s) unused in theorem `PolicyGradient.advGap_self`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [1992/2014] Replayed PolicyGradient.Infinite
+warning: PolicyGradient/Infinite.lean:238:0: automatically included section variable(s) unused in theorem `PolicyGradient.V_bellman`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [2085/2448] Replayed PolicyGradient.InfiniteGradient
+warning: PolicyGradient/InfiniteGradient.lean:186:13: Variable name `hC` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hC
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [2144/2448] Replayed PolicyGradient.Softmax
+warning: PolicyGradient/Softmax.lean:45:8: automatically included section variable(s) unused in theorem `PolicyGradient.softmax_apply`:
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Softmax.lean:49:0: automatically included section variable(s) unused in theorem `PolicyGradient.softmax_denom_pos`:
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Softmax.lean:50:22: Variable name `a'` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _a'
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Softmax.lean:78:36: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+warning: PolicyGradient/Softmax.lean:108:0: automatically included section variable(s) unused in theorem `PolicyGradient.exp_sum_diff`:
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Softmax.lean:121:0: automatically included section variable(s) unused in theorem `PolicyGradient.softmax_diff`:
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Softmax.lean:121:8: Overlapping instance parameters in `softmax_diff`:
+
+⚠️ There are 2 `[Nonempty A]` instances; one is sufficient.
+
+Note: This linter can be disabled with `set_option linter.overlappingInstances false`
+warning: PolicyGradient/Softmax.lean:159:8: automatically included section variable(s) unused in theorem `PolicyGradient.softmaxPolicy_apply`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Softmax.lean:166:0: automatically included section variable(s) unused in theorem `PolicyGradient.softmaxPolicy_pos`:
+  [Fintype S]
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [2145/2448] Replayed PolicyGradient.GradientDomination
+warning: PolicyGradient/GradientDomination.lean:81:0: automatically included section variable(s) unused in theorem `PolicyGradient.advGap_nonpos_iff`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/GradientDomination.lean:100:0: automatically included section variable(s) unused in theorem `PolicyGradient.advGap_eq_sub`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [2146/2448] Replayed PolicyGradient.NPG
+warning: PolicyGradient/NPG.lean:44:8: automatically included section variable(s) unused in theorem `PolicyGradient.npgStep_apply`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/NPG.lean:50:0: automatically included section variable(s) unused in theorem `PolicyGradient.softmax_add_const`:
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/NPG.lean:69:0: automatically included section variable(s) unused in theorem `PolicyGradient.npg_softmax_update`:
+  [DecidableEq S]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/NPG.lean:113:0: automatically included section variable(s) unused in theorem `PolicyGradient.tilt_sign`:
+  [Fintype A]
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype A] [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [2156/2448] Replayed PolicyGradient.NPGConvergence
+warning: PolicyGradient/NPGConvergence.lean:39:0: automatically included section variable(s) unused in theorem `PolicyGradient.npgNormalizer_pos`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/NPGConvergence.lean:41:22: Variable name `a` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _a
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3113/3247] Replayed PolicyGradient.Rate
+warning: PolicyGradient/Rate.lean:55:4: Unused tactic linter: `push_cast at ih` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+⚠ [3114/3247] Replayed PolicyGradient.AKM
+warning: PolicyGradient/AKM.lean:154:31: Variable name `hε` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hε
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3115/3247] Replayed PolicyGradient.Smoothness
+warning: PolicyGradient/Smoothness.lean:180:0: automatically included section variable(s) unused in theorem `PolicyGradient.abs_dV_le`:
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Smoothness.lean:180:27: Variable name `hL` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hL
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Smoothness.lean:216:0: automatically included section variable(s) unused in theorem `PolicyGradient.abs_Q_le_geom`:
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Smoothness.lean:249:34: Variable name `hD` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hD
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Smoothness.lean:344:0: automatically included section variable(s) unused in theorem `PolicyGradient.smoothAt_V_of_remainder`:
+  [DecidableEq S]
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3122/3247] Replayed PolicyGradient.SecondDeriv
+warning: PolicyGradient/SecondDeriv.lean:46:0: automatically included section variable(s) unused in theorem `PolicyGradient.dstep_eq`:
+  [DecidableEq S]
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/SecondDeriv.lean:100:8: automatically included section variable(s) unused in theorem `PolicyGradient.d2V_zero`:
+  [DecidableEq S]
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/SecondDeriv.lean:103:0: automatically included section variable(s) unused in theorem `PolicyGradient.d2V_succ`:
+  [DecidableEq S]
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/SecondDeriv.lean:261:5: Variable name `hderiv` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hderiv
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/SecondDeriv.lean:262:5: Variable name `hderiv2` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hderiv2
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/SecondDeriv.lean:292:0: automatically included section variable(s) unused in theorem `PolicyGradient.hasDerivAt_localTerm`:
+  [Nonempty A]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty A] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3123/3247] Replayed PolicyGradient.Mei
+warning: PolicyGradient/Mei.lean:71:0: automatically included section variable(s) unused in theorem `PolicyGradient.lojaCoeff_nonneg`:
+  [DecidableEq S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Mei.lean:77:0: automatically included section variable(s) unused in theorem `PolicyGradient.lojaCoeff_le`:
+  [DecidableEq S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Mei.lean:87:8: automatically included section variable(s) unused in theorem `PolicyGradient.detPolicy_apply`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Mei.lean:92:0: automatically included section variable(s) unused in theorem `PolicyGradient.advGap_detPolicy`:
+  [DecidableEq S]
+  [Nonempty A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Mei.lean:199:5: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Mei.lean:237:5: Variable name `hnn` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hnn
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3191/3247] Replayed PolicyGradient.Meta.Lint
+warning: PolicyGradient/Meta/Lint.lean:147:6: Variable name `infra` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _infra
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3192/3247] Replayed PolicyGradient.Meta.Spec
+warning: PolicyGradient/Meta/Spec.lean:108:37: Variable name `hyp` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hyp
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3194/3247] Replayed PolicyGradient.Proofs
+warning: PolicyGradient/Proofs.lean:77:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.Vinf_le_one_div`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:118:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.ascent_trajectory_exists_proof`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:129:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.visit_le_one`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:221:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.detPolicy_apply`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:225:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.sum_detPolicy`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:239:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.greedyAct_max`:
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:499:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dinf_nonneg`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:546:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.bddAbove_mismatch`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:575:5: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs.lean:575:21: Variable name `hγ₁` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₁
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs.lean:623:39: This simp argument is unused:
+  Fin.sum_univ_two
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [visit_succ, cx_step]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs.lean:730:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.scaleMDP_P`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:731:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.scaleMDP_r`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:733:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.scaleMDP_γ`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:736:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.step_scaleMDP`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:740:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.visit_scaleMDP`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1000:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.one_le_rewardBound`:
+  [DecidableEq S]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1005:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.abs_r_le_rewardBound`:
+  [DecidableEq S]
+  [DecidableEq A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1107:16: This simp argument is unused:
+  Fintype.sum_bool
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [badMDP]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs.lean:1119:4: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+warning: PolicyGradient/Proofs.lean:1783:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.norm_pr_le`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1794:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.hasFDeriv_expCoord`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1813:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.den_pos`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:1968:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.score_diff`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:2007:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.abs_Qinf_le`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs.lean:2032:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.Vinf_diff_eq`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3195/3247] Replayed PolicyGradient.Proofs.G7b
+warning: PolicyGradient/Proofs/G7b.lean:38:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.W_zero`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:40:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.W_succ`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:72:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.DW_zero`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:74:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.DW_succ`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:119:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.p_nonneg`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:122:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.p_sum_eq_one`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:335:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.abs_g_le`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:438:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dg_sub`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:853:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.domSeq_nonneg`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:858:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.summable_domSeq`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:881:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.DW_eq_partial`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:914:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_domTail`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G7b.lean:914:25: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G7b.lean:914:41: Variable name `hγ₁` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₁
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3196/3247] Replayed PolicyGradient.Proofs.AKM51
+warning: PolicyGradient/Proofs/AKM51.lean:83:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.ascent_monotone_vec`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3197/3247] Replayed PolicyGradient.Proofs.G1
+warning: PolicyGradient/Proofs/G1.lean:37:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.advInf_eq`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:99:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pdInf_step`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:134:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.eq_zero_of_contraction`:
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:247:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.sup_le_of_contraction`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:248:5: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G1.lean:248:57: Variable name `hBnn` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hBnn
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G1.lean:410:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dg_sub_const`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:456:8: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:458:8: `ContinuousLinearMap.smul_apply` has been deprecated: Use `smul_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.smul_apply` to `smul_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:616:31: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:617:4: `ContinuousLinearMap.smul_apply` has been deprecated: Use `smul_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.smul_apply` to `smul_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:630:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.le_norm_apply`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:645:6: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:655:8: `ContinuousLinearMap.smul_apply` has been deprecated: Use `smul_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.smul_apply` to `smul_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:638:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dg_single`:
+  [Fintype S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:692:6: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:702:8: `ContinuousLinearMap.smul_apply` has been deprecated: Use `smul_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.smul_apply` to `smul_apply x`).
+warning: PolicyGradient/Proofs/G1.lean:734:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.testVec_sum_apply`:
+  [Fintype S]
+  [Fintype A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [Fintype A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:758:12: This simp argument is unused:
+  h
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [h2]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/G1.lean:779:21: This simp argument is unused:
+  if_pos rfl
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [hb, Real.norm_eq_abs]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/G1.lean:781:12: This simp argument is unused:
+  sq_abs
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [abs_of_nonneg, hσ x]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/G1.lean:781:20: This simp argument is unused:
+  abs_of_nonneg
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [sq_abs, hσ x]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/G1.lean:829:6: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/G1.lean:900:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.loja_le`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:904:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.loja_nonneg`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1.lean:914:21: Variable name `hastar` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hastar
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3198/3247] Replayed PolicyGradient.Proofs.G1b
+warning: PolicyGradient/Proofs/G1b.lean:379:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dualPerfDiff_step`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1b.lean:417:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pdDual_step`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1b.lean:590:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.sub_rec_astar`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1b.lean:635:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pdAstar_step`:
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1b.lean:741:21: Variable name `hastar` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hastar
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G1b.lean:743:26: Variable name `hstar` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hstar
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3199/3247] Replayed PolicyGradient.Proofs.Greedy
+warning: PolicyGradient/Proofs/Greedy.lean:112:41: This simp argument is unused:
+  Fin.sum_univ_two
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/Greedy.lean:149:36: This simp argument is unused:
+  Fin.sum_univ_two
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [unreachRbar, unreachReward]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/Greedy.lean:203:13: Variable name `w` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _w
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/Greedy.lean:252:62: Unused tactic linter: `norm_num` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+warning: PolicyGradient/Proofs/Greedy.lean:252:62: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: PolicyGradient/Proofs/Greedy.lean:445:13: `tendsto_finset_sum` has been deprecated: Use `tendsto_finsetSum` instead
+warning: PolicyGradient/Proofs/Greedy.lean:445:46: `tendsto_finset_sum` has been deprecated: Use `tendsto_finsetSum` instead
+warning: PolicyGradient/Proofs/Greedy.lean:507:4: `tendsto_finset_sum` has been deprecated: Use `tendsto_finsetSum` instead
+⚠ [3200/3247] Replayed PolicyGradient.Proofs.AKM51b
+warning: PolicyGradient/Proofs/AKM51b.lean:278:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.advInf_zero_of_stationary_finite`:
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/AKM51b.lean:375:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.policy_mem_PolySet`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/AKM51b.lean:384:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.isCompact_PolySet`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/AKM51b.lean:458:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.limitAdvNonpos_of_offsupport`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/AKM51b.lean:459:5: Variable name `hr` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hr
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/AKM51b.lean:459:33: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/AKM51b.lean:459:49: Variable name `hγ₁` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₁
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3201/3247] Replayed PolicyGradient.Proofs.VecStep
+warning: PolicyGradient/Proofs/VecStep.lean:36:45: Variable name `hL` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hL
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3202/3247] Replayed PolicyGradient.Proofs.Greedy2
+warning: PolicyGradient/Proofs/Greedy2.lean:71:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.dinfDist_pointMass`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Greedy2.lean:83:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.VinfDist_pointMass`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Greedy2.lean:103:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.step_diff_sum_le`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Greedy2.lean:164:6: `tendsto_finset_sum` has been deprecated: Use `tendsto_finsetSum` instead
+warning: PolicyGradient/Proofs/Greedy2.lean:164:39: `tendsto_finset_sum` has been deprecated: Use `tendsto_finsetSum` instead
+⚠ [3203/3247] Replayed PolicyGradient.Proofs.DgLip
+warning: PolicyGradient/Proofs/DgLip.lean:26:10: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/DgLip.lean:22:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.norm_comb_le_l2`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/DgLip.lean:26:10: This simp argument is unused:
+  ContinuousLinearMap.sum_apply
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [3204/3247] Replayed PolicyGradient.Proofs.Resid
+warning: PolicyGradient/Proofs/Resid.lean:170:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.g_eq_sum_pi`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:326:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.g_congr_block`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:1061:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_max_theta_atTop`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:1061:33: Variable name `M` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _M
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/Resid.lean:1114:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pi_le_iff_theta_le`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:1230:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/Resid.lean:1228:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_support`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:1270:32: Variable name `M` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _M
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/Resid.lean:1316:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pi_tendsto_zero_of_theta_atBot`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Resid.lean:1316:40: Variable name `M` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _M
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/Resid.lean:1362:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_pi_coord`:
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3205/3247] Replayed PolicyGradient.Proofs.ResidC8
+warning: PolicyGradient/Proofs/ResidC8.lean:25:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.sum_theta_eq_zero`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3206/3247] Replayed PolicyGradient.Proofs.ResidC9
+warning: PolicyGradient/Proofs/ResidC9.lean:123:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_min_theta_atBot_of_max`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidC9.lean:261:55: Variable name `hδ` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hδ
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/ResidC9.lean:375:12: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidC9.lean:401:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidC9.lean:395:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_coord_unbounded_below`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidC9.lean:531:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+⚠ [3207/3247] Replayed PolicyGradient.Proofs.ResidAsm
+warning: PolicyGradient/Proofs/ResidAsm.lean:28:27: Variable name `hη` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hη
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/ResidAsm.lean:68:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidAsm.lean:61:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_action_unbounded_below`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidAsm.lean:114:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidAsm.lean:149:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.sum_pibar_eq_one`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidAsm.lean:158:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pi_ratio_small`:
+  [DecidableEq S]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidAsm.lean:242:59: This simp argument is unused:
+  not_not
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hnot
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [3208/3247] Replayed PolicyGradient.Proofs.ResidFinal
+warning: PolicyGradient/Proofs/ResidFinal.lean:43:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.mem_I0`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:46:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.mem_Iplus`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:49:8: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.mem_Iminus`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:91:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.mem_B0`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:176:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidFinal.lean:293:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.B0_nonempty`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:370:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/ResidFinal.lean:309:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_max_B0_theta_atTop`:
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/ResidFinal.lean:828:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+⚠ [3209/3247] Replayed PolicyGradient.Proofs.G9b
+warning: PolicyGradient/Proofs/G9b.lean:160:25: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+warning: PolicyGradient/Proofs/G9b.lean:275:6: `ContinuousLinearMap.sum_apply` has been deprecated: Use `_root_.sum_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.sum_apply` to `_root_.sum_apply x`).
+warning: PolicyGradient/Proofs/G9b.lean:285:8: `ContinuousLinearMap.smul_apply` has been deprecated: Use `smul_apply` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.smul_apply` to `smul_apply x`).
+warning: PolicyGradient/Proofs/G9b.lean:620:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/G9b.lean:995:6: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/G9b.lean:942:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.g9_of_policy_limit`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3210/3247] Replayed PolicyGradient.Proofs.G9c
+warning: PolicyGradient/Proofs/G9c.lean:212:2: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/G9c.lean:209:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.le_of_half_le`:
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G9c.lean:279:6: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/G9c.lean:248:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.g9_of_eventually_monotone`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G9c.lean:278:39: This simp argument is unused:
+  Nat.lt_succ_iff
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [ht]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/G9c.lean:313:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.adv_nonneg_of_max`:
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G9c.lean:352:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pi_mono_step`:
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G9c.lean:355:5: Variable name `hr` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hr
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G9c.lean:355:33: Variable name `hγ₀` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hγ₀
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3211/3247] Replayed PolicyGradient.Proofs.Bridge
+warning: PolicyGradient/Proofs/Bridge.lean:176:6: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/Bridge.lean:155:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.g9_of_eventual_lower_bound`:
+  [DecidableEq S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3212/3247] Replayed PolicyGradient.Proofs.Conv
+warning: PolicyGradient/Proofs/Conv.lean:166:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_policy_limit_of_coord_tendsto`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3213/3247] Replayed PolicyGradient.Proofs.Conv2
+warning: PolicyGradient/Proofs/Conv2.lean:273:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.tendsto_mass_on_zero_set`:
+  [Fintype S]
+  [DecidableEq S]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+info: PolicyGradient/Proofs/Conv2.lean:431:0: 'PolicyGradient.Proofs.softmax_policy_converges_of_tie_split' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv2.lean:432:0: 'PolicyGradient.Proofs.exists_adv_tendsto' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv2.lean:433:0: 'PolicyGradient.Proofs.tie_gap_monotone' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv2.lean:434:0: 'PolicyGradient.Proofs.coord_tendsto_of_unique_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3214/3247] Replayed PolicyGradient.Proofs.Conv3
+warning: PolicyGradient/Proofs/Conv3.lean:197:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.advInf_gamma_zero`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Conv3.lean:258:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.gap_nonneg_of_step`:
+  [Fintype S]
+  [Fintype A]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Conv3.lean:384:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_leader`:
+  [Fintype A]
+  [DecidableEq A]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype A] [DecidableEq A] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Conv3.lean:498:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.adv_eq_value_gap_of_zero_limit`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Conv3.lean:513:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.vbar_bellman_of_adv_limit_zero`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+info: PolicyGradient/Proofs/Conv3.lean:583:0: 'PolicyGradient.Proofs.softmax_policy_converges_gamma_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv3.lean:584:0: 'PolicyGradient.Proofs.softmax_policy_converges_of_leader' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv3.lean:585:0: 'PolicyGradient.Proofs.coord_tendsto_of_leader' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv3.lean:586:0: 'PolicyGradient.Proofs.gap_monotone_of_adv_dominates' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv3.lean:587:0: 'PolicyGradient.Proofs.adv_eq_value_gap_of_zero_limit' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [3215/3247] Replayed PolicyGradient.Proofs.Conv5
+info: PolicyGradient/Proofs/Conv5.lean:431:0: 'PolicyGradient.Proofs.adv_ge_one_sub_gamma_mul_gap' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:432:0: 'PolicyGradient.Proofs.adv_le_gap' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:433:0: 'PolicyGradient.Proofs.adv_nonneg_at_argmax' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:434:0: 'PolicyGradient.Proofs.adv_dominates_at_argmax_of_gap_zero' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:435:0: 'PolicyGradient.Proofs.exists_frequently_argmax' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:436:0: 'PolicyGradient.Proofs.lead_of_subsingleton' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:437:0: 'PolicyGradient.Proofs.lead_at_eventual_argmax' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:438:0: 'PolicyGradient.Proofs.softmax_policy_converges_of_argmax_stable' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+info: PolicyGradient/Proofs/Conv5.lean:439:0: 'PolicyGradient.Proofs.argmax_not_eventually_stable' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3216/3247] Replayed PolicyGradient.Proofs.Dirac
+warning: PolicyGradient/Proofs/Dirac.lean:62:5: Variable name `hF` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hF
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+⚠ [3226/3247] Replayed PolicyGradient.Proofs.Mei6
+warning: PolicyGradient/Proofs/Mei6.lean:79:23: This simp argument is unused:
+  Fintype.sum_bool
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [m6MDP]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/Mei6.lean:85:55: This simp argument is unused:
+  Fintype.sum_bool
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+warning: PolicyGradient/Proofs/Mei6.lean:90:10: This simp argument is unused:
+  Fintype.sum_bool
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [3228/3247] Replayed PolicyGradient.Proofs.Entropy
+warning: PolicyGradient/Proofs/Entropy.lean:61:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.abs_VsoftDisc_le`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:176:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.VsoftDisc_eq_sum_QsoftDisc`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:325:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.pdSoft_step`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:405:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.VsoftDisc_zero`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:509:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.discEntropy_eq_VsoftDisc`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:537:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.discEntropy_bounds`:
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Entropy.lean:705:49: This simp argument is unused:
+  sub_zero
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [zero_mul, zero_sub, neg_nonpos]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [3229/3247] Replayed PolicyGradient.Proofs.G1Agg
+warning: PolicyGradient/Proofs/G1Agg.lean:138:50: Unused tactic linter: `norm_num` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+warning: PolicyGradient/Proofs/G1Agg.lean:138:50: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+warning: PolicyGradient/Proofs/G1Agg.lean:175:34: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+warning: PolicyGradient/Proofs/G1Agg.lean:178:64: Unused tactic linter: `norm_num` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+warning: PolicyGradient/Proofs/G1Agg.lean:178:64: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+info: PolicyGradient/Proofs/G1Agg.lean:516:0: 'PolicyGradient.Proofs.g1_aggregate_bound_general_false' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Agg.lean:517:0: 'PolicyGradient.Proofs.ag_refutes_over_one_sub_gamma' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Agg.lean:518:0: 'PolicyGradient.Proofs.ag_refutes_mism_sq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Agg.lean:641:0: 'PolicyGradient.Proofs.iInf_mul_sum_dinfDistStar_adv_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3230/3247] Replayed PolicyGradient.Proofs.G1c
+warning: PolicyGradient/Proofs/G1c.lean:159:34: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+warning: PolicyGradient/Proofs/G1c.lean:162:64: Unused tactic linter: `norm_num` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+warning: PolicyGradient/Proofs/G1c.lean:162:64: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+info: PolicyGradient/Proofs/G1c.lean:450:0: 'PolicyGradient.Proofs.g1c_aggregate_bound_general_false' depends on axioms: [propext, Classical.choice, Quot.sound]
+warning: PolicyGradient/Proofs/G1c.lean:593:26: Variable name `hstar` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hstar
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G1c.lean:594:21: Variable name `hastar` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hastar
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+info: PolicyGradient/Proofs/G1c.lean:652:0: 'PolicyGradient.Proofs.g1_lojasiewicz_of_selector' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3231/3247] Replayed PolicyGradient.Proofs.G1Sel
+info: PolicyGradient/Proofs/G1Sel.lean:240:0: 'PolicyGradient.Proofs.sel_nonneg' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Sel.lean:241:0: 'PolicyGradient.Proofs.sel_rhs_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Sel.lean:242:0: 'PolicyGradient.Proofs.sum_dinfDistStar_sel_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Sel.lean:243:0: 'PolicyGradient.Proofs.g1_aggregate_bound_reduce' depends on axioms: [propext, Classical.choice, Quot.sound]
+warning: PolicyGradient/Proofs/G1Sel.lean:255:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.iInf_mul_advInf_astar_le_sel`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+info: PolicyGradient/Proofs/G1Sel.lean:317:0: 'PolicyGradient.Proofs.iInf_mul_advInf_astar_le_sel' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/G1Sel.lean:318:0: 'PolicyGradient.Proofs.g1_aggregate_bound_of_tie' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3232/3247] Replayed PolicyGradient.Proofs.G1Cpl
+warning: PolicyGradient/Proofs/G1Cpl.lean:142:34: Variable name `hμ` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hμ
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: PolicyGradient/Proofs/G1Cpl.lean:188:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.advGapInf_le_advInf_argmax`:
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/G1Cpl.lean:301:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.support_pistar_nonempty`:
+  [Fintype S]
+  [DecidableEq S]
+  [DecidableEq A]
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Fintype S] [DecidableEq S] [DecidableEq A] [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3233/3247] Replayed PolicyGradient.Proofs.G1Wire
+warning: PolicyGradient/Proofs/G1Wire.lean:42:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.exists_prod_argmax_selector`:
+  [DecidableEq A]
+  [Nonempty S]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [DecidableEq A] [Nonempty S] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+info: PolicyGradient/Proofs/G1Wire.lean:84:0: 'PolicyGradient.Proofs.g1_lojasiewicz_proof' depends on axioms: [propext, Classical.choice, Quot.sound]
+⚠ [3235/3247] Replayed PolicyGradient.Proofs.G2b
+warning: PolicyGradient/Proofs/G2b.lean:131:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.bddAbove_advGapInf`:
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+⚠ [3237/3247] Replayed PolicyGradient.Proofs.Mei4
+warning: PolicyGradient/Proofs/Mei4.lean:115:2: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+⚠ [3240/3247] Replayed PolicyGradient.Proofs.Mei4D
+warning: PolicyGradient/Proofs/Mei4D.lean:159:0: automatically included section variable(s) unused in theorem `PolicyGradient.Proofs.astar_compat_of_det`:
+  [Nonempty S]
+  [Nonempty A]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Nonempty S] [Nonempty A] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`
+warning: PolicyGradient/Proofs/Mei4D.lean:576:4: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+warning: PolicyGradient/Proofs/Mei4D.lean:641:4: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+info: PolicyGradient/Proofs/Mei4D.lean:775:0: 'PolicyGradient.Proofs.mei_theorem4_of_astar_compat' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4D.lean:776:0: 'PolicyGradient.Proofs.mei_theorem4_of_astar_compat'' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4D.lean:777:0: 'PolicyGradient.Proofs.mei_theorem4_of_astar_gap' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4D.lean:778:0: 'PolicyGradient.Proofs.mei_theorem4_of_supp_bound' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4D.lean:780:0: 'PolicyGradient.Proofs.reduction_conclusion_matches' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [3241/3247] Replayed PolicyGradient.Proofs.Mei4DRef
+info: PolicyGradient/Proofs/Mei4DRef.lean:419:0: 'PolicyGradient.Proofs.hdom_not_implied' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4DRef.lean:420:0: 'PolicyGradient.Proofs.ref_dagger_fails' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4DRef.lean:421:0: 'PolicyGradient.Proofs.refMDP_hstar' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4DRef.lean:422:0: 'PolicyGradient.Proofs.refMDP_hastar' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4DRef.lean:423:0: 'PolicyGradient.Proofs.ref_Qstar_tie' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Proofs/Mei4DRef.lean:424:0: 'PolicyGradient.Proofs.ref_Vstar' depends on axioms: [propext, Classical.choice, Quot.sound]
+ℹ [3243/3247] Replayed PolicyGradient.Witness
+info: PolicyGradient/Witness.lean:223:0: 'PolicyGradient.witnessMDP' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:224:0: 'PolicyGradient.witnessMDP_reward_bound' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:225:0: 'PolicyGradient.witnessMDP_reward_bound_tight' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:226:0: 'PolicyGradient.witnessMDP_gamma_nonneg' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:227:0: 'PolicyGradient.witnessMDP_gamma_lt_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:228:0: 'PolicyGradient.witnessMDP_gamma_pos' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:229:0: 'PolicyGradient.tabularLogits_differentiable' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:230:0: 'PolicyGradient.tabularLogits_nonconstant' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: PolicyGradient/Witness.lean:231:0: 'PolicyGradient.witness_all_hypotheses' depends on axioms: [propext, Classical.choice, Quot.sound]
+✔ [3244/3247] Built PolicyGradient.Proofs.Extra (2.7s)
