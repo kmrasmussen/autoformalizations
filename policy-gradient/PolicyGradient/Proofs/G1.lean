@@ -235,6 +235,97 @@ theorem advGapInf_eq_g_sub (M : FiniteMDP S A)
   rw [hzero]
   ring
 
+/-! ### Continuity of the occupancy measure in the policy
+
+`dinf` obeys `dinf π s₀ s = [s=s₀] + γ ∑_{s'} step π s₀ s' · dinf π s' s`. The
+difference of two occupancies therefore contracts, leaving a bound in terms of
+`‖step π' - step π‖`. -/
+
+/-- A family dominated by `B + γ · c` for every upper bound `c` of `|D|` is
+bounded by `B/(1-γ)`. Stated with the bound `c` abstract so callers need not
+reconstruct the same `sup'` term. -/
+theorem sup_le_of_contraction (M : FiniteMDP S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (D : S → ℝ) (B : ℝ) (hBnn : 0 ≤ B)
+    (hD : ∀ (c : ℝ), (∀ y, |D y| ≤ c) → ∀ s₀, |D s₀| ≤ B + M.γ * c) (s : S) :
+    |D s| ≤ B / (1 - M.γ) := by
+  classical
+  obtain ⟨s₁⟩ := ‹Nonempty S›
+  have hne : (Finset.univ : Finset S).Nonempty := ⟨s₁, mem_univ s₁⟩
+  set C : ℝ := Finset.univ.sup' hne (fun x => |D x|) with hC
+  have hle : ∀ x, |D x| ≤ C := fun x =>
+    Finset.le_sup' (f := fun x => |D x|) (mem_univ x)
+  have hCnn : 0 ≤ C := le_trans (abs_nonneg _) (hle s₁)
+  have hstep : C ≤ B + M.γ * C := by
+    obtain ⟨x, -, hx⟩ := Finset.exists_mem_eq_sup' hne (fun x => |D x|)
+    have hCx : C = |D x| := by rw [hC]; exact hx
+    have := hD C hle x
+    linarith [hCx.le, hCx.ge]
+  have hpos : 0 < 1 - M.γ := by linarith
+  have : C ≤ B / (1 - M.γ) := by rw [le_div_iff₀ hpos]; nlinarith
+  exact le_trans (hle s) this
+
+/-- **The occupancy measure is Lipschitz in the induced transition kernel.** -/
+theorem dinf_diff_le (M : FiniteMDP S A) (π π' : Policy S A)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (K : ℝ) (hKnn : 0 ≤ K)
+    (hK : ∀ s₀, ∑ s', |step M π' s₀ s' - step M π s₀ s'| ≤ K) (s₀ s : S) :
+    |dinf M π' s₀ s - dinf M π s₀ s| ≤ (M.γ * K / (1 - M.γ)) / (1 - M.γ) := by
+  classical
+  have hpos : 0 < 1 - M.γ := by linarith
+  set D : S → ℝ := fun x => dinf M π' x s - dinf M π x s with hDdef
+  refine sup_le_of_contraction M hγ₀ hγ₁ D (M.γ * K / (1 - M.γ))
+    (by positivity) ?_ s₀
+  intro C hle x
+  have hCnn : 0 ≤ C := le_trans (abs_nonneg _) (hle x)
+  -- expand both occupancies one step
+  have h1 := dinf_eq M π' hγ₀ hγ₁ x s
+  have h2 := dinf_eq M π hγ₀ hγ₁ x s
+  have hexp : D x
+      = M.γ * ((∑ s', step M π' x s' * dinf M π' s' s)
+        - ∑ s', step M π x s' * dinf M π s' s) := by
+    rw [hDdef]; simp only []; rw [h1, h2]; ring
+  -- split the difference: kernel change + occupancy change
+  have hsplit : (∑ s', step M π' x s' * dinf M π' s' s)
+        - ∑ s', step M π x s' * dinf M π s' s
+      = (∑ s', (step M π' x s' - step M π x s') * dinf M π' s' s)
+        + ∑ s', step M π x s' * D s' := by
+    rw [← Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
+    refine Finset.sum_congr rfl fun s' _ => ?_
+    rw [hDdef]; simp only []; ring
+  have hA : |∑ s', (step M π' x s' - step M π x s') * dinf M π' s' s| ≤ K / (1 - M.γ) := by
+    calc |∑ s', (step M π' x s' - step M π x s') * dinf M π' s' s|
+        ≤ ∑ s', |(step M π' x s' - step M π x s') * dinf M π' s' s| :=
+          Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ s', |step M π' x s' - step M π x s'| * dinf M π' s' s := by
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [abs_mul, abs_of_nonneg (dinf_nonneg M hγ₀ π' s' s)]
+      _ ≤ ∑ s', |step M π' x s' - step M π x s'| * (1 / (1 - M.γ)) := by
+          refine Finset.sum_le_sum fun s' _ => ?_
+          exact mul_le_mul_of_nonneg_left (dinf_le_one_div M hγ₀ hγ₁ π' s' s)
+            (abs_nonneg _)
+      _ = (∑ s', |step M π' x s' - step M π x s'|) * (1 / (1 - M.γ)) := by
+          rw [Finset.sum_mul]
+      _ ≤ K * (1 / (1 - M.γ)) := by
+          refine mul_le_mul_of_nonneg_right (hK x) (by positivity)
+      _ = K / (1 - M.γ) := by ring
+  have hB : |∑ s', step M π x s' * D s'| ≤ C := by
+    calc |∑ s', step M π x s' * D s'| ≤ ∑ s', |step M π x s' * D s'| :=
+          Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ s', step M π x s' * |D s'| := by
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [abs_mul, abs_of_nonneg (step_nonneg M π x s')]
+      _ ≤ ∑ s', step M π x s' * C :=
+          Finset.sum_le_sum fun s' _ =>
+            mul_le_mul_of_nonneg_left (hle s') (step_nonneg M π x s')
+      _ = C := by rw [← Finset.sum_mul, step_sum_eq_one M π x, one_mul]
+  rw [hexp, hsplit, abs_mul, abs_of_nonneg hγ₀]
+  have : |(∑ s', (step M π' x s' - step M π x s') * dinf M π' s' s)
+      + ∑ s', step M π x s' * D s'| ≤ K / (1 - M.γ) + C :=
+    le_trans (abs_add_le _ _) (add_le_add hA hB)
+  calc M.γ * |(∑ s', (step M π' x s' - step M π x s') * dinf M π' s' s)
+        + ∑ s', step M π x s' * D s'|
+      ≤ M.γ * (K / (1 - M.γ) + C) := mul_le_mul_of_nonneg_left this hγ₀
+    _ = M.γ * K / (1 - M.γ) + M.γ * C := by ring
+
 end G1
 
 end Proofs
