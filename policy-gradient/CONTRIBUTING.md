@@ -14,6 +14,30 @@ finds defects, and writes them into `Goal.lean` as frozen `sorry` statements.
 Discharging a goal is delegated to a subagent that receives the statement and
 may not change it.
 
+## File ownership
+
+| File | Who edits it |
+|---|---|
+| `PolicyGradient/Goal.lean` | **the orchestrator only** |
+| `PolicyGradient/Proofs.lean` | subagents |
+| everything else | either, as the task requires |
+
+Subagents may not touch `Goal.lean`. Telling a prover "don't weaken the
+statement" while handing it write access is honour-system; file ownership makes
+it structural.
+
+A goal is discharged in two steps. The subagent proves a named lemma in
+`Proofs.lean` with exactly the goal's type. The orchestrator then replaces the
+`sorry` with a reference to it:
+
+```lean
+theorem vstar_upper ... := Proofs.vstar_upper_proof ...
+```
+
+**If the supplied lemma has the wrong type, `Goal.lean` fails to compile.** The
+prover gets total freedom over *how*, and none over *what counts as done*. That
+asymmetry is the whole design.
+
 **"Goal" means literally a `sorry` theorem in `Goal.lean`** — a Lean statement
 that the compiler checks and the linter counts. Not a markdown checklist, not a
 TODO comment, not a line in `GAPS.md`. Prose has no teeth: it was prose that

@@ -17,3 +17,4 @@ import PolicyGradient.SecondDeriv
 import PolicyGradient.Mei
 import PolicyGradient.Goal
 import PolicyGradient.Witness
+import PolicyGradient.Proofs
