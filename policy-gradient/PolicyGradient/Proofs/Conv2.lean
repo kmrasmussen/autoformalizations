@@ -152,6 +152,91 @@ theorem tendsto_mass_on_zero_set (π : ℕ → Policy S A) (s : S) (Z : Finset A
   rw [sub_zero] at hfin
   exact hfin.congr (fun t => (hsplit t).symm)
 
+
+/-! ## The πbar-free skeleton, assembled
+
+At each state `s` let `Abar s a := lim_t A^{(t)}(s,a)` (`exists_adv_tendsto`) and
+`Z s := {a | Abar s a = 0}`.  Then, with **no limit policy assumed**:
+
+* every `a ∉ Z s` has `π_t(a|s) → 0` (`tendsto_pi_zero_of_adv_limit_ne`);
+* the mass on `Z s` tends to `1` (`tendsto_mass_on_zero_set`);
+* every logit `θ_t(s,a)` is eventually monotone (`theta_eventually_monotone_of_adv_ne`,
+  using that a convergent sequence with nonzero limit is eventually of one sign,
+  and that a coordinate with `Abar s a = 0` is handled by the `Z`-case below).
+
+So the goal reduces to a **single** remaining statement: *the policy coordinates
+inside `Z s` converge*.  When `Z s` is a singleton this is immediate — that
+coordinate's probability is `1` minus the others, all of which tend to `0`. -/
+
+/-- **The singleton-`Z` case closes the goal at a state.**  If exactly one action
+`a₀` has a nonzero limiting advantage failing, i.e. every `b ≠ a₀` has
+`π_t(b|s) → 0`, then `π_t(a₀|s) → 1` and every coordinate at `s` converges. -/
+theorem coord_tendsto_of_unique_zero (π : ℕ → Policy S A) (s : S) (a₀ : A)
+    (hz : ∀ b, b ≠ a₀ → Tendsto (fun t => (π t s) b) atTop (nhds 0)) :
+    ∀ a, ∃ L : ℝ, Tendsto (fun t => (π t s) a) atTop (nhds L) := by
+  classical
+  intro a
+  by_cases h : a = a₀
+  · subst h
+    refine ⟨1, ?_⟩
+    have hmass : Tendsto (fun t => ∑ b ∈ ({a} : Finset A), (π t s) b) atTop (nhds 1) := by
+      refine tendsto_mass_on_zero_set π s {a} ?_
+      intro b hb
+      exact hz b (by simpa using hb)
+    simpa using hmass
+  · exact ⟨0, hz a h⟩
+
+
+/-! ### The tie mechanism: exactly-tied actions never trade mass back
+
+The remaining case is two actions `a b` at the same state whose limiting
+advantages both vanish.  When their advantages agree *at every finite time* —
+which is what an exact reward/transition tie produces — the dynamics are
+**self-reinforcing**, and this is provable outright.
+
+Writing `c_t = η · d^{(t)}_μ(s) ≥ 0` and `A_t = A^{(t)}(s,a) = A^{(t)}(s,b)`,
+`theta_decrement` gives
+
+    (θ_{t+1}(s,a) - θ_{t+1}(s,b)) - (θ_t(s,a) - θ_t(s,b)) = c_t · A_t · (π_t(a|s) - π_t(b|s)),
+
+and `softmax_mono` makes `π_t(a|s) - π_t(b|s)` carry the same sign as
+`θ_t(s,a) - θ_t(s,b)`.  So while `A_t ≥ 0` the logit gap moves *away from zero*:
+whichever tied action is ahead stays ahead and pulls further ahead.  The gap is
+therefore monotone from any time at which `A_t ≥ 0` holds onwards, which is
+exactly the eventual-monotonicity input the goal needs — with no limit policy. -/
+
+/-- **Exactly-tied actions: the logit gap is monotone.**  If two actions share
+the same advantage at every step from `T` on and that advantage is `≥ 0`, then
+the sign of `θ_t(s,a) - θ_t(s,b)` cannot change, and `|θ_t(s,a) - θ_t(s,b)|` is
+non-decreasing: the gap moves away from zero. -/
+theorem tie_gap_monotone (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (a b : A) (t : ℕ)
+    (htie : advInf M (F.toPolicy (θ t)) s a = advInf M (F.toPolicy (θ t)) s b)
+    (hAnn : 0 ≤ advInf M (F.toPolicy (θ t)) s a)
+    (hge : (θ t) (s, b) ≤ (θ t) (s, a)) :
+    (θ t) (s, a) - (θ t) (s, b) ≤ (θ (t + 1)) (s, a) - (θ (t + 1)) (s, b) := by
+  have hda := theta_decrement M F hF hr hγ₀ hγ₁ μ η θ hstep t s a
+  have hdb := theta_decrement M F hF hr hγ₀ hγ₁ μ η θ hstep t s b
+  -- put both decrements in terms of the common advantage at `a`
+  rw [← htie] at hdb
+  have hdnn : 0 ≤ dinfDist M (F.toPolicy (θ t)) μ s := dinfDist_nonneg M hγ₀ _ _ _
+  -- the softmax order matches the logit order
+  have hpi : (F.toPolicy (θ t) s) b ≤ (F.toPolicy (θ t) s) a := by
+    rw [hF, hF]; exact softmax_mono _ a b hge
+  -- the gap's increment is `η · d · A · (π a - π b) ≥ 0`
+  have hprod : 0 ≤ η * (dinfDist M (F.toPolicy (θ t)) μ s
+      * (((F.toPolicy (θ t) s) a - (F.toPolicy (θ t) s) b)
+          * advInf M (F.toPolicy (θ t)) s a)) :=
+    mul_nonneg hη₀.le (mul_nonneg hdnn (mul_nonneg (by linarith) hAnn))
+  nlinarith [hda, hdb, hprod]
+
 end Conv2
 
 end Proofs
