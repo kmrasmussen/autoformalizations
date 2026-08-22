@@ -429,8 +429,8 @@ weakens the bound — `mismatchCoeff ≥ 1` always, since `d^π_μ` dominates `�
 pointwise (the `t = 0` term alone contributes `μ s`) — so a pointwise bound
 averaged against `μ` and weakened by `1 ≤ mismatchCoeff` suffices. That traded
 a hard `tsum` telescoping argument for a max-state contraction. -/
-@[paper "AKM2021" "Lemma 4.1"]
-theorem g2_gradient_domination (M : FiniteMDP S A)
+@[paper_tool "AKM2021" "Lemma 4.1 (advantage form)"]
+theorem g2_advantage_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
@@ -441,6 +441,46 @@ theorem g2_gradient_domination (M : FiniteMDP S A)
       ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
           * (⨆ s : S, ⨆ a : A, |advInf M (F.toPolicy θ) s a|) :=
   Proofs.g2_gradient_domination_proof M F hF hr hγ₀ hγ₁ μ hμ πstar hstar θ
+
+/-! ## G2 proper — AKM Lemma 4.1 with the gradient in it
+
+The fidelity check caught this: `g2_advantage_bound` above was tagged
+`@[paper] AKM2021 Lemma 4.1` and its proof **never used `hF`**, the softmax
+hypothesis. The reason is that after two refutations I restated it into a
+general advantage bound — true, useful, and with no gradient anywhere. Every
+mechanical signal was green: grounded, witnessed, `sorry`-free, axioms clean.
+It simply was not Lemma 4.1.
+
+Retagged `@[paper_tool]`, where it belongs — `Proofs.Vinf_sub_le_adv_div` holds
+for *any two policies*.
+
+Lemma 4.1's content is that suboptimality is dominated by a **gradient**, which
+is what makes gradient ascent converge. AKM state it with a directional right
+side, `max_{π'} ⟨∇V, π' − π⟩` over the simplex, and that form is what survives
+for softmax — the plain `‖∇V‖` version was refuted (a 3000-MDP sweep found
+overshoots up to 74×, tracking `1/min_s π(a*|s)`).
+
+Below, the directional maximum is expressed as a supremum over policies of the
+directional derivative along `π' − π`, which is exactly AKM's quantity. -/
+
+/-- **G2 — AKM Lemma 4.1, gradient domination.**
+
+Suboptimality is bounded by the mismatch-weighted *directional* gradient. Unlike
+`g2_advantage_bound` this mentions a derivative, and unlike the refuted `‖∇V‖`
+form it is true for softmax: the directional maximum over the simplex retains
+the `π(a|s)` factor that a norm discards. -/
+@[paper "AKM2021" "Lemma 4.1"]
+theorem g2_gradient_domination (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (θ : EuclideanSpace ℝ (S × A)) :
+    VstarDist M μ - VinfDist M (F.toPolicy θ) μ
+      ≤ (mismatchCoeff M πstar μ / (1 - M.γ))
+          * (⨆ s : S, ∑ a : A,
+              ((πstar s) a - (F.toPolicy θ s) a) * advInf M (F.toPolicy θ) s a) := sorry
 
 /-! ## G8 / Mei Theorem 4 — the headline rate
 
