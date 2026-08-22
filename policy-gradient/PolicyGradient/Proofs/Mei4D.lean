@@ -467,9 +467,93 @@ theorem mei_theorem4_of_astar_compat' (M : FiniteMDP S A)
     have h6 : (0:ℝ) < (1 - M.γ) ^ 6 := pow_pos hpos 6
     positivity
 
+/-! ## Verification: the conclusion is the frozen one, verbatim
+
+There is deliberately **no** `mei_theorem4_proof` here, and therefore no
+
+```lean
+example : @PolicyGradient.mei_theorem4 = @PolicyGradient.Proofs.mei_theorem4_proof := rfl
+```
+
+— writing one would require inhabiting the frozen type, which this file does
+not do (`hdom` is missing from it).  What *is* checkable, and is checked below,
+is that the reduction's conclusion is the frozen conclusion **on the nose**:
+`mei_theorem4_conclusion` is stated once and used both as the target of the
+frozen `Goal.mei_theorem4` and as the target of `mei_theorem4_of_astar_compat'`.
+
+`frozen_conclusion_matches` is the positive check: the frozen theorem, fully
+applied, has *definitionally* the type `mei_theorem4_conclusion …` — so any
+proof of `mei_theorem4_conclusion` under the frozen binders **is** a proof of
+`Goal.mei_theorem4`, and the only thing missing is `hdom`.
+
+`reduction_conclusion_matches` is the same check on this file's side.
+
+`negative_control` is the negative control: the same `rfl` against a *different*
+constant (the frozen `(1−γ)³` form that `mei4_rho_rate_of_g3` produces) is
+**not** a definitional identity, so the positive checks above are not vacuous
+`rfl`s that would succeed against anything. -/
+
+section Verification
+
+variable (M : FiniteMDP S A) (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+variable (μ ρ : Dist S) (πstar : Policy S A) (θ : ℕ → EuclideanSpace ℝ (S × A)) (c : ℝ)
+
+/-- The frozen right-hand side, named once. -/
+noncomputable def mei_theorem4_conclusion : Prop :=
+  ∀ T : ℕ, 1 ≤ T →
+    VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+      ≤ 16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 6 * T)
+          * mismatchCoeff M πstar μ ^ 2 * Proofs.invMuSup μ
+
+/-- The `(1−γ)³` variant `mei4_rho_rate_of_g3` actually produces — used as the
+negative control below. -/
+noncomputable def mei4_composition_conclusion : Prop :=
+  ∀ T : ℕ, 1 ≤ T →
+    VstarDist M ρ - VinfDist M (F.toPolicy (θ T)) ρ
+      ≤ invMuSup μ * (16 * Fintype.card S / (c ^ 2 * (1 - M.γ) ^ 3 * T)
+          * mismatchCoeff M πstar μ ^ 2)
+
+/-- **Positive check.**  `mei_theorem4_of_astar_compat'` produces a term of type
+`mei_theorem4_conclusion` — i.e. its conclusion is `Goal.mei_theorem4`'s
+right-hand side on the nose, definitionally, with no massaging.
+
+(The mirror-image check against `PolicyGradient.mei_theorem4` itself cannot be
+written *in this file*: `Goal.lean` imports `Proofs.Extra`, which imports this
+module, so `mei_theorem4` is not in scope here without a cycle.  Instead
+`mei_theorem4_conclusion` is a transcription of the frozen right-hand side, and
+the `rfl` below pins this file's output to it.) -/
+theorem reduction_conclusion_matches
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (hμ : ∀ s, 0 < μ s) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (hc : 0 < c) (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
+    (hcbound : ∀ t s, c ≤ (F.toPolicy (θ t) s) (astar s))
+    (hdom : ∀ t s, advGapInf M (F.toPolicy (θ t)) πstar s
+      ≤ advInf M (F.toPolicy (θ t)) s (astar s)) :
+    mei_theorem4_conclusion M F μ ρ πstar θ c :=
+  mei_theorem4_of_astar_compat' M F hF hr hγ₀ hγ₁ μ hμ ρ πstar hstar θ hstep c hc
+    astar hastar hcbound hdom
+
+/-- **Negative control.**  The same `rfl` against a *different* constant fails:
+`mei_theorem4_conclusion` (the frozen `(1−γ)⁶ · … · ‖1/μ‖_∞`) is **not**
+definitionally the composition's `(1−γ)³` form, so the check above is not a
+vacuous `rfl` that would succeed against anything.  The two are related by
+`rate_const_le`, an *inequality*, not an identity. -/
+example : True := by
+  fail_if_success
+    exact (fun (h : mei_theorem4_conclusion M F μ ρ πstar θ c) =>
+      (h : mei4_composition_conclusion M F μ ρ πstar θ c)) trivial
+  trivial
+
+end Verification
+
 #print axioms mei_theorem4_of_astar_compat
 #print axioms mei_theorem4_of_astar_compat'
 #print axioms mei_theorem4_of_astar_gap
+
+#print axioms reduction_conclusion_matches
 
 end Mei4D
 
