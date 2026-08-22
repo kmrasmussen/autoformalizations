@@ -782,14 +782,43 @@ theorem vec_ascent_step (M : FiniteMDP S A)
           (θ + ((1 - M.γ) ^ 3 / 8) • gradient (fun w => Vinf M (F.toPolicy w) μ) θ)) μ :=
   Proofs.vec_ascent_step_proof M F hF hr hγ₀ hγ₁ μ θ
 
-/-- **Greedy limit points** — the real content of AKM 5.1.
+/-! ### `greedy_limit_points` was FALSE — unreachable states
 
-Along the ascent trajectory, every limit point `π̄` in the compact simplex
-`Δ(A)^S` puts mass only on zero-advantage actions. Given this,
-`optimal_support_greedy` and `vstar_eq_greedy` finish `softmax_ascent_converges`
-immediately, so this is where the genuine work lives. Stated over policies
-rather than parameters deliberately: the simplex is compact, parameter space is
-not, and `‖θ t‖ → ∞` is exactly what defeats a compactness argument upstairs. -/
+Refuted (`Proofs.greedy_limit_points_frozen_is_false`, which takes the frozen
+statement *with `Goal.lean`'s own implicit and instance binders* as a hypothesis
+and derives `False`, so what is refuted is provably this statement and not a
+lookalike).
+
+I flagged the occupancy factor as a worry when writing it and stated it anyway
+over **all** `s`. That was the defect. Witness: `γ = 1/2`, start state `0`
+absorbing with zero reward, state `1` unreachable with `r(1,·) = (1,-1)`. Then
+`V^π(0) = 0` for *every* policy, so the objective is the constant function, its
+gradient is `0`, `hstep` collapses to `θ(t+1) = θ(t)`, and the uniform `π̄` is a
+limit. The conclusion fails at the unreachable state.
+
+And option (b) — handling unreachable states some other way — is not merely
+unproved but **impossible**: the ascent dynamics are literally independent of
+the MDP's data off the reachable set. Two MDPs agreeing on the reachable part
+give identical gradients, trajectories and limit policies while differing
+arbitrarily in `advInf` there. No argument about the trajectory can constrain
+what the trajectory cannot see.
+
+This also sharpens the `softmax_ascent_converges` obstruction note above: that
+records the blocker as a per-coordinate asymptotic estimate on `θ t`, which is
+true for the *reachable* part. The unreachable part is a separate and strictly
+fatal defect that no such estimate repairs. -/
+
+/-- **Greedy limit points, at reached states** — the real content of AKM 5.1.
+
+At every state with positive limiting occupancy, every action in `π̄`'s support
+has zero advantage. Given this, `optimal_support_greedy` and `vstar_eq_greedy`
+finish `softmax_ascent_converges`. Stated over policies rather than parameters
+deliberately: the simplex is compact, parameter space is not, and `‖θ t‖ → ∞` is
+exactly what defeats a compactness argument upstairs.
+
+The occupancy hypothesis is what the refutation above forces, and it should be
+enough downstream — `perfDiffInf` weights `advGapInf` by an occupancy that
+vanishes off the reached set, exactly as `dirac_gradient_domination` exploits. -/
 @[infra "Greedy-limit-points"]
 theorem greedy_limit_points (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -801,7 +830,7 @@ theorem greedy_limit_points (M : FiniteMDP S A)
     (πbar : Policy S A)
     (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
       (nhds (fun s a => (πbar s) a))) :
-    ∀ s a, 0 < (πbar s) a → advInf M πbar s a = 0 := sorry
+    ∀ s a, 0 < dinf M πbar μ s → 0 < (πbar s) a → advInf M πbar s a = 0 := sorry
 
 /-- **Dirac-compatible gradient domination.**
 
