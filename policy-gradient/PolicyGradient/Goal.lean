@@ -269,19 +269,70 @@ theorem g9_c_positive (M : FiniteMDP S A)
 provable once the second derivative of a concrete softmax family is available,
 i.e. after G6. -/
 
-/-- **G7 — the smoothness bound holds for softmax, unconditionally.**
+/-! ### G7 was FALSE as stated — two defects, both mine
 
-`smoothAt_V_final` with `hdloc` discharged: `V` is `8/(1-γ)³`-smooth in the
-vector parameter, for the actual softmax family, assuming only the papers' own
-standing assumptions (bounded rewards, `0 ≤ γ < 1`). -/
-@[paper "AKM2021" "Lemma E.4"]
-theorem g7_smoothness (M : FiniteMDP S A)
-    (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
+Refuted 2026-08-22 (`Proofs.g7_general_false`, the frozen statement negated,
+axioms clean). Counterexample: one state, two actions, `γ = 0`, rewards `0`/`1`,
+`logits θ s a = c · θ(s,a)`. Then `Vinf = e^{cx}/(e^{cx}+1)` with derivative
+`c/4` at `θ = 0`; the claimed bound is `8`, and `c = 33` breaks it. `γ = 0` was
+chosen deliberately so the failure cannot be blamed on the discount factor.
+
+Two independent defects:
+
+1. **`logits` was universally quantified with no regularity hypothesis.** The
+   neighbouring `g5_g6_softmax_family` carries `hlog : Differentiable ...`; G7
+   carried nothing. And differentiability alone would not have saved it — AKM's
+   Lemma E.4 is about the **tabular** parameterization `logits θ s a = θ (s,a)`,
+   which is 1-Lipschitz. Any `logits` is permitted here, so the chain rule
+   scales the gradient freely. `Witness.lean` already records that tabular "is
+   exactly the one both papers use"; the goal simply failed to pin it.
+2. **Gradient norm is not smoothness.** `8/(1-γ)³` is AKM's bound on the
+   *second* derivative. The first-derivative bound is `2/(1-γ)²`.
+
+Split accordingly below. The first-derivative goal is stated at the constant it
+should have had; the smoothness goal keeps `8/(1-γ)³` and is the faithful
+Lemma E.4. -/
+
+/-- **G7a — the gradient norm bound for tabular softmax.**
+
+`‖∇V‖ ≤ 2/(1-γ)²`, the vector-parameter analogue of `abs_dV_le_softmax`. Note
+`hF` now pins the **tabular** parameterization: the logits *are* the parameter
+coordinates. -/
+@[paper "AKM2021" "Lemma E.4 (gradient)"]
+theorem g7a_gradient_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
-    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (logits θ s) a)
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
-    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 8 / (1 - M.γ) ^ 3 := sorry
+    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 2 / (1 - M.γ) ^ 2 := sorry
+
+/-- **G7b — AKM Lemma E.4, the actual smoothness bound.**
+
+The *second* derivative is bounded by `8/(1-γ)³` — the paper's exact constant,
+and what `ascent_step` and the rate machinery consume.
+
+`VecPolicy` records only the first derivative, so proving this needs a `C²`
+analogue (or a `SmoothAt`-style conclusion). That is real infrastructure, not a
+one-line edit — see `vec_c2_family` below. -/
+@[paper "AKM2021" "Lemma E.4"]
+theorem g7b_smoothness (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    ‖fderiv ℝ (fun t => fderiv ℝ (fun u => Vinf M (F.toPolicy u) s₀) t) θ‖
+      ≤ 8 / (1 - M.γ) ^ 3 := sorry
+
+/-- **The tabular softmax family is twice differentiable.**
+
+The infrastructure `g7b_smoothness` needs: `VecPolicy` carries only `dπ`, so the
+second derivative of `θ ↦ π(a|s)` has to be available before a second-derivative
+bound is even stateable in the form the rate machinery wants. -/
+@[infra "C2-family"]
+theorem vec_c2_family (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A) :
+    DifferentiableAt ℝ (fun t => F.dπ t s a) θ := sorry
 
 /-! ## G1 — Mei Lemma 8, the non-uniform Łojasiewicz inequality
 
