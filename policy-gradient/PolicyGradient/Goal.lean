@@ -482,6 +482,14 @@ ratio against `d^{π_θ}_μ` rather than `μ`.
 Corrected: tabular `hF`, `mismatchCoeff` in place of a free real, values against
 a start distribution, and `hr` restored.
 
+**`astar` is EXISTENTIAL, matching `g1_aggregate_bound`.** Mei's own text
+settles this twice: Lemma 8 reads "fix an arbitrary optimal policy `π*`" and
+takes `a*(s)` to be an action *that* policy selects, and the paper's front matter
+records that **"version (v3) generalizes Lemma 8 to multiple optimal actions"** —
+so `Q*` ties were a known issue the authors patched. Quantifying `astar`
+universally was never the paper's claim, and it is what refuted this family three
+times.
+
 `hastar` added 2026-08-22 after the same unconstrained-`astar` defect was
 refuted in `g9_c_positive` (`Proofs.g9_is_false`). An arbitrary `astar` need not
 select optimal actions, and the Łojasiewicz coefficient is meaningless — the
@@ -493,12 +501,12 @@ theorem g1_lojasiewicz (M : FiniteMDP S A)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
-    (astar : S → A) (hastar : ∀ s, 0 < (πstar s) (astar s))
     (θ : EuclideanSpace ℝ (S × A)) :
-    (⨅ s : S, (F.toPolicy θ s) (astar s))
-        / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
-        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
-      ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := sorry
+    ∃ astar : S → A, (∀ s, 0 < (πstar s) (astar s)) ∧
+      (⨅ s : S, (F.toPolicy θ s) (astar s))
+          / (Real.sqrt (Fintype.card S) * mismatchCoeff M πstar μ)
+          * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+        ≤ ‖fderiv ℝ (fun t => VinfDist M (F.toPolicy t) μ) θ‖ := sorry
 
 /-- **G2 — AKM Lemma 4.1, gradient domination.**
 
