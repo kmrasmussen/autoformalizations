@@ -36,6 +36,15 @@ known. They live in `CHECKS.md` under known-uncovered:
   `logits` with a differentiability hypothesis still did not. Until the
   decidable form is found this stays outside the predicate.
 * **Pinned witnesses.** Same problem.
+* **"Mentions its subject."** Attempted and removed. The idea was that a goal
+  tagged AKM Lemma 4.1 whose conclusion contains no derivative is not that
+  lemma — which is what `g2_advantage_bound` was. Implementing it required the
+  `@[paper]` attribute to carry required constants, and adding that optional
+  syntax **silently emptied the goal extension**: the linter reported
+  `0 goals, 0 proved, 0 open` while the build stayed green. Reverted, because a
+  broken census is worse than a missing field. It is also not really decidable —
+  "the conclusion mentions `fderiv`" is a proxy for "this is the paper's
+  statement", and a wrong statement can mention the right constants.
 * **Hypothesis consumption.** A diagnostic, not a requirement -- it gave the
   same signal for `g2_advantage_bound` (which had genuinely drifted) and
   `g2_gradient_domination` (which is the paper's statement, and simply holds
@@ -76,19 +85,11 @@ structure Formalized where
   search is incomplete, so a negative verdict means "not found", not "no
   inhabitant exists". -/
   inhabited : Bool
-  /-- **Mentions its subject.** The conclusion contains the constants the tagged
-  paper result is about.
-
-  Incident: `g2_advantage_bound`, tagged AKM Lemma 4.1, had no derivative in its
-  conclusion -- after two refutations of the gradient-norm form it had been
-  restated as a general advantage bound. True, useful, and not Lemma 4.1, whose
-  entire content is that suboptimality is dominated by a *gradient*. -/
-  mentionsSubject : Bool
   deriving Repr, DecidableEq
 
 /-- A goal is accepted iff every field holds. -/
 def Formalized.ok (f : Formalized) : Bool :=
-  f.grounded && f.proved && f.axiomClean && f.inhabited && f.mentionsSubject
+  f.grounded && f.proved && f.axiomClean && f.inhabited
 
 /-- The fields that fail, for reporting. -/
 def Formalized.failures (f : Formalized) : List String :=
@@ -96,12 +97,11 @@ def Formalized.failures (f : Formalized) : List String :=
     ++ (if f.proved then [] else ["proved"])
     ++ (if f.axiomClean then [] else ["axiomClean"])
     ++ (if f.inhabited then [] else ["inhabited"])
-    ++ (if f.mentionsSubject then [] else ["mentionsSubject"])
 
 /-- `ok` holds exactly when nothing failed. -/
 theorem Formalized.ok_iff_no_failures (f : Formalized) :
     f.ok = true ↔ f.failures = [] := by
-  cases f with | mk g p a i m =>
-    cases g <;> cases p <;> cases a <;> cases i <;> cases m <;> simp [ok, failures]
+  cases f with | mk g p a i =>
+    cases g <;> cases p <;> cases a <;> cases i <;> simp [ok, failures]
 
 end PolicyGradient.Meta

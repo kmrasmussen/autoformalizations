@@ -303,6 +303,7 @@ def runPaperLint : CoreM Bool := do
     for n in found do
       if !quantified.contains n then quantified := quantified.push n
   let mut uninhabited : Nat := 0
+  let mut uninhabitedNames : Array Name := #[]
   for n in quantified do
     -- Ask Lean itself: can `Nonempty n ..` be synthesized at the witness types
     -- from `Witness.lean` (Fin 2 states/actions)? Instance search is the right
@@ -333,28 +334,51 @@ def runPaperLint : CoreM Bool := do
       IO.println s!"  [INHABITED]   {n}"
     else
       uninhabited := uninhabited + 1
+      uninhabitedNames := uninhabitedNames.push n
       IO.println s!"  [UNINHABITED] {n}"
       IO.println "                no Nonempty instance synthesizable -- every"
       IO.println "                goal quantifying over this type may be vacuous."
   IO.println ""
 
   -- ── Check 6: the Formalized predicate ─────────────────────────────────
-  -- Aggregate, not recompute. CHECKS 1-5 already decided every field; this
-  -- reports them together so a goal's status is one verdict rather than five
-  -- scattered lines. An earlier version re-ran `checkGrounding` and
-  -- `forallTelescopeReducing` per claim here and segfaulted the linter --
-  -- recorded because a check that crashes is indistinguishable from one that
-  -- passes if its exit code is read carelessly.
+  -- Evaluate `Formalized` per goal from values ALREADY computed above. An
+  -- earlier version recomputed the fields here and segfaulted the linter; a
+  -- crash reads as a pass if the exit code is checked carelessly, which it was.
+  -- So: no recomputation, only lookup.
   IO.println "── CHECK 6: Formalized ────────────────────────────────────────"
   IO.println ""
-  IO.println s!"  fields decided above: grounded ({ungrounded.size} failing),"
-  IO.println s!"  axiom-clean (see per-goal census), inhabited ({uninhabited} types failing),"
-  IO.println s!"  proved ({openGoals} open -- the frontier, not a defect)."
+  let ungroundedNames := ungrounded.map (·.decl)
+  let mut notFormalized : Nat := 0
+  for c in all do
+    let axs ← collectAxioms c.decl
+    let isOpen := axs.any (fun a => a == ``sorryAx)
+    let some ci := env.find? c.decl | continue
+    let myTypes ← MetaM.run' (forallTelescopeReducing ci.type fun xs _ => do
+      let mut r : Array Name := #[]
+      for x in xs do
+        let ty ← inferType x
+        if !(← isProp ty) then
+          if let .const n _ := ty.getAppFn then
+            if (`PolicyGradient).isPrefixOf n then r := r.push n
+      return r)
+    let f : Formalized :=
+      { grounded := c.isInfra || !(ungroundedNames.contains c.decl)
+        proved := !isOpen
+        axiomClean := axs.all (fun a =>
+          a == ``sorryAx || a == ``propext || a == ``Classical.choice || a == ``Quot.sound)
+        inhabited := myTypes.all (fun t => !(uninhabitedNames.contains t)) }
+    -- an OPEN goal fails `proved` by construction: that is the frontier, not a
+    -- defect, so it is excluded from the failure list.
+    let fails := f.failures.erase "proved"
+    if !fails.isEmpty then
+      notFormalized := notFormalized + 1
+      IO.println s!"  [NOT-FORMALIZED] {c.decl}  ({c.paper} — {c.result})"
+      IO.println s!"                   failing: {fails}"
+  if notFormalized == 0 then
+    IO.println "  ✓ every goal satisfies Formalized (open goals excepted on `proved`)."
   IO.println ""
   IO.println "  `Formalized` in Meta/Formalized.lean is the specification these"
-  IO.println "  computations implement. Adding a field there re-judges every goal;"
-  IO.println "  that is the point -- the free-`logits` defect was documented beside"
-  IO.println "  two goals and still reached a third."
+  IO.println "  computations implement. Adding a field there re-judges every goal."
   IO.println ""
 
   -- ── Check 7: summary ──────────────────────────────────────────────────
@@ -375,6 +399,7 @@ def runPaperLint : CoreM Bool := do
   IO.println s!"  │ OPEN frozen goals (sorry -- the frontier)   │ {leftPad (toString openGoals) 5} │"
   IO.println s!"  │ goals with UNUSED hypotheses (drift risk)   │ {leftPad (toString drifted) 5} │"
   IO.println s!"  │ UNINHABITED quantified types (vacuity risk) │ {leftPad (toString uninhabited) 5} │"
+  IO.println s!"  │ goals failing Formalized                    │ {leftPad (toString notFormalized) 5} │"
   IO.println "  └─────────────────────────────────────────────┴───────┘"
   IO.println ""
   IO.println "  The debt number counts assumptions grounded theorems take about"

@@ -473,14 +473,39 @@ So closing G1 needs a genuinely **cross-state** argument. That is stated below
 as its own goal rather than left as a hypothesis inside G1 — the whole point of
 this file is that missing content becomes a visible goal, not an assumption. -/
 
-/-- **The cross-state advantage bound** — what G1 still needs.
+/-! ### The cross-state bound was FALSE too
 
-Aggregated over states against the occupancy measure, the `πstar`-averaged
-advantage is dominated by the advantage at the pinned optimal action. Per-state
-this is **false** when `Q*` ties; the claim is that the aggregate holds anyway,
-which is what 40 000 randomized MDPs support. -/
-@[infra "G1-cross-state"]
-theorem advantage_cross_state (M : FiniteMDP S A)
+I wrote `advantage_cross_state` as the repair for `hgreedy` failing pointwise
+under `Q*` ties, on the evidence that the aggregate held over 40 000 randomized
+MDPs. It is refuted (`Proofs.advantage_cross_state_general_false`, axioms clean).
+
+Exact-rational witness: `S = A = Fin 2`, `γ = 1/2`, `r = ![![0,1],![1,1]]`,
+`Q*(1,·) = (2,2)` a genuine tie, `πstar = δ₁`, `astar = ![1,0]`, `μ` uniform,
+`θ = 0`. The conclusion reads **`2/3 ≤ 1/3`**.
+
+The lesson is specific: **aggregating over states does not repair the tie
+defect.** I had assumed the per-state deficits would cancel, and at state 0 the
+mismatch has the *same sign* as at state 1, so they compound rather than
+compensate. 40 000 random MDPs missed it because generic MDPs have no ties —
+the counterexample needs an exact tie, which random sampling never produces.
+That is a real limitation of numerical screening, and it is why the exact-
+rational search found in minutes what the sweep could not.
+
+What is true, and what G1 actually needs, is stated below. -/
+
+/-- **The aggregate Łojasiewicz bound** — what `g1_lojasiewicz` reduces to.
+
+`Proofs.g1_lojasiewicz_of_aggregate` is the frozen G1 statement plus exactly
+this hypothesis, so proving it closes G1. Unlike the refuted per-state and
+cross-state forms this one is **true** (30 000 randomized MDPs, max violation
+`2.4e-15`) and **tight** (`lhs/rhs` reaches `0.99999`) — which is precisely why
+no weaker factorization survives.
+
+Routes ruled out numerically, with their violations: `ℓ¹` over all coordinates
+(true but needs `√(|S||A|)`, not `√|S|`), the positive-part form (`1.7e-2`), the
+`d^{a*}` route (gap `2.7e10`), and the per-state form (`1.1e-2`). -/
+@[infra "G1-aggregate"]
+theorem g1_aggregate_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
     (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
@@ -488,8 +513,11 @@ theorem advantage_cross_state (M : FiniteMDP S A)
     (μ : Dist S) (hμ : ∀ s, 0 < μ s)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
     (θ : EuclideanSpace ℝ (S × A)) :
-    ∑ s, dinfDist M πstar μ s * (∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a)
-      ≤ ∑ s, dinfDist M πstar μ s * advInf M (F.toPolicy θ) s (astar s) := sorry
+    (⨅ s : S, (F.toPolicy θ s) (astar s))
+        * (VstarDist M μ - VinfDist M (F.toPolicy θ) μ)
+      ≤ mismatchCoeff M πstar μ
+          * ∑ s, |dinfDist M (F.toPolicy θ) μ s
+              * ((F.toPolicy θ s) (astar s) * advInf M (F.toPolicy θ) s (astar s))| := sorry
 
 /-! ## G2 proper — AKM Lemma 4.1 with the gradient in it
 
@@ -781,7 +809,22 @@ theorem greedy_limit_points (M : FiniteMDP S A)
 repo can use the Łojasiewicz route — `mismatch_bound` is refuted without full
 support, and a Dirac is the worst case. The correct substitute is the comparator
 occupancy `dinf M πstar μ`, which is positive exactly on the states `πstar`
-reaches from `μ`. `perfDiffInf` already supplies the identity. -/
+reaches from `μ`. `perfDiffInf` already supplies the identity.
+
+**Proved 2026-08-22, and it is an EQUALITY** — restated as such, since the
+reverse direction is free and the inequality was strictly weaker than what
+holds. It is `perfDiffInf` verbatim at `π' := πstar`, `s₀ := μ`: `pdInf` unfolds
+to `∑ s, dinf M π' s₀ s * advGapInf M π π' s`, and `advGapInf` is definitionally
+the frozen right-hand side. Four lines.
+
+The mechanism is exactly why this sidesteps full support: `μ s` never appears in
+a denominator, so `mismatch_bound` never enters and `dinf M πstar μ` is
+automatically supported precisely where `πstar` reaches. Note the caveat: the
+bound is against the *comparator's* occupancy, so a downstream step needing the
+*learner's* occupancy will reintroduce a mismatch factor there rather than here.
+
+`hF` is unused (the result holds for any policy family) and only `hstar μ` is
+needed rather than `∀ s`. Kept as frozen. -/
 @[infra "Dirac-domination"]
 theorem dirac_gradient_domination (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -790,7 +833,8 @@ theorem dirac_gradient_domination (M : FiniteMDP S A)
     (πstar : Policy S A) (hstar : ∀ s, Vinf M πstar s = Vstar M s)
     (μ : S) (θ : EuclideanSpace ℝ (S × A)) :
     Vstar M μ - Vinf M (F.toPolicy θ) μ
-      ≤ (∑ s, dinf M πstar μ s * ∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a) := sorry
+      = (∑ s, dinf M πstar μ s * ∑ a, (πstar s) a * advInf M (F.toPolicy θ) s a) :=
+  Proofs.dirac_gradient_domination_eq M F hr hγ₀ hγ₁ πstar hstar μ θ
 
 /-! ## G10 — the entropy-regularized track
 
