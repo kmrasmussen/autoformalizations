@@ -19,6 +19,7 @@ import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Soft
 import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
+import PolicyGradient.Proofs.G1c
 
 /-!
 # Proofs/Extra.lean — additional proof modules
