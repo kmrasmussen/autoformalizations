@@ -7,6 +7,7 @@ import PolicyGradient.Proofs.AKM51b
 import PolicyGradient.Proofs.Bridge
 import PolicyGradient.Proofs.Conv
 import PolicyGradient.Proofs.Conv2
+import PolicyGradient.Proofs.Conv3
 import PolicyGradient.Proofs.DgLip
 import PolicyGradient.Proofs.Dirac
 import PolicyGradient.Proofs.Entropy
@@ -65,4 +66,5 @@ namespace Proofs
 land. -/
 
 end Proofs
-end PolicyGradientimport PolicyGradient.Proofs.Conv3
+end PolicyGradient
+
