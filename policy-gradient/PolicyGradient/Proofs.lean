@@ -3,6 +3,9 @@ Copyright (c) 2026. Released under Apache 2.0 license.
 -/
 import PolicyGradient.Target
 import Mathlib.Analysis.Calculus.Deriv.Inv
+import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.Analysis.Calculus.FDeriv.Mul
+import Mathlib.Analysis.Calculus.FDeriv.Basic
 
 /-!
 # Proofs.lean — where the work happens
@@ -1723,6 +1726,449 @@ strict inequality scale together — here the two sides scale *differently* once
 `mismatchCoeff` is fixed, so `hr` should be restored rather than derived.
 
 Until G1 and G2 are restated, their `sorry`s stand. -/
+
+/-! ## G7a — the tabular-softmax gradient bound, and the `C²` infrastructure
+
+`Goal.lean`'s G7 was refuted above (`g7_general_false`) because `logits` was free.
+The replacement goals pin the **tabular** parameterization via
+
+  `hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a`
+
+which is what makes a uniform bound possible at all. Both are proved here.
+
+### The architecture
+
+`vec_c2_family` needs the *explicit* first derivative, because `VecPolicy.dπ` is
+a field pinned only by `hasFDeriv`: to say anything about its regularity you must
+first identify it. `hasFDeriv_p` computes it as
+
+  `dp s a θ = ∑_b softmaxScore(θ(s,·)) a b • proj (s,b)`
+
+and `dpi_eq` transfers that to `F.dπ` by uniqueness of Fréchet derivatives. Its
+coefficients are polynomials in softmax probabilities, hence differentiable —
+that is `vec_c2_family_proof`.
+
+`g7a_gradient_bound` is proved **without** differentiating `Vinf` at all, via
+`norm_fderiv_le_of_lip'`: a global Lipschitz estimate with constant `2/(1-γ)²`
+bounds the Fréchet derivative wherever it exists, and where it does not,
+`fderiv = 0` and the bound is free. The Lipschitz estimate has two halves.
+
+* **MDP half** (`Vinf_diff_le`). The Bellman decomposition
+  `V^π(s) - V^{π'}(s) = ∑ₐ (π-π')(a|s)·Q^{π'}(s,a) + γ·E[V^π - V^{π'}]`
+  gives `Δ ≤ B + γΔ` for `Δ = maxₛ|V^π(s)-V^{π'}(s)|`, hence `Δ ≤ B/(1-γ)`.
+  This is the infinite-horizon analogue of `abs_dV_le`'s geometric induction,
+  run on the *difference* of two values rather than on a derivative.
+
+* **Softmax half** (`g_lipschitz`). `B` is a difference of the scalar function
+  `g s q θ = ∑ₐ softmax(θ(s,·))ₐ · qₐ`, whose derivative is
+  `dg = ∑_b p_b·(q_b - q̄) • proj (s,b)` — the coefficient is exactly the
+  occupancy-weighted **advantage**, and its `ℓ¹` norm is at most the range of
+  `q`. With `|Q^π| ≤ 1/(1-γ)` (`abs_Qinf_le`) that is `2/(1-γ)`, and the mean
+  value inequality turns it into a Lipschitz constant.
+
+Multiplying the two halves gives `2/(1-γ) · 1/(1-γ) = 2/(1-γ)²` — the constant
+`Goal.lean` states, with no slack. Both factors are forced: `1/(1-γ)` from the
+value horizon, and `2` from the *range* (not the size) of `Q`, since the scores
+sum to zero (`softmaxScore_sum_eq_zero`) and only the centered part of `Q`
+survives the contraction. -/
+
+section G7a
+
+variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A]
+variable [Nonempty S] [Nonempty A]
+
+noncomputable abbrev E (S A : Type*) := EuclideanSpace ℝ (S × A)
+noncomputable abbrev pr (sa : S × A) : E S A →L[ℝ] ℝ := EuclideanSpace.proj sa
+
+theorem norm_pr_le (sa : S × A) : ‖pr (S:=S) (A:=A) sa‖ ≤ 1 := by
+  refine ContinuousLinearMap.opNorm_le_bound _ zero_le_one (fun x => ?_)
+  rw [one_mul, Real.norm_eq_abs]
+  simpa using PiLp.norm_apply_le x sa
+
+theorem norm_comb_le (s : S) (c : A → ℝ) :
+    ‖∑ b : A, c b • (pr (S:=S) (A:=A) (s,b))‖ ≤ ∑ b, |c b| := by
+  refine le_trans (norm_sum_le _ _) (Finset.sum_le_sum (fun b _ => ?_))
+  rw [norm_smul, Real.norm_eq_abs]
+  nlinarith [abs_nonneg (c b), norm_pr_le (S:=S) (A:=A) (s,b)]
+
+theorem hasFDeriv_expCoord (s : S) (b : A) (θ : E S A) :
+    HasFDerivAt (fun t : E S A => Real.exp (t (s,b)))
+      (Real.exp (θ (s,b)) • (pr (S:=S) (A:=A) (s,b))) θ := by
+  have h := (pr (S:=S) (A:=A) (s,b)).hasFDerivAt (x := θ)
+  simpa using h.exp
+
+/-- denominator -/
+theorem hasFDeriv_den (s : S) (θ : E S A) :
+    HasFDerivAt (fun t : E S A => ∑ b, Real.exp (t (s,b)))
+      (∑ b : A, Real.exp (θ (s,b)) • (pr (S:=S) (A:=A) (s,b))) θ := by
+  have key : (fun t : E S A => ∑ b, Real.exp (t (s,b)))
+      = ∑ b : A, (fun t : E S A => Real.exp (t (s,b))) := by
+    funext t; simp [Finset.sum_apply]
+  rw [key]
+  exact HasFDerivAt.sum (fun b _ => hasFDeriv_expCoord s b θ)
+
+
+noncomputable def den (s : S) (θ : E S A) : ℝ := ∑ b, Real.exp (θ (s,b))
+
+theorem den_pos (s : S) (θ : E S A) : 0 < den (S:=S) (A:=A) s θ :=
+  softmax_denom_pos (fun a' => θ (s,a'))
+
+noncomputable def p (s : S) (a : A) : E S A → ℝ :=
+  fun θ => (softmax (fun a' => θ (s, a'))) a
+
+/-- explicit derivative of the tabular softmax probability -/
+noncomputable def dp (s : S) (a : A) (θ : E S A) : E S A →L[ℝ] ℝ :=
+  ∑ b : A, (softmaxScore (fun a' => θ (s,a')) a b) • (pr (S:=S) (A:=A) (s,b))
+
+theorem hasFDeriv_p (s : S) (a : A) (θ : E S A) :
+    HasFDerivAt (p (S:=S) (A:=A) s a) (dp s a θ) θ := by
+  have hnum := hasFDeriv_expCoord (S:=S) (A:=A) s a θ
+  have hden := hasFDeriv_den (S:=S) (A:=A) s θ
+  have hne : (∑ b, Real.exp (θ (s,b))) ≠ 0 := ne_of_gt (den_pos (S:=S) (A:=A) s θ)
+  have hinvs : HasDerivAt (fun x : ℝ => x⁻¹) (-((∑ b, Real.exp (θ (s,b)))^2)⁻¹) (∑ b, Real.exp (θ (s,b))) :=
+    hasDerivAt_inv hne
+  have hinv : HasFDerivAt (fun t : E S A => (∑ b, Real.exp (t (s,b)))⁻¹)
+      ((-((∑ b, Real.exp (θ (s,b)))^2)⁻¹) • (∑ b : A, Real.exp (θ (s,b)) • (pr (S:=S) (A:=A) (s,b)))) θ :=
+    hinvs.comp_hasFDerivAt θ hden
+  have hq := hnum.mul hinv
+  have hfun : (p (S:=S) (A:=A) s a) = fun t : E S A => Real.exp (t (s,a)) / ∑ b, Real.exp (t (s,b)) := by
+    funext t; simp [p, div_eq_mul_inv]
+  rw [hfun]
+  have hmulfun : ((fun t : E S A => Real.exp (t (s,a))) * fun t : E S A => (∑ b, Real.exp (t (s,b)))⁻¹)
+      = fun t : E S A => Real.exp (t (s,a)) / ∑ b, Real.exp (t (s,b)) := by
+    funext t; simp [div_eq_mul_inv]
+  rw [hmulfun] at hq
+  refine hq.congr_fderiv ?_
+  ext v
+  simp only [dp, softmaxScore, _root_.sum_apply, smul_apply,
+    add_apply, smul_eq_mul, softmax_apply]
+  set D : ℝ := ∑ x, Real.exp (θ (s,x)) with hD
+  set Ea : ℝ := Real.exp (θ (s,a)) with hEa
+  have hDne : D ≠ 0 := hne
+  have hsplit : ∑ x, Ea / D * ((if a = x then 1 else 0) - Real.exp (θ (s,x)) / D)
+        * (pr (S:=S) (A:=A) (s,x)) v
+      = Ea / D * (pr (S:=S) (A:=A) (s,a)) v
+        - (Ea / D^2) * ∑ x, Real.exp (θ (s,x)) * (pr (S:=S) (A:=A) (s,x)) v := by
+    rw [Finset.sum_congr rfl (fun x _ => by ring_nf :
+      ∀ x ∈ (univ : Finset A), Ea / D * ((if a = x then 1 else 0) - Real.exp (θ (s,x)) / D)
+        * (pr (S:=S) (A:=A) (s,x)) v
+        = (if a = x then 1 else 0) * (Ea / D * (pr (S:=S) (A:=A) (s,x)) v)
+          - (Ea / D^2) * (Real.exp (θ (s,x)) * (pr (S:=S) (A:=A) (s,x)) v))]
+    rw [Finset.sum_sub_distrib, ← Finset.mul_sum]
+    congr 1
+    simp
+  rw [hsplit]
+  field_simp
+  ring
+
+
+/-- The `q`-weighted tabular softmax at state `s`. -/
+noncomputable def g (s : S) (q : A → ℝ) (t : E S A) : ℝ :=
+  ∑ a, (softmax (fun a' => t (s,a'))) a * q a
+
+/-- Its derivative: `∑_b p_b (q_b - q̄) · proj(s,b)`. -/
+noncomputable def dg (s : S) (q : A → ℝ) (t : E S A) : E S A →L[ℝ] ℝ :=
+  ∑ b : A, ((softmax (fun a' => t (s,a'))) b
+      * (q b - ∑ a, (softmax (fun a' => t (s,a'))) a * q a)) • (pr (S:=S) (A:=A) (s,b))
+
+
+theorem hasFDeriv_g (s : S) (q : A → ℝ) (t : E S A) :
+    HasFDerivAt (g (S:=S) (A:=A) s q) (dg s q t) t := by
+  have hsum : HasFDerivAt (fun x : E S A => ∑ a, p (S:=S) (A:=A) s a x * q a)
+      (∑ a : A, q a • dp (S:=S) (A:=A) s a t) t := by
+    have key : (fun x : E S A => ∑ a, p (S:=S) (A:=A) s a x * q a)
+        = ∑ a : A, (fun x : E S A => p (S:=S) (A:=A) s a x * q a) := by
+      funext x; simp [Finset.sum_apply]
+    rw [key]
+    refine HasFDerivAt.sum (fun a _ => ?_)
+    have h := (hasFDeriv_p (S:=S) (A:=A) s a t).mul_const (q a)
+    refine h.congr_fderiv ?_
+    ext v
+    simp
+  have hfun : (g (S:=S) (A:=A) s q) = fun x : E S A => ∑ a, p (S:=S) (A:=A) s a x * q a := rfl
+  rw [hfun]
+  refine hsum.congr_fderiv ?_
+  ext v
+  simp only [dg, dp, softmaxScore, _root_.sum_apply, smul_apply, smul_eq_mul]
+  set P : A → ℝ := fun x => (softmax (fun a' => t (s,a'))) x with hP
+  have hone : ∑ x, P x = 1 := (softmax (fun a' => t (s,a'))).sum_eq_one
+  rw [Finset.sum_congr rfl (fun x _ => Finset.mul_sum _ _ _)]
+  rw [Finset.sum_comm]
+  refine Finset.sum_congr rfl fun b _ => ?_
+  set w : ℝ := (pr (S:=S) (A:=A) (s,b)) v with hw
+  have hkey : ∑ a, q a * (P a * ((if a = b then 1 else 0) - P b) * w)
+      = (P b * q b - P b * (∑ a, P a * q a)) * w := by
+    have e1 : ∀ a, q a * (P a * ((if a = b then 1 else 0) - P b) * w)
+        = (if a = b then q a * P a * w else 0) - (P b * w) * (P a * q a) := by
+      intro a; by_cases h : a = b <;> simp [h] <;> ring
+    rw [Finset.sum_congr rfl (fun a _ => e1 a), Finset.sum_sub_distrib,
+      Finset.sum_ite_eq' univ b (fun a => q a * P a * w), ← Finset.mul_sum]
+    simp only [mem_univ, if_true]
+    ring
+  rw [hkey]
+  ring
+
+
+
+/-- `‖dg‖ ≤ 2B` when `|q| ≤ B`: the coefficient vector is `p_b·(q_b - q̄)`, an
+occupancy-weighted advantage, whose `ℓ¹` norm is at most the range of `q`. -/
+theorem norm_dg_le (s : S) (q : A → ℝ) (B : ℝ) (hq : ∀ a, |q a| ≤ B) (t : E S A) :
+    ‖dg (S:=S) (A:=A) s q t‖ ≤ 2 * B := by
+  set P : Dist A := softmax (fun a' => t (s,a')) with hPdef
+  have hB : 0 ≤ B := le_trans (abs_nonneg _) (hq (Classical.arbitrary A))
+  have hbar : |∑ a, P a * q a| ≤ B := by
+    calc |∑ a, P a * q a| ≤ ∑ a, |P a * q a| := Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ a, P a * |q a| := by
+          refine Finset.sum_congr rfl fun a _ => ?_
+          rw [abs_mul, abs_of_nonneg (P.nonneg a)]
+      _ ≤ ∑ a, P a * B := Finset.sum_le_sum (fun a _ => mul_le_mul_of_nonneg_left (hq a) (P.nonneg a))
+      _ = B := by rw [← Finset.sum_mul, P.sum_eq_one, one_mul]
+  refine le_trans (norm_comb_le s (fun b => P b * (q b - ∑ a, P a * q a))) ?_
+  calc ∑ b, |P b * (q b - ∑ a, P a * q a)|
+      = ∑ b, P b * |q b - ∑ a, P a * q a| := by
+        refine Finset.sum_congr rfl fun b _ => ?_
+        rw [abs_mul, abs_of_nonneg (P.nonneg b)]
+    _ ≤ ∑ b, P b * (2 * B) := by
+        refine Finset.sum_le_sum fun b _ => ?_
+        refine mul_le_mul_of_nonneg_left ?_ (P.nonneg b)
+        calc |q b - ∑ a, P a * q a| ≤ |q b| + |∑ a, P a * q a| := abs_sub _ _
+          _ ≤ B + B := add_le_add (hq b) hbar
+          _ = 2 * B := by ring
+    _ = 2 * B := by rw [← Finset.sum_mul, P.sum_eq_one, one_mul]
+
+
+/-- **Softmax value-weighting is `2B`-Lipschitz.** Mean value inequality applied
+to `g`, whose derivative has operator norm at most `2B` everywhere. -/
+theorem g_lipschitz (s : S) (q : A → ℝ) (B : ℝ) (hq : ∀ a, |q a| ≤ B) (θ₁ θ₂ : E S A) :
+    |g (S:=S) (A:=A) s q θ₁ - g (S:=S) (A:=A) s q θ₂| ≤ 2 * B * ‖θ₁ - θ₂‖ := by
+  have hB : 0 ≤ B := le_trans (abs_nonneg _) (hq (Classical.arbitrary A))
+  have hdiff : ∀ x : E S A, DifferentiableAt ℝ (g (S:=S) (A:=A) s q) x :=
+    fun x => (hasFDeriv_g s q x).differentiableAt
+  have hfd : ∀ x : E S A, fderiv ℝ (g (S:=S) (A:=A) s q) x = dg (S:=S) (A:=A) s q x :=
+    fun x => (hasFDeriv_g s q x).fderiv
+  have hmvt := Convex.norm_image_sub_le_of_norm_fderiv_le (f := g (S:=S) (A:=A) s q)
+    (s := (Set.univ : Set (E S A))) (C := 2*B)
+    (fun x _ => hdiff x) (fun x _ => by rw [hfd x]; exact norm_dg_le s q B hq x)
+    convex_univ (Set.mem_univ θ₂) (Set.mem_univ θ₁)
+  simpa [Real.norm_eq_abs] using hmvt
+
+
+
+/-- `hF` forces `F.dπ` to be the explicit softmax derivative. -/
+theorem dpi_eq (F : VecPolicy S A (E S A))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : E S A) (s : S) (a : A) : F.dπ θ s a = dp s a θ := by
+  have h1 : HasFDerivAt (fun t : E S A => (F.toPolicy t s) a) (F.dπ θ s a) θ := F.hasFDeriv θ s a
+  have hcongr : (fun t : E S A => (F.toPolicy t s) a) = p (S:=S) (A:=A) s a := by
+    funext t; exact hF t s a
+  rw [hcongr] at h1
+  exact h1.unique (hasFDeriv_p s a θ)
+
+/-- The scalar coefficients of `dp` are differentiable. -/
+theorem score_diff (s : S) (a b : A) :
+    Differentiable ℝ (fun t : E S A => softmaxScore (fun a' => t (s,a')) a b) := by
+  unfold softmaxScore
+  have h1 : Differentiable ℝ (p (S:=S) (A:=A) s a) := by
+    unfold p
+    refine softmax_diff (E := E S A) (fun θ a' => θ (s,a')) ?_ a
+    intro a'
+    exact (pr (S:=S) (A:=A) (s,a')).differentiable
+  have h2 : Differentiable ℝ (p (S:=S) (A:=A) s b) := by
+    unfold p
+    refine softmax_diff (E := E S A) (fun θ a' => θ (s,a')) ?_ b
+    intro a'
+    exact (pr (S:=S) (A:=A) (s,a')).differentiable
+  exact h1.mul (((differentiable_const _).sub h2))
+
+/-- `θ ↦ dp s a θ` is differentiable. -/
+theorem dp_diff (s : S) (a : A) : Differentiable ℝ (fun t : E S A => dp (S:=S) (A:=A) s a t) := by
+  unfold dp
+  have key : (fun t : E S A => ∑ b : A, (softmaxScore (fun a' => t (s,a')) a b) • (pr (S:=S) (A:=A) (s,b)))
+      = ∑ b : A, (fun t : E S A => (softmaxScore (fun a' => t (s,a')) a b) • (pr (S:=S) (A:=A) (s,b))) := by
+    funext t; simp [Finset.sum_apply]
+  rw [key]
+  intro t
+  refine DifferentiableAt.sum (fun b _ => ?_)
+  exact (score_diff s a b t).smul_const _
+
+
+theorem vec_c2_family_proof (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (θ : EuclideanSpace ℝ (S × A)) (s : S) (a : A) :
+    DifferentiableAt ℝ (fun t => F.dπ t s a) θ := by
+  have hfun : (fun t : EuclideanSpace ℝ (S × A) => F.dπ t s a)
+      = fun t : E S A => dp (S:=S) (A:=A) s a t := by
+    funext t; exact dpi_eq F hF t s a
+  rw [hfun]
+  exact dp_diff s a θ
+
+
+/-- `|Qinf| ≤ 1/(1-γ)` when rewards are bounded by 1. -/
+theorem abs_Qinf_le (M : FiniteMDP S A) (π : Policy S A) (hr : ∀ s a, |M.r s a| ≤ 1)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) (a : A) :
+    |Qinf M π s a| ≤ 1 / (1 - M.γ) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  unfold Qinf
+  have hV : |∑ s', (M.P s a) s' * Vinf M π s'| ≤ 1 / (1 - M.γ) := by
+    calc |∑ s', (M.P s a) s' * Vinf M π s'|
+        ≤ ∑ s', |(M.P s a) s' * Vinf M π s'| := Finset.abs_sum_le_sum_abs _ _
+      _ = ∑ s', (M.P s a) s' * |Vinf M π s'| := by
+          refine Finset.sum_congr rfl fun s' _ => ?_
+          rw [abs_mul, abs_of_nonneg ((M.P s a).nonneg s')]
+      _ ≤ ∑ s', (M.P s a) s' * (1 / (1 - M.γ)) := by
+          refine Finset.sum_le_sum fun s' _ => ?_
+          exact mul_le_mul_of_nonneg_left
+            (abs_Vinf_le M π 1 zero_le_one hr hγ₀ hγ₁ s') ((M.P s a).nonneg s')
+      _ = 1 / (1 - M.γ) := by rw [← Finset.sum_mul, (M.P s a).sum_eq_one, one_mul]
+  calc |M.r s a + M.γ * ∑ s', (M.P s a) s' * Vinf M π s'|
+      ≤ |M.r s a| + |M.γ * ∑ s', (M.P s a) s' * Vinf M π s'| := abs_add_le _ _
+    _ ≤ 1 + M.γ * (1 / (1 - M.γ)) := by
+        refine add_le_add (hr s a) ?_
+        rw [abs_mul, abs_of_nonneg hγ₀]
+        exact mul_le_mul_of_nonneg_left hV hγ₀
+    _ = 1 / (1 - M.γ) := by field_simp; ring
+
+/-- The one-step decomposition of a value difference. -/
+theorem Vinf_diff_eq (M : FiniteMDP S A) (π π' : Policy S A) (hr : ∀ s a, |M.r s a| ≤ 1)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vinf M π s - Vinf M π' s
+      = (∑ a, ((π s) a - (π' s) a) * Qinf M π' s a)
+        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s') := by
+  rw [Vinf_eq_rbar_add M π 1 zero_le_one hr hγ₀ hγ₁ s,
+      Vinf_eq_rbar_add M π' 1 zero_le_one hr hγ₀ hγ₁ s]
+  have hsplit : ∑ a, (π s) a * Qinf M π s a
+      = ∑ a, (π s) a * Qinf M π' s a
+        + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s') := by
+    rw [Finset.mul_sum, ← Finset.sum_add_distrib]
+    refine Finset.sum_congr rfl fun a _ => ?_
+    unfold Qinf
+    have hd : ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')
+        = (∑ s', (M.P s a) s' * Vinf M π s') - ∑ s', (M.P s a) s' * Vinf M π' s' := by
+      rw [← Finset.sum_sub_distrib]
+      exact Finset.sum_congr rfl fun s' _ => by ring
+    rw [hd]; ring
+  rw [hsplit]
+  have hlin : ∑ a, ((π s) a - (π' s) a) * Qinf M π' s a
+      = (∑ a, (π s) a * Qinf M π' s a) - ∑ a, (π' s) a * Qinf M π' s a := by
+    rw [← Finset.sum_sub_distrib]
+    exact Finset.sum_congr rfl fun a _ => by ring
+  rw [hlin]; ring
+
+
+/-- **The contraction bound.** If every state's one-step policy-difference term is
+bounded by `B`, the value difference is bounded by `B/(1-γ)`. -/
+theorem Vinf_diff_le (M : FiniteMDP S A) (π π' : Policy S A) (hr : ∀ s a, |M.r s a| ≤ 1)
+    (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (B : ℝ)
+    (hB : ∀ s, |∑ a, ((π s) a - (π' s) a) * Qinf M π' s a| ≤ B) (s₀ : S) :
+    |Vinf M π s₀ - Vinf M π' s₀| ≤ B / (1 - M.γ) := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  have hBnn : 0 ≤ B := le_trans (abs_nonneg _) (hB s₀)
+  classical
+  set D : ℝ := Finset.univ.sup' ⟨s₀, mem_univ s₀⟩
+    (fun s => |Vinf M π s - Vinf M π' s|) with hD
+  have hle : ∀ s, |Vinf M π s - Vinf M π' s| ≤ D := by
+    intro s
+    rw [hD]
+    exact Finset.le_sup' (f := fun s => |Vinf M π s - Vinf M π' s|) (mem_univ s)
+  have hDnn : 0 ≤ D := le_trans (abs_nonneg _) (hle s₀)
+  have hγD : 0 ≤ M.γ * D := mul_nonneg hγ₀ hDnn
+  -- D ≤ B + γ D
+  have hstep : D ≤ B + M.γ * D := by
+    obtain ⟨s, -, hs⟩ := Finset.exists_mem_eq_sup' (⟨s₀, mem_univ s₀⟩ :
+      (Finset.univ : Finset S).Nonempty) (fun s => |Vinf M π s - Vinf M π' s|)
+    have hDs : D = |Vinf M π s - Vinf M π' s| := by rw [hD]; exact hs
+    rw [hDs]
+    nth_rewrite 1 [Vinf_diff_eq M π π' hr hγ₀ hγ₁ s]
+    have htail : |M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')|
+        ≤ M.γ * D := by
+      rw [abs_mul, abs_of_nonneg hγ₀]
+      refine mul_le_mul_of_nonneg_left ?_ hγ₀
+      calc |∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')|
+          ≤ ∑ a, |(π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')| :=
+            Finset.abs_sum_le_sum_abs _ _
+        _ = ∑ a, (π s) a * |∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')| := by
+            refine Finset.sum_congr rfl fun a _ => ?_
+            rw [abs_mul, abs_of_nonneg ((π s).nonneg a)]
+        _ ≤ ∑ a, (π s) a * D := by
+            refine Finset.sum_le_sum fun a _ => ?_
+            refine mul_le_mul_of_nonneg_left ?_ ((π s).nonneg a)
+            calc |∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')|
+                ≤ ∑ s', |(M.P s a) s' * (Vinf M π s' - Vinf M π' s')| :=
+                  Finset.abs_sum_le_sum_abs _ _
+              _ = ∑ s', (M.P s a) s' * |Vinf M π s' - Vinf M π' s'| := by
+                  refine Finset.sum_congr rfl fun s' _ => ?_
+                  rw [abs_mul, abs_of_nonneg ((M.P s a).nonneg s')]
+              _ ≤ ∑ s', (M.P s a) s' * D :=
+                  Finset.sum_le_sum fun s' _ =>
+                    mul_le_mul_of_nonneg_left (hle s') ((M.P s a).nonneg s')
+              _ = D := by rw [← Finset.sum_mul, (M.P s a).sum_eq_one, one_mul]
+        _ = D := by rw [← Finset.sum_mul, (π s).sum_eq_one, one_mul]
+    calc |(∑ a, ((π s) a - (π' s) a) * Qinf M π' s a)
+            + M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')|
+        ≤ |∑ a, ((π s) a - (π' s) a) * Qinf M π' s a|
+          + |M.γ * ∑ a, (π s) a * ∑ s', (M.P s a) s' * (Vinf M π s' - Vinf M π' s')| :=
+            abs_add_le _ _
+      _ ≤ B + M.γ * D := add_le_add (hB s) htail
+      _ = B + M.γ * |Vinf M π s - Vinf M π' s| := by rw [← hDs]
+  have : D ≤ B / (1 - M.γ) := by
+    rw [le_div_iff₀ hpos]; nlinarith
+  exact le_trans (hle s₀) this
+
+
+
+/-- **The global Lipschitz bound for the tabular softmax value.** -/
+theorem Vinf_lipschitz (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ₁ θ₂ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    |Vinf M (F.toPolicy θ₁) s₀ - Vinf M (F.toPolicy θ₂) s₀|
+      ≤ 2 / (1 - M.γ) ^ 2 * ‖θ₁ - θ₂‖ := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  set π₁ := F.toPolicy θ₁
+  set π₂ := F.toPolicy θ₂
+  -- the per-state one-step term is a difference of `g`s
+  have hkey : ∀ s, |∑ a, ((π₁ s) a - (π₂ s) a) * Qinf M π₂ s a|
+      ≤ 2 / (1 - M.γ) * ‖θ₁ - θ₂‖ := by
+    intro s
+    set q : A → ℝ := fun a => Qinf M π₂ s a with hq
+    have hqb : ∀ a, |q a| ≤ 1 / (1 - M.γ) :=
+      fun a => abs_Qinf_le M π₂ hr hγ₀ hγ₁ s a
+    have hgd : ∑ a, ((π₁ s) a - (π₂ s) a) * Qinf M π₂ s a
+        = g (S:=S) (A:=A) s q θ₁ - g (S:=S) (A:=A) s q θ₂ := by
+      unfold g
+      rw [← Finset.sum_sub_distrib]
+      refine Finset.sum_congr rfl fun a _ => ?_
+      rw [hF θ₁ s a, hF θ₂ s a]
+      ring
+    rw [hgd]
+    have := g_lipschitz (S:=S) (A:=A) s q (1 / (1 - M.γ)) hqb θ₁ θ₂
+    calc |g (S:=S) (A:=A) s q θ₁ - g (S:=S) (A:=A) s q θ₂|
+        ≤ 2 * (1 / (1 - M.γ)) * ‖θ₁ - θ₂‖ := this
+      _ = 2 / (1 - M.γ) * ‖θ₁ - θ₂‖ := by ring
+  have hc := Vinf_diff_le M π₁ π₂ hr hγ₀ hγ₁ (2 / (1 - M.γ) * ‖θ₁ - θ₂‖) hkey s₀
+  refine le_trans hc (le_of_eq ?_)
+  field_simp
+
+
+/-- **G7a.** `‖∇_θ V^{π_θ}(s₀)‖ ≤ 2/(1-γ)²` for the tabular softmax family with
+rewards in `[-1,1]`. Proved from the global Lipschitz estimate via
+`norm_fderiv_le_of_lip'`, so no differentiability of `Vinf` is needed: where the
+derivative fails to exist Mathlib's `fderiv` is `0` and the bound is trivial. -/
+theorem g7a_gradient_bound_proof (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (θ : EuclideanSpace ℝ (S × A)) (s₀ : S) :
+    ‖fderiv ℝ (fun t => Vinf M (F.toPolicy t) s₀) θ‖ ≤ 2 / (1 - M.γ) ^ 2 := by
+  have hpos : 0 < 1 - M.γ := by linarith
+  refine norm_fderiv_le_of_lip' ℝ (by positivity) ?_
+  refine Filter.Eventually.of_forall (fun x => ?_)
+  rw [Real.norm_eq_abs]
+  exact Vinf_lipschitz M F hF hr hγ₀ hγ₁ x θ s₀
+
+end G7a
+
 
 end Proofs
 end PolicyGradient
