@@ -146,5 +146,310 @@ theorem dinf_le_one_div (M : FiniteMDP S A) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ
   rw [hgeo] at hcmp
   exact hcmp
 
+
+/-! ## Bellman optimality (`Bellman-optimality`, `Greedy-support`)
+
+The two goals here are the standard Bellman-optimality characterization
+`V*(s) = maxₐ Q*(s,a)` and the "an optimal policy's support is greedy" step.
+
+### A structural note: where `Qstar` lives
+
+`Qstar` is declared in **`Goal.lean`**, not in `Target.lean`. `Proofs.lean` cannot
+import `Goal.lean` (that is the very cycle `Target.lean` was split out to avoid),
+and re-declaring `Qstar` here or in `Target.lean` makes `Goal.lean` fail with
+`already been declared`. Since subagents may not edit `Goal.lean`, the two
+`_proof` lemmas below state `Q*` **inlined** — literally
+`M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s'` — which is *definitionally*
+`Qstar M s a`. The orchestrator's one-line wiring
+`:= Proofs.vstar_bellman_proof M hr hγ₀ hγ₁ s` therefore typechecks unchanged;
+`Qstar` is a plain `def` and unfolds at default transparency. (Verified against a
+standalone two-module replica of exactly this import shape.)
+
+`QstarP` below is that same body under a local name, used only inside this file.
+Moving `Qstar` from `Goal.lean` to `Target.lean` — where the other definitions
+already live — would remove the need for both the alias and the inlining, and is
+the recommended cleanup for the orchestrator.
+
+### Why the usual textbook argument does not transcribe directly
+
+`Vstar M s = ⨆ π : Policy S A, Vinf M π s` is a supremum over **stationary**
+policies, taken **separately at each state**. Nothing in the definition says one
+policy attains it at all states at once. The easy inequality
+`Vstar s ≤ ⨆ a, Q*(s,a)` needs nothing more than `Vinf_eq_rbar_add` plus
+`Vinf π s' ≤ Vstar s'`. The reverse needs a policy realizing `Q*(s,a)`, and the
+naive "play `a` once, then act optimally" is *not* a stationary policy, so it is
+not an element of `Policy S A` at all.
+
+### The route taken
+
+Avoid constructing a per-`(s,a)` policy entirely. Build the single **greedy
+deterministic stationary** policy `greedyPolicy`, `g s := argmaxₐ Q*(s,a)`, and
+show `Vinf M greedyPolicy = Vstar` by a max-state contraction argument:
+
+* `vstar_le_greedy_Q` : `∀ s, Vstar M s ≤ Q*(s, g s)` — the easy direction.
+* `Vinf_greedy_bellman` : `Vinf M g s = M.r s (g s) + γ ∑ s', P s (g s) s' · Vinf M g s'`
+  — the greedy policy's own Bellman equation, from `Vinf_eq_rbar_add` plus the
+  fact that a deterministic policy's expectation collapses to one term.
+* Subtracting, with `Δ s := Vstar M s - Vinf M g s ≥ 0` (from `vstar_upper_proof`):
+  `Δ s ≤ γ * ∑ s', P s (g s) s' * Δ s' ≤ γ * (maxₛ Δ)`.
+* Evaluate at the argmax `s*` of `Δ`: `D ≤ γ D` with `0 ≤ D` and `γ < 1`, so
+  `D = 0` and `Vinf M g = Vstar` pointwise (`vstar_eq_greedy`).
+
+Then `Q*(s, g s) = Qinf g s (g s) = Vinf g s = Vstar s`, closing the hard
+direction. No approximation, no nonstationary policies, no ε-arguments:
+everything is a finite max over `S` and `A`.
+-/
+
+section Bellman
+
+variable {S A : Type*} [Fintype S] [Fintype A] [DecidableEq S] [DecidableEq A]
+variable [Nonempty S] [Nonempty A]
+
+/-- `Set.range f` for `f` on a finite type is bounded above — the side condition
+`le_ciSup` needs for the `A`-indexed and `S`-indexed suprema below. -/
+theorem bddAbove_range_finite {ι : Type*} [Finite ι] (f : ι → ℝ) :
+    BddAbove (Set.range f) :=
+  Set.Finite.bddAbove (Set.finite_range f)
+
+/-- A deterministic stationary policy: always play `f s` in state `s`. -/
+noncomputable def detPolicy (f : S → A) : Policy S A := fun s => pointMass (f s)
+
+theorem detPolicy_apply (f : S → A) (s : S) (a : A) :
+    (detPolicy f s) a = if a = f s then 1 else 0 := rfl
+
+/-- Expectations under a deterministic policy collapse to a single term. -/
+theorem sum_detPolicy (f : S → A) (s : S) (h : A → ℝ) :
+    ∑ a, (detPolicy f s) a * h a = h (f s) := by
+  simp only [detPolicy_apply, ite_mul, one_mul, zero_mul]
+  simp [Finset.sum_ite_eq' Finset.univ (f s) h]
+
+/-- The optimal action-value, **inlined** rather than referring to `Goal.Qstar`
+(see the note above). Definitionally equal to `Qstar M s a`. -/
+noncomputable def QstarP (M : FiniteMDP S A) (s : S) (a : A) : ℝ :=
+  M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s'
+
+/-- An action maximizing `Q*(s, ·)`. Exists since `A` is finite and nonempty. -/
+noncomputable def greedyAct (M : FiniteMDP S A) (s : S) : A :=
+  (Finite.exists_max (QstarP M s)).choose
+
+theorem greedyAct_max (M : FiniteMDP S A) (s : S) (a : A) :
+    QstarP M s a ≤ QstarP M s (greedyAct M s) :=
+  (Finite.exists_max (QstarP M s)).choose_spec a
+
+/-- The greedy deterministic stationary policy `g s = argmaxₐ Q*(s,a)`. -/
+noncomputable def greedyPolicy (M : FiniteMDP S A) : Policy S A :=
+  detPolicy (greedyAct M)
+
+/-- `⨆ a, Q*(s,a) = Q*(s, g s)`: the finite sup is attained at the greedy action. -/
+theorem ciSup_QstarP (M : FiniteMDP S A) (s : S) :
+    ⨆ a : A, QstarP M s a = QstarP M s (greedyAct M s) :=
+  le_antisymm (ciSup_le fun a => greedyAct_max M s a)
+    (le_ciSup (bddAbove_range_finite (QstarP M s)) _)
+
+/-- **The easy direction, per state:** `V*(s) ≤ Q*(s, g s)`.
+
+For any `π`, `Vinf π s = ∑ₐ π(a|s) · Qinf(π,s,a) ≤ ∑ₐ π(a|s) · Q*(s,a)`
+(monotone in `Vinf π s' ≤ Vstar s'`), and each `Q*(s,a) ≤ Q*(s, g s)`, so the
+whole convex combination is `≤ Q*(s, g s)`. Take the sup over `π`. -/
+theorem vstar_le_greedy_Q (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vstar M s ≤ QstarP M s (greedyAct M s) := by
+  refine ciSup_le fun π => ?_
+  rw [Vinf_eq_rbar_add M π 1 zero_le_one hr hγ₀ hγ₁ s]
+  have hQ : ∀ a, Qinf M π s a ≤ QstarP M s (greedyAct M s) := by
+    intro a
+    refine le_trans ?_ (greedyAct_max M s a)
+    unfold Qinf QstarP
+    have hsum : ∑ s', (M.P s a) s' * Vinf M π s'
+        ≤ ∑ s', (M.P s a) s' * Vstar M s' :=
+      Finset.sum_le_sum fun s' _ =>
+        mul_le_mul_of_nonneg_left
+          (vstar_upper_proof M hr hγ₀ hγ₁ π s') ((M.P s a).nonneg s')
+    have := mul_le_mul_of_nonneg_left hsum hγ₀
+    linarith
+  calc ∑ a, (π s) a * Qinf M π s a
+      ≤ ∑ a, (π s) a * QstarP M s (greedyAct M s) :=
+        Finset.sum_le_sum fun a _ => mul_le_mul_of_nonneg_left (hQ a) ((π s).nonneg a)
+    _ = QstarP M s (greedyAct M s) := by
+        rw [← Finset.sum_mul, (π s).sum_eq_one, one_mul]
+
+/-- The greedy policy's own Bellman equation, with the deterministic
+expectation already collapsed to its single term. -/
+theorem Vinf_greedy_bellman (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vinf M (greedyPolicy M) s
+      = M.r s (greedyAct M s)
+        + M.γ * ∑ s', (M.P s (greedyAct M s)) s' * Vinf M (greedyPolicy M) s' := by
+  rw [Vinf_eq_rbar_add M (greedyPolicy M) 1 zero_le_one hr hγ₀ hγ₁ s]
+  unfold greedyPolicy
+  rw [sum_detPolicy (greedyAct M) s (Qinf M (detPolicy (greedyAct M)) s)]
+  rfl
+
+/-! ### The max-state contraction
+
+`Δ s := Vstar M s - Vinf M g s` is nonnegative (`vstar_upper_proof`) and
+satisfies `Δ s ≤ γ * ∑ s', P s (g s) s' * Δ s'`. Bounding the convex combination
+by the max of `Δ` and evaluating at the argmax gives `D ≤ γ D`, forcing `D = 0`.
+-/
+
+/-- The suboptimality of the greedy policy, as a function of the state. -/
+noncomputable def greedyGap (M : FiniteMDP S A) (s : S) : ℝ :=
+  Vstar M s - Vinf M (greedyPolicy M) s
+
+theorem greedyGap_nonneg (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    0 ≤ greedyGap M s :=
+  sub_nonneg.mpr (vstar_upper_proof M hr hγ₀ hγ₁ (greedyPolicy M) s)
+
+/-- The one-step inequality: the gap at `s` is at most `γ` times the
+`P s (g s)`-average of the gap at successors.
+
+`Vstar s ≤ Q*(s, g s) = r s (g s) + γ ∑ P · Vstar`, while
+`Vinf g s = r s (g s) + γ ∑ P · Vinf g` exactly. Subtract. -/
+theorem greedyGap_step (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    greedyGap M s ≤ M.γ * ∑ s', (M.P s (greedyAct M s)) s' * greedyGap M s' := by
+  have hup := vstar_le_greedy_Q M hr hγ₀ hγ₁ s
+  have hbell := Vinf_greedy_bellman M hr hγ₀ hγ₁ s
+  have hsplit : ∑ s', (M.P s (greedyAct M s)) s' * greedyGap M s'
+      = (∑ s', (M.P s (greedyAct M s)) s' * Vstar M s')
+        - ∑ s', (M.P s (greedyAct M s)) s' * Vinf M (greedyPolicy M) s' := by
+    rw [← Finset.sum_sub_distrib]
+    exact Finset.sum_congr rfl fun s' _ => by unfold greedyGap; ring
+  unfold greedyGap QstarP at *
+  rw [hsplit]
+  nlinarith [hup, hbell]
+
+/-- The largest gap over states, and the state attaining it. -/
+theorem greedyGap_eq_zero (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    greedyGap M s = 0 := by
+  obtain ⟨sm, hsm⟩ := Finite.exists_max (greedyGap M)
+  -- D = greedyGap M sm is the maximum
+  set D := greedyGap M sm with hD
+  have hD0 : 0 ≤ D := greedyGap_nonneg M hr hγ₀ hγ₁ sm
+  -- the convex combination of the gaps at successors is at most D
+  have havg : ∑ s', (M.P sm (greedyAct M sm)) s' * greedyGap M s' ≤ D := by
+    calc ∑ s', (M.P sm (greedyAct M sm)) s' * greedyGap M s'
+        ≤ ∑ s', (M.P sm (greedyAct M sm)) s' * D :=
+          Finset.sum_le_sum fun s' _ =>
+            mul_le_mul_of_nonneg_left (hsm s') ((M.P sm (greedyAct M sm)).nonneg s')
+      _ = D := by rw [← Finset.sum_mul, (M.P sm (greedyAct M sm)).sum_eq_one, one_mul]
+  have hstep := greedyGap_step M hr hγ₀ hγ₁ sm
+  -- D ≤ γ * (something ≤ D) ≤ γ D, and γ < 1 with 0 ≤ D forces D = 0
+  have hgD : M.γ * ∑ s', (M.P sm (greedyAct M sm)) s' * greedyGap M s' ≤ M.γ * D :=
+    mul_le_mul_of_nonneg_left havg hγ₀
+  have hDle : D ≤ M.γ * D := le_trans hstep hgD
+  have hDzero : D = 0 := le_antisymm (by nlinarith) hD0
+  exact le_antisymm (by rw [← hDzero]; exact hsm s) (greedyGap_nonneg M hr hγ₀ hγ₁ s)
+
+/-- **The greedy policy attains the optimum at every state.** -/
+theorem vstar_eq_greedy (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vinf M (greedyPolicy M) s = Vstar M s := by
+  have := greedyGap_eq_zero M hr hγ₀ hγ₁ s
+  unfold greedyGap at this
+  linarith
+
+/-- **Bellman optimality at the greedy action:** `V*(s) = Q*(s, g s)`.
+
+`≤` is `vstar_le_greedy_Q`. For `≥`: with `Vinf g = Vstar` established,
+`Q*(s, g s) = r s (g s) + γ ∑ P · Vstar = r s (g s) + γ ∑ P · Vinf g = Vinf g s
+ = Vstar s`. -/
+theorem vstar_eq_greedy_Q (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vstar M s = QstarP M s (greedyAct M s) := by
+  have hbell := Vinf_greedy_bellman M hr hγ₀ hγ₁ s
+  have hall : ∀ s', Vinf M (greedyPolicy M) s' = Vstar M s' :=
+    fun s' => vstar_eq_greedy M hr hγ₀ hγ₁ s'
+  rw [hall s] at hbell
+  rw [Finset.sum_congr rfl (fun s' _ => by rw [hall s'])] at hbell
+  exact hbell
+
+/-- **`Q*(s,a) ≤ V*(s)` for every action** — the content of the hard direction,
+in the form the greedy-support goal needs. -/
+theorem QstarP_le_vstar (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) (a : A) :
+    QstarP M s a ≤ Vstar M s := by
+  rw [vstar_eq_greedy_Q M hr hγ₀ hγ₁ s]
+  exact greedyAct_max M s a
+
+/-! ### The two goal lemmas
+
+Stated with `Q*` inlined (see the structural note at the top of this section);
+each type is definitionally `Goal`'s, so the orchestrator's one-line wiring
+typechecks without change. -/
+
+/-- Discharges `Goal.vstar_bellman` (`@[infra "Bellman-optimality"]`).
+
+`Vstar M s = ⨆ a, Qstar M s a`. Both directions come from the greedy policy:
+the sup over `a` is attained at `greedyAct M s` (`ciSup_QstarP`), and
+`vstar_eq_greedy_Q` identifies `V*(s)` with `Q*(s, g s)`. -/
+theorem vstar_bellman_proof (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1) (s : S) :
+    Vstar M s = ⨆ a : A, (M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s') := by
+  show Vstar M s = ⨆ a : A, QstarP M s a
+  rw [ciSup_QstarP M s]
+  exact vstar_eq_greedy_Q M hr hγ₀ hγ₁ s
+
+/-- Discharges `Goal.optimal_support_greedy` (`@[infra "Greedy-support"]`).
+
+If `π` attains the optimum at `s`, every action in its support is optimal there.
+
+`V*(s) = Vinf π s = ∑ₐ π(a|s) · Qinf(π,s,a) ≤ ∑ₐ π(a|s) · Q*(s,a)
+       ≤ ∑ₐ π(a|s) · V*(s) = V*(s)`,
+
+so both inequalities are equalities. The second is a sum of the nonnegative
+terms `π(a|s) · (V*(s) - Q*(s,a))` — nonnegative by `QstarP_le_vstar`, the hard
+half of Bellman optimality — summing to zero, hence each vanishes. With
+`π(a|s) > 0` this forces `Q*(s,a) = V*(s)`. -/
+theorem optimal_support_greedy_proof (M : FiniteMDP S A)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (π : Policy S A) (s : S) (hopt : Vinf M π s = Vstar M s)
+    (a : A) (hsupp : 0 < (π s) a) :
+    (M.r s a + M.γ * ∑ s', (M.P s a) s' * Vstar M s') = Vstar M s := by
+  show QstarP M s a = Vstar M s
+  -- `Qinf π s b ≤ Q* s b` pointwise, by monotonicity in `Vinf π ≤ Vstar`.
+  have hQmono : ∀ b, Qinf M π s b ≤ QstarP M s b := by
+    intro b
+    unfold Qinf QstarP
+    have hsum : ∑ s', (M.P s b) s' * Vinf M π s' ≤ ∑ s', (M.P s b) s' * Vstar M s' :=
+      Finset.sum_le_sum fun s' _ =>
+        mul_le_mul_of_nonneg_left
+          (vstar_upper_proof M hr hγ₀ hγ₁ π s') ((M.P s b).nonneg s')
+    have := mul_le_mul_of_nonneg_left hsum hγ₀
+    linarith
+  -- expand `Vinf π s` as a `π`-average of `Qinf`
+  have hexp : Vstar M s = ∑ b, (π s) b * Qinf M π s b := by
+    rw [← hopt]; exact Vinf_eq_rbar_add M π 1 zero_le_one hr hγ₀ hγ₁ s
+  -- the nonnegative slack terms
+  set w : A → ℝ := fun b => (π s) b * (Vstar M s - QstarP M s b) with hw
+  have hwnn : ∀ b, 0 ≤ w b := fun b =>
+    mul_nonneg ((π s).nonneg b) (sub_nonneg.mpr (QstarP_le_vstar M hr hγ₀ hγ₁ s b))
+  -- their total is ≤ 0, because `∑ π b · Q* s b ≥ ∑ π b · Qinf π s b = V*(s)`
+  have htot : ∑ b, w b ≤ 0 := by
+    have hge : Vstar M s ≤ ∑ b, (π s) b * QstarP M s b := by
+      rw [hexp]
+      exact Finset.sum_le_sum fun b _ =>
+        mul_le_mul_of_nonneg_left (hQmono b) ((π s).nonneg b)
+    have hsplit : ∑ b, w b
+        = (∑ b, (π s) b) * Vstar M s - ∑ b, (π s) b * QstarP M s b := by
+      simp only [hw, mul_sub, Finset.sum_sub_distrib, Finset.sum_mul]
+    rw [hsplit, (π s).sum_eq_one, one_mul]
+    linarith
+  -- a nonnegative family summing to ≤ 0 vanishes termwise
+  have hzero : w a = 0 :=
+    le_antisymm
+      ((Finset.single_le_sum (fun b _ => hwnn b) (Finset.mem_univ a)).trans htot)
+      (hwnn a)
+  -- and `π(a|s) > 0` cancels
+  have := mul_eq_zero.mp hzero
+  rcases this with h | h
+  · exact absurd h (ne_of_gt hsupp)
+  · linarith [sub_eq_zero.mp h]
+
+end Bellman
+
+
 end Proofs
 end PolicyGradient
