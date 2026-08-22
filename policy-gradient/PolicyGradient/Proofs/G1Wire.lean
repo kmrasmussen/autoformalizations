@@ -61,7 +61,7 @@ Assembly: build the product-argmax selector `b`, hand it to
 `exists_astar_g1_aggregate_bound` (which produces an `astar` in `supp πstar`
 together with the aggregate bound *at* `b`), then hand both to the bridge
 `g1_lojasiewicz_of_selector`. -/
-@[paper "Mei2020" "Lemma 8"]
+
 theorem g1_lojasiewicz_proof (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)

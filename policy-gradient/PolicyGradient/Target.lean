@@ -91,6 +91,39 @@ noncomputable def dinfDist (M : FiniteMDP S A) (π : Policy S A) (μ : Dist S) (
 
 /-- **The distribution-mismatch coefficient**, `‖d^π_μ / μ‖_∞` (AKM).
 
+⚠ **NORMALIZATION DEFECT, found 2026-08-22 and not yet repaired.**
+
+Both papers define the occupancy measure **with a leading `(1−γ)`**:
+
+* AKM eq. (4): `d^π_{s₀}(s) := (1 − γ) ∑_{t=0}^∞ γ^t Pr^π(s_t = s | s₀)`
+* Mei eqs. (335)–(338): `d^{π_θ}_μ(s) = E[(1−γ) ∑ …] ≥ (1−γ)·μ(s)`
+* Kakade–Langford eq. (2.1): "where the `1 − γ` is necessary for normalization"
+
+This repo's `dinf` omits it (`Infinite.lean`: `∑' t, γ^t · visit`), so
+
+```
+mismatchCoeff (repo) = (1/(1−γ)) · ‖d^{π*}_μ / μ‖_∞ (papers)
+```
+
+Airtight cross-check: the repo proves `dinf ≤ 1/(1−γ)` (`Proofs.dinf_le_one_div`),
+where a normalized occupancy is bounded by `1`.
+
+**Direction: SAFE, not an over-claim.** Every statement using `mismatchCoeff` on
+a right-hand side is thereby *weaker* than the paper's. But in `mei_theorem4` the
+coefficient enters **squared**, silently converting the paper's sharp `(1−γ)⁶`
+rate into `(1−γ)⁸` — exactly in the regime the constant is meant to track. So
+the rate results are true but not the papers' rates.
+
+Affects `mismatchCoeff`, `g1_lojasiewicz`, `g2_advantage_bound`, `mei_theorem4`.
+Repairing it means inserting `(1−γ)` into `dinf` and re-deriving everything
+downstream — a large, mechanical change, deliberately not attempted while proofs
+are in flight against the current definition.
+
+Note `performance_difference` is the instructive contrast: it is missing the same
+`(1−γ)`, and there it is **correct**, because the papers' factor cancels against
+their normalized `d`. Same omission, opposite verdict — which is why this needed
+checking term by term rather than pattern-matching.
+
 VERBATIM, AKM (arXiv:1908.00261) Definition 3.1:
 
 > **Definition 3.1 (Distribution mismatch coefficient).** Given a policy `π` and

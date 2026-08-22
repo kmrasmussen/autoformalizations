@@ -221,7 +221,7 @@ what works.
 ⚠ **NO VERBATIM QUOTE EXISTS. Mei et al. state no such lemma.** Reported rather
 than repaired, per the freeze.
 
-The tag claims `@[paper "Mei2020" "Lemma 9 (strictness)"]`. Mei's Lemma 9 is a
+The tag claims `@[paper_tool "Mei2020" "not in the paper — repo-derived"]`. Mei's Lemma 9 is a
 different statement entirely — it is the `c > 0` result, quoted verbatim below
 in full (main text and appendix agree word for word):
 
@@ -267,7 +267,7 @@ transcription of anything in the paper. Softmax full support is used implicitly
 throughout Mei's analysis; it is never isolated as a numbered result.
 
 Verdict: **MISMATCHES.** The proposition is true and proved (see the two
-paragraphs above), but the `@[paper "Mei2020" "Lemma 9 (strictness)"]`
+paragraphs above), but the `@[paper_tool "Mei2020" "not in the paper — repo-derived"]`
 attribution is wrong on both counts: it is not Lemma 9, and it is not in the
 paper. The honest tag is `@[infra]`. **Statement left untouched** — this is a
 citation defect only.
@@ -276,7 +276,7 @@ Under a non-degeneracy condition (some policy is strictly suboptimal, i.e. the
 MDP is not one where every policy is optimal), a softmax policy — which puts
 positive mass on every action — is strictly suboptimal.
 This is what licenses the `0 < δ t` the `1/t` recursion needs. -/
-@[paper "Mei2020" "Lemma 9 (strictness)"]
+@[paper_tool "Mei2020" "not in the paper — repo-derived"]
 theorem g3_strict_suboptimality (M : FiniteMDP S A)
     (logits : EuclideanSpace ℝ (S × A) → S → A → ℝ)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
@@ -424,7 +424,7 @@ Lemma E.4. -/
 ⚠ **NO SOURCE QUOTE EXISTS FOR THIS TAG. The paper does not contain this
 lemma.** Reported rather than repaired, per the freeze.
 
-The tag claims `@[paper "AKM2021" "Lemma E.4 (gradient)"]`. Two problems, the
+The tag claims `@[paper_tool "AKM2021" "derived from Lemma D.4's C₁"]`. Two problems, the
 second serious:
 
 **(a) `Lemma E.4` is not in AKM v4.** As recorded on `smoothAt_V_final`,
@@ -471,7 +471,7 @@ inequality itself is not in question.
 `‖∇V‖ ≤ 2/(1-γ)²`, the vector-parameter analogue of `abs_dV_le_softmax`. Note
 `hF` now pins the **tabular** parameterization: the logits *are* the parameter
 coordinates. -/
-@[paper "AKM2021" "Lemma E.4 (gradient)"]
+@[paper_tool "AKM2021" "derived from Lemma D.4's C₁"]
 theorem g7a_gradient_bound (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
     (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
@@ -487,7 +487,15 @@ and what `ascent_step` and the rate machinery consume.
 
 `VecPolicy` records only the first derivative, so proving this needs a `C²`
 analogue (or a `SmoothAt`-style conclusion). That is real infrastructure, not a
-one-line edit — see `vec_c2_family` below. -/
+one-line edit — see `vec_c2_family` below.
+
+VERBATIM — with a **label caveat**. `/tmp/akm.txt` is arXiv v4, whose Appendix E
+is "Standard Optimization Results" (E.1–E.3 only): **there is no Lemma E.4 in
+v4**. The `8/(1−γ)³` result is v4's **Lemma D.4 / eq. (53)**. "E.4" is Mei's
+citation of an earlier AKM numbering ("Proof. See Agarwal et al. (2019, Lemma
+E.4)"). Constant and content are correct and verified; only the label cannot be
+checked against the version on disk. The scalar analogue in `SecondDeriv.lean`
+carries the quoted statement. -/
 @[paper "AKM2021" "Lemma E.4"]
 theorem g7b_smoothness (M : FiniteMDP S A)
     (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
