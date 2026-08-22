@@ -1309,6 +1309,43 @@ unconstrained, so the slower-decaying one's probability *rises*: logits
 probability rose. For `|A| ≥ 3` the route closes exactly one coordinate per
 state.
 
+**PROVED FOR `γ = 0`** (`Proofs.softmax_policy_converges_gamma_zero`) — the
+frozen statement verbatim, with no reward-tie assumption, subsuming the `G9b`
+tie witness. And for general `γ` the goal reduces to one hypothesis
+(`softmax_policy_converges_of_leader`): at each state, one tied action leads the
+rest with never-shrinking logit gaps from some `T`.
+
+**The closed-form identity that explains the whole obstruction.** Writing
+`δ_t s = V̄ s − V_t(s) ≥ 0` (decreasing to `0`), for any action with vanishing
+limiting advantage:
+
+```
+A_t(s,a) = δ_t s − γ · ∑_{s'} P(s'|s,a) · δ_t s'          (‡)
+```
+
+(`Proofs.adv_eq_value_gap_of_zero_limit`.) It settles three things at once:
+
+1. **At `γ = 0` it collapses to `A_t(s,a) = δ_t s`** — the same nonnegative
+   number for every tied action. So the `γ = 0` closure is not a lucky special
+   case; `(‡)` shows it is the entire content of `γ = 0`.
+2. **For `γ > 0` the sign of `A_t(s,·)` on the tied set is free.** Nothing forces
+   `δ_t s ≥ γ⟨P(·|s,a), δ_t⟩`. It *is* forced at the state maximising `δ_t`, but
+   that maximiser moves with `t`, so no fixed state has an eventual sign. That
+   is why `Conv2` observed `A_t` negative for thousands of consecutive steps at
+   tied states with `γ = 0.6`.
+3. **The bounded-variation target is not reachable by majorisation.** From `(‡)`,
+   `|A_t(s,a)| ≤ (1+γ)‖δ_t‖_∞`, so `∑‖π_{t+1} − π_t‖` is controlled once
+   `∑‖δ_t‖_∞ < ∞`. But softmax PG converges at `Θ(1/t)`, so `∑‖δ_t‖_∞` diverges
+   logarithmically — the *same* logarithm that kills `∑‖Δθ‖`. The policy total
+   variation nonetheless saturates numerically, so the divergence is entirely an
+   artefact of dropping the cancellation in
+   `π_t(a|s)A_t(s,a) − π_t(b|s)A_t(s,b)`.
+
+Also ruled out: the connectedness/Ostrowski route. All limit points share the
+value function `V̄`, hence the same advantage, so the limit set sits inside a
+product of simplices — itself connected, so connectedness adds nothing beyond
+the singleton case already handled.
+
 **The missing ingredient, named precisely:** a *rate comparison between the
 decaying coordinates* — control of the **ratios** of logit decrements among
 abandoned actions, not merely their signs. `summable_sq_grad` gives
