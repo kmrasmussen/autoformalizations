@@ -116,6 +116,38 @@ theorem adv_nonpos_of_unbounded_below (M : FiniteMDP S A)
   obtain ⟨t, ht, hle⟩ := hub (c - 1) T
   exact absurd (hc t ht) (not_le.mpr (by linarith))
 
+/-! ### The mass concentrates on `I^s_0`
+
+Every action with `A^{π̄}(s,a) ≠ 0` has `π̄(a|s) = 0`: the positive case is
+`tendsto_pi_zero_of_adv_pos`; the negative case follows because
+`∑_a π̄(a|s) A^{π̄}(s,a) = 0` with all on-support terms zero
+(`advInf_eq_zero_on_support`). So `π̄` is supported inside `I^s_0`. -/
+
+theorem pibar_supported_in_I0 (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (hμ : ∀ s, 0 < μ s)
+    (η : ℝ) (hη₀ : 0 < η) (hη : η ≤ (1 - M.γ) ^ 2 / 5)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (πbar : Policy S A)
+    (hlim : Filter.Tendsto (fun t s a => (F.toPolicy (θ t) s) a) Filter.atTop
+      (nhds (fun s a => (πbar s) a)))
+    (s : S) (a : A) (hne : advInf M πbar s a ≠ 0) :
+    (πbar s) a = 0 := by
+  by_contra hcon
+  have hpos : 0 < (πbar s) a :=
+    lt_of_le_of_ne ((πbar s).nonneg a) (Ne.symm hcon)
+  exact hne (advInf_eq_zero_on_support M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep
+    πbar hlim s a hpos)
+
+/-- The total limiting mass is `1`, so the on-support (hence `I^s_0`) actions
+carry all of it. -/
+theorem sum_pibar_eq_one (πbar : Policy S A) (s : S) :
+    ∑ a, (πbar s) a = 1 := (πbar s).sum_eq_one
+
 end ResidAsm
 
 end Proofs
