@@ -23,6 +23,7 @@ import PolicyGradient.Proofs.Greedy
 import PolicyGradient.Proofs.Greedy2
 import PolicyGradient.Proofs.Inhabited
 import PolicyGradient.Proofs.Mei4
+import PolicyGradient.Proofs.Mei4C
 import PolicyGradient.Proofs.Mei6
 import PolicyGradient.Proofs.Resid
 import PolicyGradient.Proofs.ResidAsm
