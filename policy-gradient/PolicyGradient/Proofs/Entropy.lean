@@ -535,3 +535,200 @@ theorem discEntropy_bounds (M : FiniteMDP S A) (π : Policy S A)
     simpa [div_eq_inv_mul, mul_comm] using h
   refine (Summable.tsum_le_tsum (fun t => (hterm t).2) hsummable hgeo.summable).trans ?_
   rw [hgeo.tsum_eq]
+
+/-! ## 4. Toward Mei's Lemma 15 — the soft variational identity
+
+**Verbatim, Lemma 15 (Non-uniform Łojasiewicz)**, Eq. (27):
+
+> Suppose $\mu(s)>0$ for all state $s\in\mathcal{S}$. Then,
+> $$\bigg\|\frac{\partial\tilde{V}^{\pi_{\theta}}(\mu)}{\partial\theta}\bigg\|_{2}
+>   \geq C(\theta)\cdot\left[\tilde{V}^{\pi_{\tau}^{*}}(\rho)
+>   -\tilde{V}^{\pi_{\theta}}(\rho)\right]^{\frac{1}{2}},$$
+> where
+> $$C(\theta)\coloneqq\frac{\sqrt{2\tau}}{\sqrt{S}}\cdot\min_{s}{\sqrt{\mu(s)}}
+>   \cdot\min_{s,a}{\pi_{\theta}(a|s)}
+>   \cdot\bigg\|\frac{d_{\rho}^{\pi_{\tau}^{*}}}
+>   {d_{\mu}^{\pi_{\theta}}}\bigg\|_{\infty}^{-\frac{1}{2}}.$$
+
+Its engine is **Lemma 26 (Soft sub-optimality lemma)**, quoted verbatim in §2,
+which turns the soft sub-optimality gap into a KL divergence. That in turn rests
+on the **soft-greedy variational identity** proved here: the soft Bellman
+backup is a `logsumexp`, attained at the soft-greedy policy, with the shortfall
+of any other policy an exact KL.
+
+**Verbatim, Eq. (519)** (the soft greedy policy):
+
+> $\bar\pi_\theta(\cdot|s)=\mathrm{softmax}(\tilde Q^{\pi_\theta}(s,\cdot)/\tau)$
+
+**Verbatim, Eqs. (25)–(26)** (softmax optimal consistency, the fixed-point form):
+
+> $\pi_\tau^*(a|s)=\exp\{(\tilde Q^{\pi_\tau^*}(s,a)-\tilde V^{\pi_\tau^*}(s))/\tau\}$
+> and
+> $\tilde V^{\pi_\tau^*}(s)=\tau\log\sum_a\exp\{\tilde Q^{\pi_\tau^*}(s,a)/\tau\}$.
+
+**Where this stops.** What is proved below is the per-state variational identity
+and its consequences (`softBackup_eq_logsumexp`, `softBackup_le`,
+`softBackup_sub_eq_KL`). Lemma 15 itself is **not** proved: it additionally needs
+(a) the existence of `π_τ^*` as a fixed point of the soft-greedy map — a
+contraction argument not yet in this repo — and (b) the gradient formula
+(Mei's Lemma 10) for `Ṽ` under the tabular softmax, which needs the entropy
+analogue of the whole `G7b` derivative ladder. Both are stated here as the
+remaining gaps rather than assumed. -/
+
+/-- The **soft backup functional**: what a one-step distribution `q` at state `s`
+earns against action-values `Q`, including its own entropy bonus.
+
+`B_τ(q; Q) = ∑ₐ q(a)·Q(a) + τ·H(q)`. The soft Bellman equation says
+`Ṽ^π(s) = B_τ(π(·|s); Q̃^π(s,·))` (`VsoftDisc_eq_sum_QsoftDisc`). -/
+noncomputable def softBackup (τ : ℝ) (q : Dist A) (Q : A → ℝ) : ℝ :=
+  (∑ a, q a * Q a) + τ * entropy q
+
+/-- **The soft backup is maximized by the soft-greedy policy, with value
+`τ·log ∑ₐ exp(Q(a)/τ)`.**
+
+This is Mei's Eq. (26) as a *variational* statement rather than a fixed-point
+assertion: for `τ > 0`,
+`B_τ(softmax(Q/τ); Q) = τ · log ∑ₐ exp(Q(a)/τ)`.
+
+Proof: at `q = softmax(Q/τ)`, `log q(a) = Q(a)/τ - log Z` with `Z = ∑ exp(Q/τ)`,
+so `τ·H(q) = -τ ∑ q(a)(Q(a)/τ - log Z) = -∑ q(a)Q(a) + τ log Z`, and the
+`∑ q Q` terms cancel exactly. -/
+theorem softBackup_softmax (τ : ℝ) (hτ : 0 < τ) (Q : A → ℝ) :
+    softBackup τ (softmax (fun a => Q a / τ)) Q
+      = τ * Real.log (∑ a, Real.exp (Q a / τ)) := by
+  set Z : ℝ := ∑ a', Real.exp (Q a' / τ) with hZ
+  have hZpos : 0 < Z := softmax_denom_pos (fun a => Q a / τ)
+  set q : Dist A := softmax (fun a => Q a / τ) with hq
+  have hlog : ∀ a, Real.log (q a) = Q a / τ - Real.log Z := by
+    intro a
+    rw [hq, softmax_apply, Real.log_div (ne_of_gt (Real.exp_pos _)) (ne_of_gt hZpos),
+      Real.log_exp]
+  unfold softBackup entropy
+  rw [Finset.sum_congr rfl (fun a _ => by rw [hlog a]; ring :
+    ∀ a ∈ (univ : Finset A), q a * Real.log (q a)
+      = q a * (Q a / τ) - q a * Real.log Z)]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_mul, q.sum_eq_one, one_mul]
+  have hqQ : ∑ a, q a * (Q a / τ) = (∑ a, q a * Q a) / τ := by
+    rw [Finset.sum_div]
+    exact Finset.sum_congr rfl fun a _ => by ring
+  rw [hqQ]
+  field_simp
+  ring
+
+/-- **The exact shortfall of any policy against the soft-greedy one is a KL.**
+
+For `τ > 0` and any distribution `q`,
+`B_τ(softmax(Q/τ); Q) - B_τ(q; Q) = τ · ∑ₐ q(a)·(log q(a) - log softmax(Q/τ)(a))`,
+the right-hand side being `τ·D_KL(q ‖ softmax(Q/τ)) ≥ 0`.
+
+This is the mechanism that puts a KL on the right of **Lemma 26**: the soft
+sub-optimality gap is, state by state, exactly `τ` times a KL divergence.
+Written without a `log`-of-a-ratio so that `q a = 0` is harmless. -/
+theorem softBackup_sub_eq_KL (τ : ℝ) (hτ : 0 < τ) (Q : A → ℝ) (q : Dist A) :
+    softBackup τ (softmax (fun a => Q a / τ)) Q - softBackup τ q Q
+      = τ * ∑ a, q a
+          * (Real.log (q a) - Real.log ((softmax (fun a => Q a / τ)) a)) := by
+  set Z : ℝ := ∑ a', Real.exp (Q a' / τ) with hZ
+  have hZpos : 0 < Z := softmax_denom_pos (fun a => Q a / τ)
+  have hlog : ∀ a, Real.log ((softmax (fun a => Q a / τ)) a) = Q a / τ - Real.log Z := by
+    intro a
+    rw [softmax_apply, Real.log_div (ne_of_gt (Real.exp_pos _)) (ne_of_gt hZpos),
+      Real.log_exp]
+  rw [softBackup_softmax τ hτ Q]
+  -- The right-hand side, expanded.
+  have hrhs : ∑ a, q a
+        * (Real.log (q a) - Real.log ((softmax (fun a => Q a / τ)) a))
+      = (∑ a, q a * Real.log (q a)) - (∑ a, q a * Q a) / τ + Real.log Z := by
+    rw [Finset.sum_congr rfl (fun a _ => by rw [hlog a]; ring :
+      ∀ a ∈ (univ : Finset A), q a * (Real.log (q a)
+          - Real.log ((softmax (fun a => Q a / τ)) a))
+        = q a * Real.log (q a) - q a * (Q a / τ) + q a * Real.log Z)]
+    rw [Finset.sum_add_distrib, Finset.sum_sub_distrib, ← Finset.sum_mul,
+      q.sum_eq_one, one_mul]
+    congr 1
+    congr 1
+    rw [Finset.sum_div]
+    exact Finset.sum_congr rfl fun a _ => by ring
+  rw [hrhs, ← hZ]
+  unfold softBackup entropy
+  field_simp
+  ring
+
+/-- **The soft-greedy backup dominates every policy's**: `B_τ(q; Q) ≤ τ·log ∑ exp(Q/τ)`.
+
+Immediate from `softBackup_sub_eq_KL` plus nonnegativity of the KL. The KL is
+nonnegative by `log x ≤ x - 1` applied to `x = softmax(Q/τ)(a)/q(a)`, summed. -/
+theorem softBackup_le (τ : ℝ) (hτ : 0 < τ) (Q : A → ℝ) (q : Dist A) :
+    softBackup τ q Q ≤ τ * Real.log (∑ a, Real.exp (Q a / τ)) := by
+  set P : Dist A := softmax (fun a => Q a / τ) with hP
+  have hPpos : ∀ a, 0 < P a := fun a => softmax_pos (fun a => Q a / τ) a
+  -- `D_KL(q ‖ P) ≥ 0`: each term satisfies `q a (log q a - log P a) ≥ q a - P a`,
+  -- since `log(P/q) ≤ P/q - 1` gives `q·log(q/P) ≥ q·(1 - P/q) = q - P`.
+  have hterm : ∀ a, q a - P a ≤ q a * (Real.log (q a) - Real.log (P a)) := by
+    intro a
+    rcases eq_or_lt_of_le (q.nonneg a) with h0 | h0
+    · -- `q a = 0`: LHS is `-P a ≤ 0`, RHS is `0`.
+      rw [← h0]
+      simp only [zero_mul, zero_sub, neg_nonpos, sub_zero]
+      linarith [(hPpos a).le]
+    · -- `q a > 0`: `log (P a / q a) ≤ P a / q a - 1`, times `q a > 0`.
+      have hx : (0:ℝ) < P a / q a := div_pos (hPpos a) h0
+      have hlog := Real.log_le_sub_one_of_pos hx
+      rw [Real.log_div (ne_of_gt (hPpos a)) (ne_of_gt h0)] at hlog
+      have hmul := mul_le_mul_of_nonneg_left hlog h0.le
+      have hrw : q a * (P a / q a - 1) = P a - q a := by field_simp
+      rw [hrw] at hmul
+      -- `hmul : q a * (log P a - log q a) ≤ P a - q a`; negate both sides.
+      have hneg : q a * (Real.log (q a) - Real.log (P a))
+          = -(q a * (Real.log (P a) - Real.log (q a))) := by ring
+      rw [hneg]
+      linarith [hmul]
+  have hKL : 0 ≤ ∑ a, q a * (Real.log (q a) - Real.log (P a)) := by
+    have hsum : ∑ a, (q a - P a) ≤ ∑ a, q a * (Real.log (q a) - Real.log (P a)) :=
+      Finset.sum_le_sum fun a _ => hterm a
+    rw [Finset.sum_sub_distrib, P.sum_eq_one, q.sum_eq_one, sub_self] at hsum
+    exact hsum
+  have hid := softBackup_sub_eq_KL τ hτ Q q
+  rw [softBackup_softmax τ hτ Q] at hid
+  nlinarith [mul_nonneg hτ.le hKL]
+
+/-- **The soft Bellman backup of `π` at `s` is `Ṽ^π(s)`** — restating
+`VsoftDisc_eq_sum_QsoftDisc` in `softBackup` vocabulary, so the variational
+lemmas above apply directly to the soft value. -/
+theorem VsoftDisc_eq_softBackup (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ)
+    (hτ : 0 ≤ τ) (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (s : S) :
+    VsoftDisc M π τ s = softBackup τ (π s) (QsoftDisc M π τ s) :=
+  VsoftDisc_eq_sum_QsoftDisc M π τ hτ hr hγ₀ hγ₁ s
+
+/-- **The soft Bellman optimality gap at a state, as an exact KL.**
+
+Combining the previous two: for `τ > 0`,
+`τ·log ∑ₐ exp(Q̃^π(s,a)/τ) − Ṽ^π(s)
+   = τ·∑ₐ π(a|s)·(log π(a|s) − log softmax(Q̃^π(s,·)/τ)(a)) ≥ 0`.
+
+This is the per-state form of the soft policy-improvement step: a policy is soft
+Bellman optimal at `s` exactly when it *is* the soft-greedy policy there. It is
+the state-local half of Lemma 26; the trajectory half is `perfDiffSoft`. -/
+theorem VsoftDisc_softBellman_gap (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ)
+    (hτ : 0 < τ) (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (s : S) :
+    τ * Real.log (∑ a, Real.exp (QsoftDisc M π τ s a / τ)) - VsoftDisc M π τ s
+      = τ * ∑ a, (π s) a
+          * (Real.log ((π s) a)
+            - Real.log ((softmax (fun a => QsoftDisc M π τ s a / τ)) a)) := by
+  rw [VsoftDisc_eq_softBackup M π τ hτ.le hr hγ₀ hγ₁ s,
+    ← softBackup_softmax τ hτ (QsoftDisc M π τ s)]
+  exact softBackup_sub_eq_KL τ hτ (QsoftDisc M π τ s) (π s)
+
+/-- **`Ṽ^π(s) ≤ τ·log ∑ₐ exp(Q̃^π(s,a)/τ)`** — the soft value never exceeds its
+own soft-greedy backup. -/
+theorem VsoftDisc_le_logsumexp (M : FiniteMDP S A) (π : Policy S A) (τ : ℝ)
+    (hτ : 0 < τ) (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (s : S) :
+    VsoftDisc M π τ s ≤ τ * Real.log (∑ a, Real.exp (QsoftDisc M π τ s a / τ)) := by
+  rw [VsoftDisc_eq_softBackup M π τ hτ.le hr hγ₀ hγ₁ s]
+  exact softBackup_le τ hτ (QsoftDisc M π τ s) (π s)
+
+end Proofs
+end PolicyGradient
