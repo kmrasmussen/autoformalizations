@@ -1127,6 +1127,41 @@ theorem limit_identity_vacuous (M : FiniteMDP S A)
   · rw [advInf_eq_zero_on_support M F hF hr hγ₀ hγ₁ μ hμ η hη₀ hη θ hstep πbar hlim s a h,
       mul_zero]
 
+/-! ### AKM Lemma C.10, iterated
+
+Once the ordering `π(a|s) ≤ π(ap|s)` holds at some time `T` and the advantage
+ordering `A(s,a) ≤ A(s,ap)` holds from `T` on, the probability ordering persists
+for all later times. -/
+
+theorem stable_forward (M : FiniteMDP S A)
+    (F : VecPolicy S A (EuclideanSpace ℝ (S × A)))
+    (hF : ∀ θ s a, (F.toPolicy θ s) a = softmax (fun a' => θ (s, a')) a)
+    (hr : ∀ s a, |M.r s a| ≤ 1) (hγ₀ : 0 ≤ M.γ) (hγ₁ : M.γ < 1)
+    (μ : Dist S) (η : ℝ) (hη₀ : 0 < η)
+    (θ : ℕ → EuclideanSpace ℝ (S × A))
+    (hstep : ∀ t, θ (t + 1)
+      = θ t + η • gradient (fun w => VinfDist M (F.toPolicy w) μ) (θ t))
+    (s : S) (a ap : A) (T : ℕ)
+    (hadv : ∀ t, T ≤ t → advInf M (F.toPolicy (θ t)) s a
+      ≤ advInf M (F.toPolicy (θ t)) s ap)
+    (hadvp : ∀ t, T ≤ t → 0 ≤ advInf M (F.toPolicy (θ t)) s ap)
+    (hT : (F.toPolicy (θ T) s) a ≤ (F.toPolicy (θ T) s) ap) :
+    ∀ t, T ≤ t → (F.toPolicy (θ t) s) a ≤ (F.toPolicy (θ t) s) ap := by
+  intro t ht
+  induction t with
+  | zero =>
+      have : T = 0 := Nat.le_zero.mp ht
+      rw [this] at hT; exact hT
+  | succ n ih =>
+      rcases Nat.lt_or_ge T (n + 1) with hlt | hge
+      · have hTn : T ≤ n := Nat.lt_succ_iff.mp hlt
+        have h := stable_step M F hF hr hγ₀ hγ₁ μ η hη₀ (θ n) s a ap
+          (ih hTn) (hadv n hTn) (hadvp n hTn)
+        rw [← hstep n] at h
+        exact h
+      · have : T = n + 1 := le_antisymm ht hge
+        rw [this] at hT; exact hT
+
 end Resid
 
 end Proofs
